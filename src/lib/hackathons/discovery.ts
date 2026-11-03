@@ -1,4 +1,5 @@
 import { eventDate, eventState, registrationState, listedEventState, activeOpportunity } from "./lifecycle";
+import { synchronizedEvent } from "./source";
 export { eventDate, eventState, listedEventState } from "./lifecycle";
 /** Deterministic discovery from listed event metadata; no inferred eligibility or exchange rates. */
 export type DiscoveryEvent = {
@@ -6,15 +7,15 @@ export type DiscoveryEvent = {
   start_date: string | null; end_date: string | null; registration_end?: string | null; registration_start?: string | null; registration_status?: string | null;
   created_at?: string | null; location: string | null; mode: string | null;
   prize_pool: string | null; currency?: string | null; website_url: string | null;
-  type: string | null; organizer_id?: string | null; college?: string | null;
+  type: string | null; source_metadata?: unknown; organizer_id?: string | null; college?: string | null;
   min_team_size?: number | null; max_team_size?: number | null;
 };
 export type EventState = "upcoming" | "ongoing" | "ended" | "unknown";
-export type DiscoveryTab = "recommended" | "upcoming" | "ongoing" | "saved" | "past" | "all";
+export type DiscoveryTab = "active" | "open" | "recommended" | "upcoming" | "ongoing" | "saved" | "past" | "all";
 export type DiscoverySort = "relevant" | "date" | "recent" | "prize-inr" | "prize-usd";
 export type DiscoverySettings = {
   tab: DiscoveryTab; q: string; mode: string; platform: string; topic: string;
-  sort: DiscoverySort; from: string; to: string; participation: string; registration: string;
+  sort: DiscoverySort; from: string; to: string; registrationFrom: string; registrationTo: string; participation: string; registration: string;
 };
 const norm = (value: string) => value.trim().toLowerCase();
 const GENERIC = new Set(["coding", "hackathon", "hackathons", "unstop", "devfolio", "hack2skill", "competition"]);
@@ -89,11 +90,11 @@ export function discoveryReason(event: DiscoveryEvent, skills: string[], now: nu
   if (!listedTags(skills).length) return "Explore this event · add profile skills to personalize the order";
   return eventState(event, now) === "ongoing" ? "Ongoing event · check official registration availability" : "Explore beyond your listed skills";
 }
-const tabs = ["recommended", "upcoming", "ongoing", "saved", "past", "all"];
+const tabs = ["active", "open", "recommended", "upcoming", "ongoing", "saved", "past", "all"];
 const sorts = ["relevant", "date", "recent", "prize-inr", "prize-usd"];
 export function readDiscoverySettings(params: Pick<URLSearchParams, "getAll">): DiscoverySettings {
   const get = (key: string) => { const values = params.getAll(key); return values.length === 1 ? values[0].trim() : ""; };
-  const tab = (tabs.includes(get("tab")) ? get("tab") : "all") as DiscoveryTab;
+  const tab = (tabs.includes(get("tab")) ? get("tab") : "active") as DiscoveryTab;
   const choice = (key: string, options: string[]) => options.includes(get(key)) ? get(key) : "";
   const date = (key: string) => /^\d{4}-\d{2}-\d{2}$/.test(get(key)) && eventDate(get(key)) !== null ? get(key) : "";
   const requestedSort = get("sort") === "prize" ? "prize-inr" : get("sort");
@@ -101,7 +102,7 @@ export function readDiscoverySettings(params: Pick<URLSearchParams, "getAll">): 
   return { tab, q: (queryValues.length === 1 ? queryValues[0] : "").slice(0, 200), mode: choice("mode", ["online", "in-person", "hybrid"]),
     platform: choice("platform", ["native", "unstop", "devfolio", "hack2skill", "other"]), topic: norm(get("topic")),
     sort: (sorts.includes(requestedSort) ? requestedSort : tab === "recommended" ? "relevant" : "date") as DiscoverySort,
-    from: date("from"), to: date("to"), participation: choice("participation", ["solo", "team"]),
+    from: date("from"), to: date("to"), registrationFrom: date("registrationFrom"), registrationTo: date("registrationTo"), participation: choice("participation", ["solo", "team"]),
     registration: choice("registration", ["not-closed", "recorded", "open", "closed", "unknown", "not-yet-open", "all"]) };
 }
 /** Preserve unrelated query values while writing validated, shareable discovery settings. */
@@ -109,7 +110,7 @@ export function discoveryQuery(params: URLSearchParams, patch: Partial<Discovery
   const settings = { ...readDiscoverySettings(params), ...patch };
   if (patch.tab && !params.has("sort") && !patch.sort) settings.sort = patch.tab === "recommended" ? "relevant" : "date";
   const defaults = readDiscoverySettings(new URLSearchParams(`tab=${settings.tab}`));
-  defaults.tab = "all";
+  defaults.tab = "active";
   const output = new URLSearchParams(params);
   for (const [key, value] of Object.entries(settings)) {
     output.delete(key);
@@ -125,9 +126,9 @@ export function discoveryQuery(params: URLSearchParams, patch: Partial<Discovery
 }
 export function discoverEvents(events: DiscoveryEvent[], settings: DiscoverySettings, skills: string[], saved: Set<string>, now: number): DiscoveryEvent[] {
   const terms = norm(settings.q).split(/\s+/).filter(Boolean), from = eventDate(settings.from), to = eventDate(settings.to, true);
-  const selected = events.filter(event => {
+  const selected = events.map(synchronizedEvent).filter(event => {
     const state = eventState(event, now);
-    if (settings.tab !== "all" && (settings.tab === "saved" ? !saved.has(event.id) : settings.tab === "recommended" ? state === "ended"
+    if (settings.tab !== "all" && (settings.tab === "saved" ? !saved.has(event.id) : ["active", "recommended"].includes(settings.tab) ? state === "ended" : settings.tab === "open" ? registrationState(event, now) !== "open"
       : settings.tab === "past" ? listedEventState(event, now) !== "ended" : state !== settings.tab)) return false;
     if (settings.mode && eventFormat(event.mode) !== settings.mode) return false;
     if (settings.platform && eventPlatform(event) !== settings.platform) return false;
@@ -146,6 +147,11 @@ export function discoverEvents(events: DiscoveryEvent[], settings: DiscoverySett
     if (active && !activeOpportunity(event, now)) return false;
     if (["open", "closed", "unknown", "not-yet-open"].includes(settings.registration) && registration !== settings.registration) return false;
     const deadline = eventDate(event.registration_end, true);
+    // Date filters name the India calendar day containing the inclusive deadline.
+    const deadlineFrom = eventDate(settings.registrationFrom), deadlineTo = eventDate(settings.registrationTo, true);
+    const deadlineInstant = deadline === null ? null : event.registration_end?.length === 10 ? deadline - 1 : deadline;
+    if ((deadlineFrom !== null || deadlineTo !== null) && (deadlineInstant === null
+      || deadlineFrom !== null && deadlineInstant < deadlineFrom || deadlineTo !== null && deadlineInstant >= deadlineTo)) return false;
     if (settings.registration === "recorded" && deadline === null) return false;
     if (settings.registration === "not-closed" && registration === "closed") return false;
     return true;

@@ -8,7 +8,7 @@ const loader = harness();
 const api = loader.load('src/lib/hackathons/publicBrowsing.ts');
 const discovery = loader.load('src/lib/hackathons/discovery.ts');
 const id = index => `00000000-0000-4000-8000-${index.toString(16).padStart(12, '0')}`;
-const event = (index, extra = {}) => ({ id: id(index), name: `Synthetic ${index}`, description: 'Build tools', type: 'native', status: 'approved', archived: false,
+const event = (index, extra = {}) => ({ id: id(index), name: `Synthetic ${index}`, description: 'Build tools', type: 'native', registration_start: '2026-10-01', status: 'approved', archived: false,
   start_date: '2028-11-01', end_date: '2028-11-03', registration_end: '2028-10-30', created_at: '2026-10-01',
   mode: 'online', location: 'Mumbai', tags: ['React'], prize_pool: 'INR 1000', currency: 'INR', website_url: null, ...extra });
 function paged({ records = [], caps = [], respond } = {}) {
@@ -103,13 +103,13 @@ class LandingClock extends Date { constructor(...args) { super(...(args.length ?
 function landingFixture(records, options = {}) {
   const reads = [], errors = [];
   const client = { from(table) {
-    const read = { table, columns: null, options: null, equals: [], ors: [], orders: [], limit: null, from: null };
+    const read = { table, columns: null, options: null, equals: [], ors: [], orders: [], limit: null, from: null, cursor: null };
     reads.push(read);
     const query = { select(columns, value) { read.columns = columns; read.options = value; return this; },
       eq(key, value) { read.equals.push([key, value]); return this; }, or(value) { read.ors.push(value); return this; },
       gte(key, value) { assert.equal(key, 'start_date'); read.from = value; return this; },
       order(key, value) { read.orders.push([key, value.ascending]); return this; }, limit(value) { read.limit = value; return this; },
-      maybeSingle() { return this; }, then(resolve, reject) { return Promise.resolve().then(() => {
+      gt(key,value) { assert.equal(key,'id');read.cursor=value;return this; }, maybeSingle() { return this; }, then(resolve, reject) { return Promise.resolve().then(() => {
         if (options.throwQuery) throw new Error('offline synthetic transport failure');
         if (options.errorTable === table) return { count: null, data: null, error: { message: 'offline denied' } };
         if (table !== 'hackathons') return { count: table === 'profiles' ? 7 : 3, error: null };
@@ -120,7 +120,8 @@ function landingFixture(records, options = {}) {
           else { assert.equal(expression, 'website_url.is.null,website_url.not.ilike.*unstop.com*'); rows = rows.filter(row => row.website_url == null || !row.website_url.toLowerCase().includes('unstop.com')); }
         }
         if (read.from) rows = rows.filter(row => row.start_date >= read.from);
-        if (read.orders.length) rows.sort((a, b) => (a.start_date || '').localeCompare(b.start_date || '') || a.name.localeCompare(b.name));
+        if(read.cursor)rows=rows.filter(r=>r.id>read.cursor);
+        if (read.orders.length) rows.sort((a,b)=>a.id.localeCompare(b.id));
         const count = rows.length;
         if (read.limit) rows = rows.slice(0, read.limit);
         return { count, data: read.options?.head ? null : rows.map(row => Object.fromEntries(read.columns.split(',').map(key => [key.trim(), row[key.trim()]]))), error: null };
@@ -147,16 +148,16 @@ for (const type of ['native', 'official', 'external', null]) test(`landing visib
     assert.equal((await api.loadPublicEvent(client, row.id)).id, row.id);
   }
 });
-test('landing projections, eight-event limit, sorting, date/Unstop exceptions and builder/team counts are preserved', async () => {
+test('landing uses complete synchronized public data before eight-event sorting; no provider-name exception', async () => {
   const records = Array.from({ length: 12 }, (_, i) => event(i + 1, { start_date: `2028-11-${String(12 - i).padStart(2, '0')}`, end_date: '2028-11-30' }));
-  records.push(event(30, { website_url: 'https://UNSTOP.com/synthetic' }), event(31, { start_date: '2025-01-01' }));
+  records.push(event(30, { website_url: 'https://UNSTOP.com/synthetic' }), event(31, { start_date: '2025-01-01', end_date:'2025-01-02' }));
   const fixture = landingFixture(records), result = await fixture.getLandingData();
   assert.equal(Object.hasOwn(result,'hackathonCount'),false); assert.equal(result.upcoming.length, 8);
-  assert(!result.upcoming.some(row => [id(30), id(31)].includes(row.id)));
+  assert(!result.upcoming.some(row => row.id===id(31)));
   assert.deepEqual(Array.from(result.upcoming, row => row.start_date), [...result.upcoming].map(row => row.start_date).sort());
-  assert.deepEqual(fixture.reads.map(read => read.columns), ['id', 'id', 'id, name, type, mode, start_date, end_date, registration_start, registration_end, registration_status']);
-  assert.equal(fixture.reads[2].from, '2026-10-15');
-  assert.deepEqual(fixture.reads[2].orders, [['start_date', true], ['name', true]]); assert.equal(fixture.reads[2].limit, 8);
+  assert.deepEqual(fixture.reads.map(read => read.columns), ['id', 'id', api.PUBLIC_EVENT_COLUMNS,api.PUBLIC_EVENT_COLUMNS]);
+  assert.equal(fixture.reads[2].from,null);assert.deepEqual(fixture.reads[2].ors,[]);
+  assert.deepEqual(fixture.reads[2].orders,[['id',true]]);assert.equal(fixture.reads[2].limit,250);assert(fixture.reads[3].cursor);
   assert.deepEqual(fixture.reads[0].equals, [['is_banned', false]]); assert.deepEqual(fixture.reads[1].equals, []);
   const Hero = harness({ '@/components/system': { ButtonLink: ({ href, children }) => React.createElement('a', { href }, children) }, './primitives': { Container: ({ children }) => React.createElement('div', null, children) }, 'next/link': ({ href, children, ...props }) => React.createElement('a', { href, ...props }, children), './HeroPipeline': { HeroPipeline: () => null } }).load('src/components/landing/LandingHero.tsx').LandingHero;
   const html = renderToStaticMarkup(React.createElement(Hero, result));
@@ -166,7 +167,7 @@ test('landing projections, eight-event limit, sorting, date/Unstop exceptions an
 });
 test('landing existing query-error and thrown-failure fallbacks remain intact and logged', async () => {
   const fixture = landingFixture([event(1)], { errorTable: 'hackathons' }), result = await fixture.getLandingData();
-  assert.equal(Object.hasOwn(result,'hackathonCount'),false); assert.equal(result.upcoming.length, 0); assert.equal(result.builderCount, 7); assert.equal(result.teamCount, 3); assert.equal(fixture.errors.length, 1);
+  assert.equal(Object.hasOwn(result,'hackathonCount'),false); assert.equal(result.upcoming.length, 0); assert.equal(result.builderCount, 7); assert.equal(result.teamCount, 3); assert.equal(fixture.errors.length, 2);
   const thrown = landingFixture([event(1)], { throwQuery: true }), fallback = await thrown.getLandingData();
   assert.deepEqual(JSON.parse(JSON.stringify(fallback)), { builderCount: 0, teamCount: 0, upcoming: [] }); assert(thrown.errors.length);
 });
@@ -176,5 +177,5 @@ test('landing active strip omits confirmed closed applications while preserving 
   event(3,{registration_status:'closed'}),event(4,{registration_start:null,registration_end:null})]);
  const result=await fixture.getLandingData();
  assert.equal(Object.hasOwn(result,'hackathonCount'),false);
- assert.deepEqual(Array.from(result.upcoming,row=>row.id),[id(1),id(4)]);
+ assert.deepEqual(Array.from(result.upcoming,row=>row.id),[id(1)]);
 });

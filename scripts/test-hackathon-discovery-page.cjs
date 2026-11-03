@@ -8,7 +8,7 @@ const { harness } = require('./ppt-vision-harness.cjs');
 const NOW = Date.parse('2026-10-14T12:00:00Z'), USER = 'offline-user';
 const event = (id, extra = {}) => ({ id, name: `Event ${id}`, description: '<p>Build clean tools</p>', tags: ['Coding', 'Hackathon'],
   start_date: '2026-10-20', end_date: '2026-10-22', location: 'Venue in India', mode: 'offline', prize_pool: 'Certificate & Perks',
-  status: 'approved', archived: false, currency: null, website_url: 'https://unstop.com/event', type: 'native', organizer_id: null, ...extra });
+  status: 'approved', archived: false, currency: null, website_url: 'https://unstop.com/event', type: 'native', registration_status: 'open', organizer_id: null, ...extra });
 const text = node => node == null || typeof node === 'boolean' ? '' : Array.isArray(node) ? node.map(text).join('') : typeof node === 'object' ? text(node.props?.children) : String(node);
 async function page(options = {}) {
   let cursor = 0, html, clock = NOW, tick; const slots = [], effects = [], dependencies = [], controls = [], writes = [], toasts = [], reads = [];
@@ -116,13 +116,13 @@ test('save/unsave still uses the existing user-scoped workflow and updates Saved
 });
 test('save failure and signed-out save never invent a successful bookmark', async () => {
   const view = await page({ saveError: true }); await view.save('future', false); assert.equal(view.toasts.at(-1).type, 'error');
-  await view.click('Saved'); assert.deepEqual(view.ids(), []); await view.click('For you'); view.signOut(); await view.save('future', false);
+  await view.click('Saved'); assert.deepEqual(view.ids(), []); await view.click('All Active'); view.signOut(); await view.save('future', false);
   assert.equal(view.toasts.at(-1).type, 'warning'); assert.equal(view.writes.length, 1);
 });
 test('refreshing the display clock updates ongoing/ended results without another backend request', async () => {
   const view = await page({ query: 'tab=ongoing', events: [event('boundary', { start_date: '2026-10-14T11:00:00Z', end_date: '2026-10-14T13:00:00Z' })] });
   assert.deepEqual(view.ids(), ['boundary']); const count = view.reads.length; await view.advance(Date.parse('2026-10-14T13:00:00Z')); assert.deepEqual(view.ids(), []); assert.equal(view.reads.length, count);
-  await view.click('Past'); assert.deepEqual(view.ids(), ['boundary']);
+  await view.click('Past listings'); assert.deepEqual(view.ids(), ['boundary']);
 });
 
 test('search preserves a trailing space while typing and still trims for matching', async () => {
@@ -136,6 +136,6 @@ test('the existing display timer removes a newly closed registration without ano
  assert.deepEqual(view.ids(),['deadline']);const reads=view.reads.length;
  await view.advance(Date.parse('2026-10-14T13:00:00Z'));
  assert.deepEqual(view.ids(),[]);assert.equal(view.reads.length,reads);
- await view.navigate('registration=closed');assert.deepEqual(view.ids(),['deadline']);
+ await view.navigate('tab=all&registration=closed');assert.deepEqual(view.ids(),['deadline']);
  assert.match(view.html,/Registration closed/);
 });

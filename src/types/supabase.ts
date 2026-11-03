@@ -346,6 +346,7 @@ export type Database = {
       }
       hackathons: {
         Row: {
+          source_metadata: Json | null
           archived: boolean
           banner_url: string | null
           college: string | null
@@ -373,6 +374,7 @@ export type Database = {
           website_url: string | null
         }
         Insert: {
+          source_metadata?: Json | null
           archived?: boolean
           banner_url?: string | null
           college?: string | null
@@ -400,6 +402,7 @@ export type Database = {
           website_url?: string | null
         }
         Update: {
+          source_metadata?: Json | null
           archived?: boolean
           banner_url?: string | null
           college?: string | null

@@ -1,5 +1,6 @@
+import { loadPublicEvents } from "./hackathons/publicBrowsing";
 import { createClient } from "@supabase/supabase-js";
-import { activeOpportunity, eventState, type RegistrationDates } from "./hackathons/lifecycle";
+import { activeOpportunity, eventDate, type RegistrationDates } from "./hackathons/lifecycle";
 
 function getSupabaseAdmin() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://rhryjrbebfrrfhtyyzbs.supabase.co";
@@ -8,7 +9,7 @@ function getSupabaseAdmin() {
 }
 
 /** A public, upcoming hackathon listed on HackerMate. */
-export type UpcomingHackathon = {
+export type UpcomingHackathon = RegistrationDates & {
   id: string;
   name: string;
   mode: string | null;
@@ -29,18 +30,8 @@ export type LandingData = {
   upcoming: UpcomingHackathon[];
 };
 
-/**
- * The upcoming strip prints each event's start date. Unstop imports store the
- * registration-open date in start_date when Unstop gives no event start
- * (src/app/api/admin/scrape-unstop/route.ts), so their dates can't be shown as
- * "starts on". They stay listed and counted; they are only left out of the strip.
- */
-const HAS_EVENT_START_DATE = "website_url.is.null,website_url.not.ilike.*unstop.com*";
-
 export async function getLandingData(): Promise<LandingData> {
   const supabaseAdmin = getSupabaseAdmin();
-  // Event dates are calendar dates in India, where HackerMate's events run.
-  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
   try {
     const [builders, teams, upcoming] = await Promise.all([
       // Every account gets a profile row at sign-up; the product counts all of them as builders
@@ -49,28 +40,22 @@ export async function getLandingData(): Promise<LandingData> {
       supabaseAdmin.from("profiles").select("id", { count: "exact", head: true }).eq("is_banned", false),
       // The /teams directory lists every team, including ones still recruiting their first teammate.
       supabaseAdmin.from("teams").select("id", { count: "exact", head: true }),
-      supabaseAdmin
-        .from("hackathons")
-        .select("id, name, type, mode, start_date, end_date, registration_start, registration_end, registration_status")
-        .eq("status", "approved")
-        .or(HAS_EVENT_START_DATE)
-        .eq("archived", false)
-        .gte("start_date", today)
-        .order("start_date", { ascending: true })
-        .order("name", { ascending: true })
-        .limit(8),
+      loadPublicEvents(supabaseAdmin).catch(error => { console.error("[landing] public source listing unavailable:", error); return []; }),
     ]);
 
     if (builders.error) console.error("[landing] builder count failed:", builders.error);
     if (teams.error) console.error("[landing] team count failed:", teams.error);
-    if (upcoming.error) console.error("[landing] upcoming hackathons failed:", upcoming.error);
 
     // A failed count comes back as 0, and the hero hides zero values instead of printing them.
     return {
       builderCount: builders.count ?? 0,
       teamCount: teams.count ?? 0,
-      upcoming: ((upcoming.data as (UpcomingHackathon & RegistrationDates)[] | null) ?? [])
-        .filter(event => eventState(event, new Date().getTime()) === "upcoming" && activeOpportunity(event, new Date().getTime())),
+      upcoming: upcoming.filter(event => activeOpportunity(event, Date.now())).sort((a,b) => (eventDate(a.start_date) ?? Infinity) - (eventDate(b.start_date) ?? Infinity) || a.name.localeCompare(b.name)).slice(0, 8).map(event => ({
+        id: event.id, name: event.name, mode: event.mode, type: event.type,
+        start_date: event.start_date, end_date: event.end_date,
+        registration_start: event.registration_start, registration_end: event.registration_end,
+        registration_status: event.registration_status, source_metadata: event.source_metadata,
+      })),
     };
   } catch (err) {
     console.error("Error fetching landing data on server:", err);

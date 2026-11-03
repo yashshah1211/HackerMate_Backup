@@ -1,0 +1,1806 @@
+{
+  "base": "3a0b4d0488128fe730607ae1ef024a3bf52992e1",
+  "branch": "fix/hackathon-aggregator-sync",
+  "createdAt": "2026-11-02T13:58:57.987Z",
+  "publication": "User explicitly authorizes exactly one new local follow-up commit after validation and final review. No push, PR state change, merge, deployment, production SQL or adoption writes are authorized.",
+  "recommendation": {
+    "draftReview": "GO",
+    "productionRelease": "NO-GO",
+    "commitReadiness": "VALIDATED_AUTHORIZED_LOCAL_FOLLOW_UP"
+  },
+  "fileCount": 53,
+  "inventory": [
+    ".github/workflows/aggregator-qualification.yml",
+    "docs/qa/aggregator-repair/ADOPTION-REVIEW.json",
+    "docs/qa/aggregator-repair/HACKATHON-ACCESS-INVENTORY.json",
+    "docs/qa/aggregator-repair/INVESTIGATION-AND-PLAN.md",
+    "docs/qa/aggregator-repair/LIFECYCLE-REASSESSMENT.json",
+    "docs/qa/aggregator-repair/README.md",
+    "docs/qa/aggregator-repair/RECONCILIATION-PREVIEW.json",
+    "docs/qa/aggregator-repair/VERIFICATION.json",
+    "docs/qa/aggregator-repair/screenshots/algorush-detail-390.png",
+    "docs/qa/aggregator-repair/screenshots/guest-active-390.png",
+    "docs/qa/aggregator-repair/screenshots/guest-active-768.png",
+    "docs/qa/aggregator-repair/screenshots/member-active-1440.png",
+    "docs/qa/aggregator-repair/sql/20261102123742_hackathon_source_sync.sql",
+    "docs/qa/aggregator-repair/sql/RELEASE-PREFLIGHT.sql",
+    "qa/fixtures/aggregator/provider-facts.cjs",
+    "qa/fixtures/mission20-hotfix-browser.jsx",
+    "scripts/aggregator-local-db.cjs",
+    "scripts/lint-aggregator.cjs",
+    "scripts/qualify-aggregator.cjs",
+    "scripts/reassess-aggregator-lifecycle.cjs",
+    "scripts/reconcile-hackathon-catalog.cjs",
+    "scripts/test-aggregator-lifecycle-evidence.cjs",
+    "scripts/test-aggregator-postgres.cjs",
+    "scripts/test-aggregator-sources.cjs",
+    "scripts/test-aggregator-transport.cjs",
+    "scripts/test-email-reliability.cjs",
+    "scripts/test-event-compatibility.cjs",
+    "scripts/test-hackathon-discovery-page.cjs",
+    "scripts/test-hackathon-discovery.cjs",
+    "scripts/test-mission20-discovery-hotfix-browser.cjs",
+    "scripts/test-mission20-discovery-hotfix.cjs",
+    "scripts/test-mission20-unverified-opportunities.cjs",
+    "scripts/test-public-hackathon-browsing.cjs",
+    "scripts/test-public-hackathon-data.cjs",
+    "scripts/test-scraper-data-preservation.cjs",
+    "src/app/admin/_tabs/OutreachTab.tsx",
+    "src/app/api/admin/scrape-unstop/route.ts",
+    "src/app/api/cron/auto-scrape-leads/route.ts",
+    "src/app/hackathons/[id]/page.tsx",
+    "src/app/hackathons/page.tsx",
+    "src/components/hackathons/PublicHackathonDetail.tsx",
+    "src/components/hackathons/SourceInformation.tsx",
+    "src/components/landing/LandingHero.tsx",
+    "src/lib/getLandingData.ts",
+    "src/lib/hackathons/discovery.ts",
+    "src/lib/hackathons/lifecycle.ts",
+    "src/lib/hackathons/providers.ts",
+    "src/lib/hackathons/publicBrowsing.ts",
+    "src/lib/hackathons/source.ts",
+    "src/lib/hackathons/sourceTransport.ts",
+    "src/lib/hackathons/synchronize.ts",
+    "src/types/supabase.ts",
+    "supabase/migrations/20261102123742_hackathon_source_sync.sql"
+  ],
+  "sourceHashes": {
+    ".github/workflows/aggregator-qualification.yml": {
+      "sha256": "6a41a3b5cd50a44956f9c4dfa2c735f966f56e4f92f49fd0ae44109b16b3ae84",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "docs/qa/aggregator-repair/HACKATHON-ACCESS-INVENTORY.json": {
+      "sha256": "521bbcd6e14968580bb049dd0740c7a0438fd04914d13fabbd75d502c73987c7",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "docs/qa/aggregator-repair/INVESTIGATION-AND-PLAN.md": {
+      "sha256": "d38236f06221ed31aa2c402d24459a4efeebeeb890d6a6f8f04b8e2c0a1f9752",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "docs/qa/aggregator-repair/README.md": {
+      "sha256": "57e8b53ebfe77d4900d6ceb2e9b5de26b2ecf0d1f6192d9f2c1835022913dd16",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "docs/qa/aggregator-repair/RECONCILIATION-PREVIEW.json": {
+      "sha256": "0a0c99b06493ba19736e14f0446133ae04a826fdafbb3ecf9ead4250cdebc603",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "docs/qa/aggregator-repair/screenshots/algorush-detail-390.png": {
+      "sha256": "4187ff3248ad906866e71b7f0d32f55f4160b83eb99e121fa5f5c58580cd997a",
+      "encoding": "raw binary"
+    },
+    "docs/qa/aggregator-repair/screenshots/guest-active-390.png": {
+      "sha256": "7a278f4aed0f4bd17b18562554a7c4344fb78d4b77055698b5a48cbfb5157ace",
+      "encoding": "raw binary"
+    },
+    "docs/qa/aggregator-repair/screenshots/guest-active-768.png": {
+      "sha256": "9182dd62be650d35fd4f958d0989963146a15729e46f535fe267c1504d07e3b6",
+      "encoding": "raw binary"
+    },
+    "docs/qa/aggregator-repair/screenshots/member-active-1440.png": {
+      "sha256": "88cd48f7f15d2e189bc7bc1451fbff804b8ccfe706bd13e4c76f0c421deb91ae",
+      "encoding": "raw binary"
+    },
+    "docs/qa/aggregator-repair/sql/20261102123742_hackathon_source_sync.sql": {
+      "sha256": "1e23fe412f1cdcbc6e5f87ac07784b8479bcc44ac085262a7337c16a8a9fcefe",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "qa/fixtures/aggregator/provider-facts.cjs": {
+      "sha256": "79b3a518d455d99789b88514b244a663c88de28e2f3e85cc54da38fda892f1be",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "qa/fixtures/mission20-hotfix-browser.jsx": {
+      "sha256": "94b42519918f37ba7806de1ce7f5ce9db5f365d2d7050df594480952ca9c75f7",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "scripts/aggregator-local-db.cjs": {
+      "sha256": "6c96e8052584e1b23137fb144ef86e59f760b66e7e427f6fa58e9cbdeca3fb03",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "scripts/lint-aggregator.cjs": {
+      "sha256": "7702803473560c77bd5d923aad90b9af5ef750105f826796db7985e88ba09676",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "scripts/qualify-aggregator.cjs": {
+      "sha256": "8ac62a8492c5941cdb9bf5dfbb76405a3cc755fe400a843257fe02e10688a882",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "scripts/reconcile-hackathon-catalog.cjs": {
+      "sha256": "34f1308c127a6f73ace21aca357b677f98e8c8541514a74037290faf31414364",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "scripts/test-aggregator-postgres.cjs": {
+      "sha256": "28c9509562181a7e3e1e144d308225d7f20be8bf63e89bd9f1f1e37f90fac90c",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "scripts/test-aggregator-sources.cjs": {
+      "sha256": "2904ba971e2e0d203f861f7d66b97f842abc9bc5b2c545ca6ccef043a3187b58",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "scripts/test-aggregator-transport.cjs": {
+      "sha256": "1960d4f98835528b7aa8b2034769b40fd4e109ca55ddf0b0db034904980b50c9",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "scripts/test-email-reliability.cjs": {
+      "sha256": "1f41b30d5f93a888b459b11931fc2e1fe44a9134bf364ce5adfb9a31003ae3ef",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "scripts/test-event-compatibility.cjs": {
+      "sha256": "844a2a8421763e0a9c0795a48db0ba076dfb1360feec9393a4bbeeae6add9e41",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "scripts/test-hackathon-discovery-page.cjs": {
+      "sha256": "dc7d30cc4866cd07790cd37bb863fe3a81b33901adbfc43219860607ca7537b8",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "scripts/test-hackathon-discovery.cjs": {
+      "sha256": "556ac77e201b1ced8a7a07b9e3620fea599263af64f5098eaacb1243b683f93d",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "scripts/test-mission20-discovery-hotfix-browser.cjs": {
+      "sha256": "67108860823e0f14ea9f8f12545c0c0f6856cfcf0f5d2928f42e412358e60466",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "scripts/test-mission20-discovery-hotfix.cjs": {
+      "sha256": "69ffa6f887c9122ace0aca695f19ca3555d4db2d7d7eeb7931e9dbd3aed98804",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "scripts/test-mission20-unverified-opportunities.cjs": {
+      "sha256": "60ee3131742fa3e2969ce9e5f451573069e4af2eee5e5a30ab4ffbe562ebfd88",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "scripts/test-public-hackathon-browsing.cjs": {
+      "sha256": "5f4e727dc54cd0aa558e37d89a1ce03a7c5ee720db3f278768ddc8e9b4241271",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "scripts/test-public-hackathon-data.cjs": {
+      "sha256": "a4cff6c035f44f69d97098c381fd25b406816617b3d7d11ee9448467deda6aa5",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "scripts/test-scraper-data-preservation.cjs": {
+      "sha256": "038faffd961b1b17f1406314a7137fa2f6a8ce620aef7783101db782a011e169",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "src/app/admin/_tabs/OutreachTab.tsx": {
+      "sha256": "f9e6414f3752de458bc3b52a769b3a912af0de53a826f642e8d3cb5abcf8c88d",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "src/app/api/admin/scrape-unstop/route.ts": {
+      "sha256": "040515ee74f482456bf63f34c241ddda869faf0bd74cb3727c2e7bcfa5392724",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "src/app/api/cron/auto-scrape-leads/route.ts": {
+      "sha256": "9be71c5195634c18e1ae2a0be0a3384510c7ea64c1a4c6717b0d6408f853bafd",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "src/app/hackathons/[id]/page.tsx": {
+      "sha256": "254aa29a3de1975623aa1c654374682236224addf424837598b75c6af81219bf",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "src/app/hackathons/page.tsx": {
+      "sha256": "c7a81d1ab2ee9347689222657db833b45b3049c8c62ae74519012e87b7597aec",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "src/components/hackathons/PublicHackathonDetail.tsx": {
+      "sha256": "21b29c1b65f5577f491124608646d04824c3e2e4c17b857f5002190809609e21",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "src/components/hackathons/SourceInformation.tsx": {
+      "sha256": "cf7f1d57973f8b019f5a3d8dee2eda2e93cced6c0bcc616e792e94bb2665c559",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "src/components/landing/LandingHero.tsx": {
+      "sha256": "103c55df6a0ea41e90fa8de34d46ee9c37163accc0d097664006eb05c0b8ebd4",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "src/lib/getLandingData.ts": {
+      "sha256": "99166fc8438da95d58005fc716c7e91f17b99f7241e72c7ddf2c294021805e77",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "src/lib/hackathons/discovery.ts": {
+      "sha256": "8b40def8708c82b3f06bd6474a5a751732a4e646975e1876fd420a8ebb7648ef",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "src/lib/hackathons/lifecycle.ts": {
+      "sha256": "2545fbe4e4b1acedad6c099da65e646a12258e6722da9b988f2d3486603fd54f",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "src/lib/hackathons/providers.ts": {
+      "sha256": "350e7193ee48c85a33913c1f8f5318271aa0e1cc498507bffa56c58004a45b83",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "src/lib/hackathons/publicBrowsing.ts": {
+      "sha256": "2075f4b40abc721052da129cf24388ca42ff34db9a634ce5d3fd95d197ff1869",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "src/lib/hackathons/source.ts": {
+      "sha256": "5b90e8fd8ad320da13d9a953f88c6c1fe159dd07d4a19b32e4f34830da5e2be0",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "src/lib/hackathons/sourceTransport.ts": {
+      "sha256": "3794974e64ab2a4af150c9302c95f4a07f369d3dca92308f23f8e563796c58ad",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "src/lib/hackathons/synchronize.ts": {
+      "sha256": "82def609abd0ba270679046e5bc09f0261076e886fdce627958bb25f08aa27a7",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "src/types/supabase.ts": {
+      "sha256": "fae0feba494046f9a66418d6a34ec131b72ede0d930ce22e8ed90f31be9c223d",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "docs/qa/aggregator-repair/ADOPTION-REVIEW.json": {
+      "sha256": "c1a83fdf8cdcbbaabcc2c51237124dcf39a33a40bf0bef845e18baf052e57596",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "docs/qa/aggregator-repair/sql/RELEASE-PREFLIGHT.sql": {
+      "sha256": "e3a3611305d50e90f47792f1837c00a3d17df16b632c8ad14e6389b86473e04d",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "supabase/migrations/20261102123742_hackathon_source_sync.sql": {
+      "sha256": "04a9a6218df5963e3d88c10df547596f28e04561b4f6375556824724b24e0352",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "docs/qa/aggregator-repair/LIFECYCLE-REASSESSMENT.json": {
+      "sha256": "a1779e37cb7e0dc02cad3b8cef9efb9d277dc4f082aa7f94254af55f3cfe8215",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "scripts/reassess-aggregator-lifecycle.cjs": {
+      "sha256": "1cdce3a9b7aaca0dbf43250a2b01f0aad9a92076ce276965de65ba3603cf662c",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    },
+    "scripts/test-aggregator-lifecycle-evidence.cjs": {
+      "sha256": "a23d20e49b57c1c8b6b89d8e81c3e0a5256d69aafd00a2396d010e48d4ffdf96",
+      "encoding": "UTF-8, CRLF normalized to LF"
+    }
+  },
+  "sourceTreeSha256": "1e6a9a49177dbf76b9795e40be4d17e0109e0559a7074bdc452f0c7c24162e04",
+  "manifestNote": "This manifest is excluded from its own hash. Text hashes normalize CRLF to LF for reproducible Git checkout comparison. Provider response fingerprints in reconciliation evidence are exact raw-response SHA-256, never normalized.",
+  "checks": {
+    "application": {
+      "command": "node scripts/qualify-aggregator.cjs",
+      "selectedFiles": 31,
+      "passed": 1690,
+      "failed": 0,
+      "skipped": 0,
+      "cancelled": 0
+    },
+    "postgres": {
+      "command": "AGGREGATOR_TEST_PG_BIN=<native17.6>/bin node --import ./qa/fixtures/rack-network-guard.mjs --test scripts/test-aggregator-postgres.cjs",
+      "version": "17.6",
+      "groups": 1,
+      "checks": 28,
+      "failed": 0,
+      "disposable": true
+    },
+    "browser": {
+      "command": "node --import ./qa/fixtures/rack-network-guard.mjs --test scripts/test-mission20-discovery-hotfix-browser.cjs",
+      "widths": [
+        390,
+        768,
+        1440
+      ],
+      "roles": [
+        "guest",
+        "member"
+      ],
+      "passed": 3,
+      "failed": 0,
+      "visuallyInspected": true,
+      "externalRequests": 0,
+      "writes": 0
+    },
+    "rack": {
+      "command": "node qa/rack-qualification.cjs funnel-browser",
+      "passed": 32,
+      "failed": 0,
+      "assertionsUnchanged": true
+    },
+    "typescript": {
+      "command": "npm run typecheck -- --incremental false --pretty false",
+      "passed": true
+    },
+    "lint": {
+      "command": "node scripts/lint-aggregator.cjs",
+      "cleanFiles": 34,
+      "newErrors": 0,
+      "newWarnings": 0,
+      "unchangedBaselines": [
+        {
+          "file": "src/app/hackathons/[id]/page.tsx",
+          "errors": 5,
+          "warnings": 5
+        },
+        {
+          "file": "src/app/admin/_tabs/OutreachTab.tsx",
+          "errors": 12,
+          "warnings": 4
+        }
+      ]
+    },
+    "legacyLint": {
+      "command": "node scripts/lint-mission20-discovery-hotfix.cjs",
+      "passed": true
+    },
+    "build": {
+      "command": "node qa/rack-qualification.cjs build",
+      "passed": true,
+      "syntheticReads": 3,
+      "mutations": 0,
+      "existingWarnings": [
+        "Sentry instrumentation and client-config deprecation",
+        "Sentry token unavailable; no release or source-map upload",
+        "Webpack cache serialization"
+      ]
+    }
+  },
+  "reconciliation": {
+    "path": "docs/qa/aggregator-repair/RECONCILIATION-PREVIEW.json",
+    "records": 410,
+    "providerURLs": {
+      "unstop": 403,
+      "devfolio": 5,
+      "hack2skill": 2
+    },
+    "counts": {
+      "unresolved": 86,
+      "confirmed_ended_propose_suppression": 208,
+      "registration_open": 85,
+      "ongoing_registration_closed": 31,
+      "confirmed_active": 116,
+      "confirmed_ongoing": 115,
+      "registration_open_and_ongoing": 84,
+      "note": "Active/ongoing totals overlap; the four classification groups sum to410."
+    },
+    "productionWrites": 0,
+    "emails": 0,
+    "prizeProposalsWithheld": 38,
+    "legacyBackfillApproved": false,
+    "observationsAreHistorical": true
+  },
+  "accessInventory": {
+    "path": "docs/qa/aggregator-repair/HACKATHON-ACCESS-INVENTORY.json",
+    "files": 72,
+    "expressions": 190
+  },
+  "ci": {
+    "status": "Follow-up remains local; no new-head GitHub CI. Prior workflow results are historical only.",
+    "expectedWorkflows": [
+      "Pull Request Validation",
+      "Rack portal isolated qualification",
+      "Mission 20 discovery hotfix qualification",
+      "Aggregator isolated qualification"
+    ],
+    "currentHeadResultsMustBeReportedAfterPublication": true,
+    "initialHead": "9ab2c43d0b04530634999c125d47262fdbc9e7f0",
+    "initialResults": [
+      {
+        "workflow": "Pull Request Validation",
+        "run": 41458033089,
+        "conclusion": "success"
+      },
+      {
+        "workflow": "Rack portal isolated qualification",
+        "run": 41458032974,
+        "conclusion": "success"
+      },
+      {
+        "workflow": "Mission 20 discovery hotfix qualification",
+        "run": 41458033092,
+        "conclusion": "success"
+      },
+      {
+        "workflow": "Aggregator isolated qualification",
+        "run": 41458033144,
+        "conclusion": "failure",
+        "passed": 1650,
+        "failed": 0,
+        "cancelled": 1,
+        "reason": "Unreferenced AbortSignal timeout allowed Linux fixture event loop to exit. PG17.6/Chrome steps were skipped."
+      }
+    ],
+    "lastQualifiedHead": "d075c84372acc3f84ad93cbafe33736aded4fdd8",
+    "lastQualifiedResults": [
+      {
+        "workflow": "Pull Request Validation",
+        "run": 41472500713,
+        "conclusion": "success"
+      },
+      {
+        "workflow": "Rack portal isolated qualification",
+        "run": 41472500705,
+        "conclusion": "success"
+      },
+      {
+        "workflow": "Mission 20 discovery hotfix qualification",
+        "run": 41472500779,
+        "conclusion": "success"
+      },
+      {
+        "workflow": "Aggregator isolated qualification",
+        "run": 41472500777,
+        "conclusion": "success"
+      }
+    ]
+  },
+  "boundaries": {
+    "activeMigrations": 1,
+    "sqlProposal": "docs/qa/aggregator-repair/sql/20261102123742_hackathon_source_sync.sql",
+    "productionOrStagingMutations": 0,
+    "deploymentsInitiated": 0,
+    "merges": 0,
+    "mailDispatches": 0,
+    "environmentChanges": 0,
+    "nativeRegistrationChanges": 0,
+    "mission20StackUntouched": [
+      92,
+      93,
+      96
+    ],
+    "activeMigrationFilesPrepared": 1,
+    "migrationsApplied": 0,
+    "migrationExecutionAuthorized": false
+  },
+  "remainingGates": [
+    "Fresh independent publication review of the final local follow-up commit recommended; local Standards and Spec review passes are recorded below",
+    "Explicit future publication authorization and then current-head Linux CI",
+    "Fresh per-record registration/category/event uncertainty/mode/team/editorial/control evidence and separate adoption approval",
+    "Hosted positive-cohort acceptance and real refresh coverage/best-effort daily decision",
+    "Founder production cutover and separate writer/cron unfreeze authorization; installed migration must not be rerun"
+  ],
+  "evidence": {
+    "application-release.log": {
+      "path": "scratch/aggregator-audit/application-release.log",
+      "sha256": "3b193478de010f2e28e4750b20a425d592ba42ccbbe9bd0cddf3984aef105f9a"
+    },
+    "postgres-release.log": {
+      "path": "scratch/aggregator-audit/postgres-release.log",
+      "sha256": "caa01f290fab79191db475363687798f465a04b7cf411e5562a5ef76ecdb047d"
+    },
+    "browser-release.log": {
+      "path": "scratch/aggregator-audit/browser-release.log",
+      "sha256": "fe3e23a749d55878b3248ceb94f7c6c1524a2dadd186b4a2169c32b74da03878"
+    },
+    "rack-funnel.log": {
+      "path": "scratch/aggregator-audit/rack-funnel.log",
+      "sha256": "79f3ff390045ed3a6122ec48924cacc3e711e126ef4caa3164065bccbb63baae"
+    },
+    "typecheck-release.log": {
+      "path": "scratch/aggregator-audit/typecheck-release.log",
+      "sha256": "4bb40eef8e3c339af20950a8105947f07a8ababf21de71719193e97e2907811b"
+    },
+    "lint-inventory.log": {
+      "path": "scratch/aggregator-audit/lint-inventory.log",
+      "sha256": "1153a9fdc29271ff9c0e48a9bd069da1f8d7dfc8db9c6af823752ca20d6080c1"
+    },
+    "legacy-lint-accepted.log": {
+      "path": "scratch/aggregator-audit/legacy-lint-accepted.log",
+      "sha256": "8bab1d8d8a96d106669275bd4ac47ad0f5ebb77cc06ab67caced621a9d70e166"
+    },
+    "build-release.log": {
+      "path": "scratch/aggregator-audit/build-release.log",
+      "sha256": "d888545df6c99a005bdb3f54e6833ba8f576ed3cb12f3d9dfabe823d8d393267"
+    },
+    "reconciliation-finished.log": {
+      "path": "scratch/aggregator-audit/reconciliation-finished.log",
+      "sha256": "c7751e239fb0f2f946a2487f0918fbdd5a1778043dc3c1b7b0d4b6f31183768e"
+    },
+    "legacy-alias-before.log": {
+      "path": "scratch/aggregator-audit/legacy-alias-before.log",
+      "sha256": "21278fe72ef3e34a34a501ce77aa84fa389dc42ab6b9829822cff3a29d9e9e05"
+    },
+    "followup-sdk.log": {
+      "path": "scratch/aggregator-audit/followup-sdk.log",
+      "sha256": "c01e5b3a5060e7cf23cbd25e9f2883cf6ea0e80f73a2575ac2ec5c5dc0377ee0"
+    },
+    "followup-application.log": {
+      "path": "scratch/aggregator-audit/followup-application.log",
+      "sha256": "23376911e6add5bdd7e632d05430cb462946c30fddaf02e369a034e3f918df28"
+    },
+    "followup-postgres.log": {
+      "path": "scratch/aggregator-audit/followup-postgres.log",
+      "sha256": "d5739aac5afd2d9e9ae03862e3dd42de0655193a3bae129d5f9275e133f15717"
+    },
+    "followup-typecheck.log": {
+      "path": "scratch/aggregator-audit/followup-typecheck.log",
+      "sha256": "4bb40eef8e3c339af20950a8105947f07a8ababf21de71719193e97e2907811b"
+    },
+    "followup-lint.log": {
+      "path": "scratch/aggregator-audit/followup-lint.log",
+      "sha256": "1153a9fdc29271ff9c0e48a9bd069da1f8d7dfc8db9c6af823752ca20d6080c1"
+    },
+    "followup-build.log": {
+      "path": "scratch/aggregator-audit/followup-build.log",
+      "sha256": "6f119fcc2fa6becf12358b68c456771d8e8d9fd5af446e42d4a8b7d1324a635b"
+    },
+    "robots-baseline.log": {
+      "path": "scratch/aggregator-audit/robots-baseline.log",
+      "sha256": "c20280af500e33ed62cdf9075bd761932a275cbdb84e3d6af4012529d685624b"
+    },
+    "robots-after.log": {
+      "path": "scratch/aggregator-audit/robots-after.log",
+      "sha256": "f9be3a9bcefaeb2dffafdbf32316a155639d45982e44f7ccfebf657e020cfe2a"
+    },
+    "robots-mutant.log": {
+      "path": "scratch/aggregator-audit/robots-mutant.log",
+      "sha256": "24948978a83fd581be0ce83de4a55c1606e768c2b2cf86feb335423486962302"
+    },
+    "robots-capacity.json": {
+      "path": "scratch/aggregator-audit/robots-capacity.json",
+      "sha256": "c602990d20285ded346b3ff0e6c5eb71f3b34c45125c7bd69ed3f45b8fa57679"
+    },
+    "robots-application.log": {
+      "path": "scratch/aggregator-audit/robots-application.log",
+      "sha256": "3d48a425105957fbe332acc433569fc5d4cebf34b0001a5d505671a2324cdf71"
+    },
+    "robots-typecheck.log": {
+      "path": "scratch/aggregator-audit/robots-typecheck.log",
+      "sha256": "4bb40eef8e3c339af20950a8105947f07a8ababf21de71719193e97e2907811b"
+    },
+    "robots-lint.log": {
+      "path": "scratch/aggregator-audit/robots-lint.log",
+      "sha256": "1153a9fdc29271ff9c0e48a9bd069da1f8d7dfc8db9c6af823752ca20d6080c1"
+    },
+    "robots-build.log": {
+      "path": "scratch/aggregator-audit/robots-build.log",
+      "sha256": "c69250dfc7605e9a015c365baed71403ae84ff6e1855152cf23850804b7a0a96"
+    },
+    "readiness-queue-before.log": {
+      "path": "scratch/aggregator-audit/readiness-queue-before.log",
+      "sha256": "0a2c49006857566ce1064af8356d96c62297045d7f4200f9c5b34790d20ec731"
+    },
+    "readiness-queue-after.log": {
+      "path": "scratch/aggregator-audit/readiness-queue-after.log",
+      "sha256": "4e7ea48c70f1e3756fc8150cb4e8189157787e33ee15f6ddceb3fbb635ce2c29"
+    },
+    "readiness-typecheck.log": {
+      "path": "scratch/aggregator-audit/readiness-typecheck.log",
+      "sha256": "2712bcfedaa448473286eb8eddfafbd140e5f86179ad29c81a1b1c5232e67fa0"
+    },
+    "readiness-lint.log": {
+      "path": "scratch/aggregator-audit/readiness-lint.log",
+      "sha256": "1153a9fdc29271ff9c0e48a9bd069da1f8d7dfc8db9c6af823752ca20d6080c1"
+    },
+    "release-preparation-postgres.log": {
+      "path": "scratch/aggregator-audit/release-preparation-postgres.log",
+      "sha256": "b50ed8ca7d9d311101a1ade852a7a6a63b12b5dc3c1c4040df32dcdd4e1893df"
+    },
+    "release-preparation-lint.log": {
+      "path": "scratch/aggregator-audit/release-preparation-lint.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "unstop-dates-before.log": {
+      "path": "scratch/aggregator-audit/unstop-dates-before.log",
+      "sha256": "02005a3d828728ff92303ad284840d57d939ff8f4a16e1fa2403f7f608803145"
+    },
+    "unstop-resume-application-final.log": {
+      "path": "scratch/aggregator-audit/unstop-resume-application-final.log",
+      "sha256": "c3d3069928795ecb10d709e3dcf5b68a35347bf38c303528c021e1d22a730797"
+    },
+    "unstop-resume-sources-final.log": {
+      "path": "scratch/aggregator-audit/unstop-resume-sources-final.log",
+      "sha256": "17761669ba84a5676cc407fe7500a6e575005c3734cd3bf074387fe8ccee8197"
+    },
+    "unstop-resume-focused.log": {
+      "path": "scratch/aggregator-audit/unstop-resume-focused.log",
+      "sha256": "395de47b1a7a1fa9fe581d6befa3949fa1eb87fbf31d504ae83baff85ce22ffd"
+    },
+    "unstop-resume-ppt.log": {
+      "path": "scratch/aggregator-audit/unstop-resume-ppt.log",
+      "sha256": "8d17473120a58a579edd788997f12bc5b4f6cfd3c2f0ddb75339cd98a9d5c09a"
+    },
+    "unstop-resume-postgres.log": {
+      "path": "scratch/aggregator-audit/unstop-resume-postgres.log",
+      "sha256": "9a4533ec594d3188798474cbe00e31c8d7f75254fcc52f560d1337bf753ac25b"
+    },
+    "unstop-resume-browser.log": {
+      "path": "scratch/aggregator-audit/unstop-resume-browser.log",
+      "sha256": "7cb74905e80cf04d80c18857327f142cdff757ff9c139ce831cc1578104396bc"
+    },
+    "unstop-resume-rack.log": {
+      "path": "scratch/aggregator-audit/unstop-resume-rack.log",
+      "sha256": "79f3ff390045ed3a6122ec48924cacc3e711e126ef4caa3164065bccbb63baae"
+    },
+    "unstop-resume-typecheck-final.log": {
+      "path": "scratch/aggregator-audit/unstop-resume-typecheck-final.log",
+      "sha256": "2712bcfedaa448473286eb8eddfafbd140e5f86179ad29c81a1b1c5232e67fa0"
+    },
+    "unstop-resume-lint-final.log": {
+      "path": "scratch/aggregator-audit/unstop-resume-lint-final.log",
+      "sha256": "1153a9fdc29271ff9c0e48a9bd069da1f8d7dfc8db9c6af823752ca20d6080c1"
+    },
+    "unstop-resume-report-lint.log": {
+      "path": "scratch/aggregator-audit/unstop-resume-report-lint.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "unstop-resume-build.log": {
+      "path": "scratch/aggregator-audit/unstop-resume-build.log",
+      "sha256": "6a2eccf033c58003dc44853193f698b12e427015455510f174e4ce86e7ddc003"
+    },
+    "scratch/hotfix-browser/guest-algorush-detail-390.png": {
+      "path": "scratch/hotfix-browser/guest-algorush-detail-390.png",
+      "sha256": "4f65db21a072d3876ba87e11ec24b52e4e7398d083e5233474b9b88f40a419dc",
+      "synthetic": true,
+      "visuallyInspected": true
+    },
+    "scratch/hotfix-browser/guest-discovery-1440.png": {
+      "path": "scratch/hotfix-browser/guest-discovery-1440.png",
+      "sha256": "dd8a0c004de19962f3223f0bd0efd9ad1f2ba3080468ba05d6b579d54a6c4649",
+      "synthetic": true,
+      "visuallyInspected": true
+    }
+  },
+  "followup": {
+    "parent": "9ab2c43d0b04530634999c125d47262fdbc9e7f0",
+    "reason": [
+      "Linux timeout fixture keeps a bounded referenced timer and clears it in finally; assertions unchanged",
+      "Reproduced legacy canonical URL alias duplication; match stable numeric identity in application and SQL, requiring legacy adoption"
+    ],
+    "files": [
+      "docs/qa/aggregator-repair/README.md",
+      "docs/qa/aggregator-repair/VERIFICATION.json",
+      "docs/qa/aggregator-repair/sql/20261102123742_hackathon_source_sync.sql",
+      "scripts/test-aggregator-postgres.cjs",
+      "scripts/test-scraper-data-preservation.cjs",
+      "src/lib/hackathons/synchronize.ts"
+    ],
+    "applicationPassed": 1651,
+    "applicationFailed": 0,
+    "applicationCancelled": 0,
+    "postgresChecks": 18,
+    "existingUnstopIdentityConflictsInReadOnlySnapshot": 0,
+    "inventoryUnchanged": true
+  },
+  "updatedAt": "2026-11-03T11:38:18.768Z",
+  "reviewFollowup": {
+    "base": "ce82618a815527327f256c3599cca2c00a013e4d",
+    "files": [
+      "docs/qa/aggregator-repair/README.md",
+      "docs/qa/aggregator-repair/VERIFICATION.json",
+      "scripts/test-aggregator-transport.cjs",
+      "src/lib/hackathons/sourceTransport.ts"
+    ],
+    "reviewedComparator": "Already b-minus-a in immutable local and GitHub source; no self-subtraction reproduced",
+    "change": "Explicit right-minus-left specificity; Allow considered only at equal specificity",
+    "transportTests": {
+      "before": 37,
+      "after": 37,
+      "added": 17,
+      "failed": 0
+    },
+    "mutationProof": {
+      "inMemoryOnly": true,
+      "selfSubtractionFailedTests": 7,
+      "sourceModifiedByMutation": false
+    },
+    "requestControlsUnchanged": true,
+    "capacity": {
+      "hypotheticalOnly": true,
+      "source": "saved reconciliation, no new provider/DB operation",
+      "clock": "2026-11-02T13:52:27.990Z",
+      "checks": 150,
+      "refreshSlots": 120,
+      "discoverySlots": 30,
+      "publicEligible": 116,
+      "slotHeadroomOnlyIfPriorityCohortIs116": 4,
+      "lastRefreshCheckPosition": 144,
+      "totalBudgetSeconds": 240,
+      "startReserveSeconds": 15,
+      "illustrativeOverheadSeconds": 15,
+      "requiredMeanSecondsFor144CheckPrefix": 1.4583333333333333,
+      "hypotheticalPriorityRowsIfAllSupportedObservationsAdopted": 198,
+      "excludedPublicRowsStillInPriority": 82,
+      "consistentFreshnessQualified": false
+    },
+    "legacyAdoption": "Future per-record approved adoption before public application promotion, exact read-back and positive-cohort/first-refresh gates; no executor/bulk write added",
+    "sqlChanged": false,
+    "schedulingChanged": false,
+    "evidenceAgeChanged": false,
+    "providerCollectionRepeated": false,
+    "productionOperations": 0,
+    "publication": "Pending exact-file staging/publication approval",
+    "ci": "Pending new-head workflows after publication"
+  },
+  "readinessFollowup": {
+    "base": "5a34087470f13156ae84cc8b6a312020ba2bd8b5",
+    "files": [
+      "docs/qa/aggregator-repair/README.md",
+      "docs/qa/aggregator-repair/VERIFICATION.json",
+      "scripts/test-scraper-data-preservation.cjs",
+      "src/lib/hackathons/synchronize.ts"
+    ],
+    "rootCause": "Queue priority used cached dates without category or check_status eligibility, admitting 82 unresolved/non-hackathon observations alongside 116 historical eligible candidates.",
+    "change": "Require confirmed hackathon, successful check, no protected fields and non-ended facts before current/near-term refresh priority; preserve lower oldest-check rechecks.",
+    "boundariesUnchanged": [
+      "150-check cap",
+      "4:1 refresh/discovery interleave",
+      "provider round-robin discovery",
+      "240-second total budget",
+      "15-second start reserve",
+      "26-hour evidence lifetime",
+      "provider rate/robots/origin/redirect/size/timeout controls",
+      "failure receipts and fail-closed serving",
+      "no outreach",
+      "review-only SQL"
+    ],
+    "controlledClock": {
+      "syntheticTransports": true,
+      "realInstalledSdk": true,
+      "realOrchestratorAndTransport": true,
+      "hostedPerformanceEvidence": false,
+      "eligibleRecords": 116,
+      "olderUnresolvedRecords": 82,
+      "newDiscoveryCandidates": 180,
+      "initialOverheadMs": 15000,
+      "dbWorkPerCheckMs": 200,
+      "reproducedBefore": {
+        "detailMs": 1200,
+        "totalChecks": 150,
+        "eligibleSuccesses": 38,
+        "unresolvedRechecks": 82,
+        "discoveryChecks": 30,
+        "virtualElapsedMs": 225000,
+        "lastEligibleFinishedMs": 223600
+      },
+      "after": [
+        {
+          "detailMs": 1200,
+          "totalChecks": 150,
+          "eligibleAttempts": 116,
+          "eligibleSuccesses": 116,
+          "unresolvedRechecks": 4,
+          "discoveryChecks": 30,
+          "virtualElapsedMs": 225000,
+          "lastEligibleFinishedMs": 216600
+        },
+        {
+          "detailMs": 1600,
+          "totalChecks": 117,
+          "eligibleAttempts": 94,
+          "eligibleSuccesses": 94,
+          "unresolvedRechecks": 0,
+          "discoveryChecks": 23,
+          "virtualElapsedMs": 225600
+        },
+        {
+          "detailMs": 9800,
+          "totalChecks": 22,
+          "eligibleAttempts": 18,
+          "eligibleSuccesses": 18,
+          "unresolvedRechecks": 0,
+          "discoveryChecks": 4,
+          "virtualElapsedMs": 235000
+        }
+      ],
+      "providerFailure": {
+        "eligibleAttempts": 116,
+        "eligibleSuccesses": 115,
+        "failedEvidenceNotServed": true
+      },
+      "expiredEvidenceRecovery": true,
+      "reportedAndDatedEndedRemainLowerRecheck": true
+    },
+    "localChecks": {
+      "focused": {
+        "command": "node --import ./qa/fixtures/rack-network-guard.mjs --test scripts/test-scraper-data-preservation.cjs",
+        "passed": 17,
+        "failed": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "added": 6,
+        "initialRegressionsFailedBeforeFix": 5
+      },
+      "typescript": {
+        "command": "npm run typecheck -- --incremental false --pretty false",
+        "passed": true
+      },
+      "lint": {
+        "command": "node scripts/lint-aggregator.cjs",
+        "newErrors": 0,
+        "newWarnings": 0,
+        "baselinesUnchanged": true
+      },
+      "broadChecks": "Not repeated locally for this bounded scheduling follow-up; existing four workflows will qualify the published head."
+    },
+    "operatorChecklist": "Existing README checklist tightened: hold/drain, SQL preflight/authorized ledgered installation, 410 adopt/hold decisions, fresh per-record adoption/readback, hosted positive-cohort acceptance, capacity/first-refresh gate, promote last/unfreeze and safe rollback.",
+    "limitations": [
+      "No guarantee of complete 26-hour refresh coverage at slower durations or >120 eligible refresh demand with discovery backlog.",
+      "Four lower refresh slots/day with a fixed 116-priority cohort imply at least 74 invocations for 294 remaining records before failures/growth.",
+      "Controlled clocks establish queue/budget behavior, not hosted latency, cron punctuality or service parity."
+    ],
+    "publication": "Exact-four-file commit/push authorized by founder; current-head CI must be reconciled after publication",
+    "ci": "Pending published current-head workflows",
+    "productionOperations": 0,
+    "providerCollectionRepeated": false,
+    "sqlChanged": false,
+    "schedulingConfigurationChanged": false
+  },
+  "releasePreparation": {
+    "base": "d075c84372acc3f84ad93cbafe33736aded4fdd8",
+    "files": [
+      "docs/qa/aggregator-repair/ADOPTION-REVIEW.json",
+      "docs/qa/aggregator-repair/README.md",
+      "docs/qa/aggregator-repair/VERIFICATION.json",
+      "docs/qa/aggregator-repair/sql/RELEASE-PREFLIGHT.sql",
+      "scripts/test-aggregator-postgres.cjs",
+      "supabase/migrations/20261102123742_hackathon_source_sync.sql"
+    ],
+    "scope": "Prepared unapplied atomic migration, SELECT-only operator preflight, report-derived pending adoption review, existing runbook and focused isolated checks; application implementation unchanged.",
+    "founderConstraints": {
+      "newBackups": 0,
+      "newDumps": 0,
+      "newDatabaseSnapshots": 0,
+      "Docker": false,
+      "newSupabaseProjectOrBranch": false,
+      "paidInfrastructure": false,
+      "newCloudServices": false,
+      "overridesPriorBackupGates": true
+    },
+    "founderReportedBaseline": {
+      "project": "rhryjrbebfrrfhtyyzbs",
+      "postgres": "17.6",
+      "ledgerEntries": 147,
+      "productionCommit": "3a0b4d0488128fe730607ae1ef024a3bf52992e1",
+      "vercelProject": "hacker-mate-backup",
+      "plan": "Hobby",
+      "publicHackathons": 410,
+      "registrations": 8,
+      "linkedTeams": 4,
+      "saved": 2,
+      "partnerConfigs": 7,
+      "sourceNamesConflict": false,
+      "independentlyQueriedThisFollowup": false
+    },
+    "migration": {
+      "path": "supabase/migrations/20261102123742_hackathon_source_sync.sql",
+      "version": "20261102123742",
+      "name": "hackathon_source_sync",
+      "source": "docs/qa/aggregator-repair/sql/20261102123742_hackathon_source_sync.sql",
+      "sourceBusinessLogicChanged": false,
+      "ddlSha256": "3e3a67ba70a926703efd206ae0cc65d37d1d53aa64f63f95089f97a2da91e946",
+      "schemaAndLedgerSameTransaction": true,
+      "ledgerStatements": "Exact reviewed DDL array",
+      "expectedLedgerBefore": 147,
+      "expectedLedgerAfter": 148,
+      "lockTimeoutSeconds": 2,
+      "statementTimeoutSeconds": 30,
+      "loader": "Single exact file via existing native psql ON_ERROR_STOP=1; entire-file existing SQL Editor alternative only after separate authorization. No directory db push or separate ledger repair.",
+      "installed": false,
+      "executionAuthorized": false
+    },
+    "compatibility": {
+      "confirmedByFounder": [
+        "PG17.6",
+        "147 live ledger entries",
+        "410/8/4/2/7 aggregate baseline",
+        "source object names absent"
+      ],
+      "isolatedQualified": [
+        "Reviewed DDL unchanged",
+        "DATE/TIMESTAMPTZ/varchar fixture",
+        "atomic schema plus ledger",
+        "late failure and disconnected installer rollback",
+        "replay denial",
+        "existing 18 authority/adoption/concurrency checks",
+        "pinned production public reader against migrated synthetic database"
+      ],
+      "pendingLive": [
+        "Exact latest ledger version and ledger column shape",
+        "Full projected table columns/defaults/nullability/constraints/indexes",
+        "Effective service-role/anon/authenticated grants and RLS",
+        "Trigger/hook dependency review for no-outreach",
+        "Existing project function owner/settings/ACL/cache acceptance",
+        "Current deployment IDs/aliases/rollback eligibility and free hold controls"
+      ]
+    },
+    "adoption": {
+      "manifest": "docs/qa/aggregator-repair/ADOPTION-REVIEW.json",
+      "sourceReportUnchanged": true,
+      "historicalCandidates": 116,
+      "approvedForWrite": 0,
+      "unresolvedHeld": 86,
+      "endedNotSelected": 208,
+      "noExecutor": true,
+      "noNewRowExport": true,
+      "freshCheckRequiredBeforeApprovalAndApply": true
+    },
+    "deployment": {
+      "automaticBuildHold": "Proposed project Ignored Build Step: node -e \"process.exit(0)\"; only local exit code tested. Saved setting and ignored/cancelled build still require authorized live verification.",
+      "writerHold": "Proposed existing project Disable Cron Jobs plus one free Custom Rule denying both old scraper/cron paths, with precedence/host/bypass/quota checks and in-flight drain. No live setting changed.",
+      "publicSiteRemainsOnBaseline": true,
+      "rollback": "Hobby immediately-previous production deployment only. Pinned old public reader database compatibility passed; live alias switch/eligibility/full old application unqualified.",
+      "newServices": 0,
+      "settingsChanged": 0
+    },
+    "focusedTests": {
+      "command": "AGGREGATOR_TEST_PG_BIN=<existing native17.6>/bin node --import ./qa/fixtures/rack-network-guard.mjs --test scripts/test-aggregator-postgres.cjs",
+      "postgres": "17.6",
+      "checks": 27,
+      "groups": 1,
+      "failed": 0,
+      "skipped": 0,
+      "cancelled": 0,
+      "disposableLoopback": true,
+      "cleanupFinally": true,
+      "newChecks": 9,
+      "preservedExistingChecks": 18,
+      "sourceInstallAndPartialFailureTested": true,
+      "pinnedProductionReaderTested": true,
+      "hostedVercelRollbackTested": false,
+      "productionOrStagingConnections": 0
+    },
+    "lint": {
+      "command": "node node_modules/eslint/bin/eslint.js scripts/test-aggregator-postgres.cjs",
+      "newErrors": 0,
+      "newWarnings": 0
+    },
+    "qualificationNote": "No new broad local application/build/browser cycle: application code unchanged, d075c84 current-head four-workflow success remains prior-head evidence; new-head CI pending publication.",
+    "approvalsRequired": [
+      "Read-only live preflight execution/comparison",
+      "Deployment/Git-build and old-writer hold settings plus drain",
+      "Exact additive SQL installation",
+      "Individually reviewed fresh legacy adoption",
+      "Unaliased hosted candidate deployment/acceptance",
+      "Controlled catalog-only refresh measurement and best-effort daily decision",
+      "Public cutover (and any merge separately)",
+      "Cron/manual-writer unfreeze and later restoration of Git-build settings"
+    ],
+    "risk": "No recoverable backup is assumed. Uncommitted SQL can roll back, but application rollback cannot recover committed factual/editorial changes, deletions or external effects. Existing report is not database recovery.",
+    "publication": "Exact-six-file commit and push authorized by founder; current-head CI must be recorded after publication",
+    "productionOperations": 0,
+    "providerRequests": 0
+  },
+  "lifecycleDateCorrection": {
+    "base": "d6499a38a230baaf76b22d8aa272488004c33058",
+    "status": "UNCOMMITTED_READY_FOR_USER_REVIEW",
+    "files": [
+      "src/lib/hackathons/providers.ts",
+      "src/lib/hackathons/source.ts",
+      "src/lib/hackathons/lifecycle.ts",
+      "src/lib/hackathons/synchronize.ts",
+      "src/components/hackathons/SourceInformation.tsx",
+      "qa/fixtures/aggregator/provider-facts.cjs",
+      "qa/fixtures/mission20-hotfix-browser.jsx",
+      "scripts/test-aggregator-sources.cjs",
+      "scripts/test-scraper-data-preservation.cjs",
+      "scripts/test-aggregator-postgres.cjs",
+      "scripts/test-mission20-discovery-hotfix-browser.cjs",
+      "scripts/reconcile-hackathon-catalog.cjs",
+      "scripts/reassess-aggregator-lifecycle.cjs",
+      "docs/qa/aggregator-repair/LIFECYCLE-REASSESSMENT.json",
+      "docs/qa/aggregator-repair/ADOPTION-REVIEW.json",
+      "docs/qa/aggregator-repair/README.md",
+      "docs/qa/aggregator-repair/VERIFICATION.json"
+    ],
+    "filePurposes": {
+      "src/lib/hackathons/providers.ts": "Unstop actual-stage semantics, explicit provenance and contradiction holds",
+      "src/lib/hackathons/source.ts": "Suppress unsupported Unstop event dates in shared projection",
+      "src/lib/hackathons/lifecycle.ts": "Require schedule evidence independently of registration availability",
+      "src/lib/hackathons/synchronize.ts": "Guard date patches, reconciliation and priority against unsupported event windows",
+      "src/components/hackathons/SourceInformation.tsx": "Explain unknown dates and conflicting mode/team facts",
+      "qa/fixtures/aggregator/provider-facts.cjs": "Synthetic three public discrepancies and genuine typed-build fixture",
+      "qa/fixtures/mission20-hotfix-browser.jsx": "Explicit supported schedule provenance; AlgoRush schedule unknown",
+      "scripts/test-aggregator-sources.cjs": "Parser/lifecycle/timezone/provider/UI/report regressions",
+      "scripts/test-scraper-data-preservation.cjs": "Retain existing queue assertions with actual-build evidence",
+      "scripts/test-aggregator-postgres.cjs": "Existing v1 SQL compatibility and unknown-date projection without data erasure",
+      "scripts/test-mission20-discovery-hotfix-browser.cjs": "Reject unsupported Ended/Ongoing in real browser journeys",
+      "scripts/reconcile-hackathon-catalog.cjs": "Re-evaluate retained observations without retaining obsolete classification/date patches",
+      "scripts/reassess-aggregator-lifecycle.cjs": "Deterministic offline reassessment and pending shortlist generation",
+      "docs/qa/aggregator-repair/LIFECYCLE-REASSESSMENT.json": "410-record derived interpretation preserving original evidence/counts",
+      "docs/qa/aggregator-repair/ADOPTION-REVIEW.json": "84 historical open-registration review candidates, zero approved writes",
+      "docs/qa/aggregator-repair/README.md": "Root cause, semantics, original/current audit meanings and verification",
+      "docs/qa/aggregator-repair/VERIFICATION.json": "Exact inventory, evidence hashes, actual local checks and uncommitted status"
+    },
+    "approvedPlan": "Previously approved focused Unstop date-semantics correction; no reapproval or audit restart.",
+    "recovery": {
+      "actualModifiedFilesRecovered": 10,
+      "summarySevenFileCountWasIntermediate": true,
+      "previousSessionCompleted": "Unstop competition-date rejection, v1 provenance guard and uncertainty UI; initial fixtures and 61 focused tests; broad run had 2 failures.",
+      "completedOnResume": [
+        "Preserved all recovered edits",
+        "Narrowed typed-stage acceptance and held reversed/ambiguous/unreconciled event windows",
+        "Restored existing native Dates unclear label without changing its assertion",
+        "Expanded India-calendar/timezone, provider, UI, stale-provenance and SQL boundary cases",
+        "Corrected retained reconciliation classification and patches",
+        "Derived reassessment and replaced unsafe shortlist while preserving original report",
+        "Reviewed complete diff; documented installed schema/holds and no-adoption state"
+      ]
+    },
+    "rules": {
+      "unstopCompetitionOrRegistrationWindowIsEvent": false,
+      "unstopPublicationStatusIsEventCompletion": false,
+      "genericRoundWindowIsEvent": false,
+      "actualEventBasis": "Single public typed OfflineRound explicitly identifying actual/final hackathon; valid coherent bounds; ambiguity/later-stage/prose-date conflicts held.",
+      "missingEventDates": "Unknown with provenance; never copied from competition dates. Existing physical DATE values are preserved by installed SQL while projection hides unsupported dates.",
+      "registration": "Fresh coherent successful open-registration evidence may qualify a hackathon even with unknown event timing; closed registration alone does not establish event completion.",
+      "modeAndTeams": "Structured values retained; directly labeled contradictions are unresolved and disputed projections null, not guessed.",
+      "otherProviders": "Native, Devfolio and Hack2Skill source-specific date contracts preserved."
+    },
+    "installedSchema": {
+      "reportedByFounder": true,
+      "migration": "20261102123742",
+      "ledgerEntries": 148,
+      "legacyAdoptions": 0,
+      "legacyWriterEndpoints": "blocked by founder",
+      "allVercelCron": "disabled by founder",
+      "sqlOrLedgerChangedByThisTask": false,
+      "newMigrationRequired": false,
+      "compatibility": "28 checks on disposable native PG17.6, including v1 unknown-date projection without erasing stored DATE fields and independently open registration"
+    },
+    "audit": {
+      "originalReportUnchanged": true,
+      "originalReport": "docs/qa/aggregator-repair/RECONCILIATION-PREVIEW.json",
+      "reassessment": "docs/qa/aggregator-repair/LIFECYCLE-REASSESSMENT.json",
+      "originalCounts": {
+        "active": 116,
+        "registrationOpen": 85,
+        "ongoing": 115,
+        "ended": 208,
+        "unresolved": 86
+      },
+      "withdrawnClaims": {
+        "unstopOngoing": 115,
+        "additionalUnresolvedUnstopOngoingObservations": 81,
+        "unstopEnded": 204
+      },
+      "indiaCalendarComparisons": {
+        "activeStartEqualsRegistrationStart": 115,
+        "activeBothBoundariesEqual": 20,
+        "unstopEndedEndEqualsRegistrationDeadline": 82
+      },
+      "derivedHistoricalCounts": {
+        "requires_fresh_evidence": 322,
+        "historical_registration_open_candidate": 84,
+        "historical_supported_event_end": 4
+      },
+      "currentVerifiedCounts": null,
+      "approvedForWrite": 0,
+      "adoptionGate": "CLOSED pending independent correction review and fresh per-record source/editorial/control evidence. 84 is a historical review queue, never a target."
+    },
+    "qualification": {
+      "application": {
+        "command": "node scripts/qualify-aggregator.cjs",
+        "passed": 1690,
+        "failed": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "selectedFiles": 31
+      },
+      "focused": {
+        "command": "node --import ./qa/fixtures/rack-network-guard.mjs --test scripts/test-aggregator-sources.cjs",
+        "passed": 50,
+        "failed": 0
+      },
+      "postgres": {
+        "command": "AGGREGATOR_TEST_PG_BIN=<existing native17.6>/bin node --import ./qa/fixtures/rack-network-guard.mjs --test scripts/test-aggregator-postgres.cjs",
+        "version": "17.6",
+        "checks": 28,
+        "groups": 1,
+        "failed": 0,
+        "productionConnections": 0
+      },
+      "browser": {
+        "command": "node --import ./qa/fixtures/rack-network-guard.mjs --test scripts/test-mission20-discovery-hotfix-browser.cjs",
+        "passed": 3,
+        "widths": [
+          390,
+          768,
+          1440
+        ],
+        "roles": [
+          "guest",
+          "member"
+        ],
+        "externalRequests": 0,
+        "mutations": 0,
+        "screenshotsInspected": true
+      },
+      "rack": {
+        "command": "node qa/rack-qualification.cjs funnel-browser",
+        "passed": 32,
+        "failed": 0,
+        "assertionsUnchanged": true
+      },
+      "typescript": {
+        "command": "npm run typecheck -- --incremental false --pretty false",
+        "passed": true
+      },
+      "lint": {
+        "command": "node scripts/lint-aggregator.cjs; explicit ESLint of scripts/reassess-aggregator-lifecycle.cjs",
+        "newErrors": 0,
+        "newWarnings": 0,
+        "baselinesUnchanged": [
+          {
+            "file": "src/app/hackathons/[id]/page.tsx",
+            "errors": 5,
+            "warnings": 5
+          },
+          {
+            "file": "src/app/admin/_tabs/OutreachTab.tsx",
+            "errors": 12,
+            "warnings": 4
+          }
+        ]
+      },
+      "build": {
+        "command": "node qa/rack-qualification.cjs build",
+        "passed": true,
+        "syntheticReads": 3,
+        "mutations": 0
+      },
+      "deterministicReassessment": true,
+      "previousFailuresReconciled": "Native label restored to original contract; unrelated PDF transport timing test passed 53/53 unchanged independently, then full selection passed 1690/1690. No assertions weakened.",
+      "oldSourceSensitivity": {
+        "base": "d6499a3",
+        "inMemoryReadOverrideOnly": true,
+        "discrepancyAndClosedWindowTestsFailed": 4,
+        "passed": 0,
+        "checkoutNeverOverwritten": true
+      }
+    },
+    "limitations": [
+      "Most saved Unstop records lack authoritative actual event dates; 115 ongoing and 204 ended claims withdrawn, not recomputed as opposite states.",
+      "Narrow typed offline stage support intentionally leaves online/draft/other structured formats and prose-only schedules unknown.",
+      "Labeled contradiction detection is conservative, not a universal natural-language fact validator.",
+      "Historical registration/category fields need fresh checks before adoption; no current production counts established.",
+      "No Linux/new-head CI exists for uncommitted work, and hosted acceptance/adoption remain unauthorized."
+    ],
+    "boundaries": {
+      "productionOrStagingQueries": 0,
+      "productionWrites": 0,
+      "newBackupsDumpsOrDatabaseSnapshots": 0,
+      "Docker": false,
+      "newSupabaseProject": false,
+      "newPaidInfrastructure": false,
+      "providerRequestsOnResume": 0,
+      "sqlChanges": 0,
+      "ledgerChanges": 0,
+      "cronOrFirewallChanges": 0,
+      "mail": 0,
+      "commits": 0,
+      "pushes": 0,
+      "merges": 0,
+      "deployments": 0
+    },
+    "priorRecordedChecks": {
+      "application": {
+        "command": "node scripts/qualify-aggregator.cjs",
+        "selectedFiles": 31,
+        "passed": 1668,
+        "failed": 0,
+        "skipped": 0
+      },
+      "postgres": {
+        "command": "AGGREGATOR_TEST_PG_BIN=<native17.6>/bin node --import ./qa/fixtures/rack-network-guard.mjs --test scripts/test-aggregator-postgres.cjs",
+        "version": "17.6",
+        "groups": 1,
+        "checks": 18,
+        "failed": 0,
+        "disposable": true
+      },
+      "browser": {
+        "command": "node --import ./qa/fixtures/rack-network-guard.mjs --test scripts/test-mission20-discovery-hotfix-browser.cjs",
+        "widths": [
+          390,
+          768,
+          1440
+        ],
+        "roles": [
+          "guest",
+          "member"
+        ],
+        "passed": 3,
+        "failed": 0,
+        "visuallyInspected": true,
+        "externalRequests": 0,
+        "writes": 0
+      },
+      "rack": {
+        "command": "node qa/rack-qualification.cjs funnel-browser",
+        "passed": 32,
+        "failed": 0,
+        "assertionsUnchanged": true
+      },
+      "typescript": {
+        "command": "npm run typecheck",
+        "passed": true
+      },
+      "lint": {
+        "command": "node scripts/lint-aggregator.cjs",
+        "cleanFiles": 34,
+        "newErrors": 0,
+        "newWarnings": 0,
+        "unchangedBaselines": [
+          {
+            "file": "src/app/hackathons/[id]/page.tsx",
+            "errors": 5,
+            "warnings": 5
+          },
+          {
+            "file": "src/app/admin/_tabs/OutreachTab.tsx",
+            "errors": 12,
+            "warnings": 4
+          }
+        ]
+      },
+      "legacyLint": {
+        "command": "node scripts/lint-mission20-discovery-hotfix.cjs",
+        "passed": true
+      },
+      "build": {
+        "command": "node qa/rack-qualification.cjs build",
+        "passed": true,
+        "syntheticReads": 3,
+        "mutations": 0,
+        "existingWarnings": [
+          "Sentry instrumentation and client-config deprecation",
+          "Sentry token unavailable; no release or source-map upload",
+          "Webpack cache serialization"
+        ]
+      }
+    }
+  },
+  "stageEligibilityCorrection": {
+    "reviewedParent": "d0a9e0bf8411a431c1789df600d4d336ddea445b",
+    "status": "LOCAL_VALIDATION_COMPLETE_NOT_PUBLISHED",
+    "changedFiles": [
+      "docs/qa/aggregator-repair/README.md",
+      "docs/qa/aggregator-repair/VERIFICATION.json",
+      "qa/fixtures/mission20-hotfix-browser.jsx",
+      "scripts/test-aggregator-postgres.cjs",
+      "scripts/test-aggregator-sources.cjs",
+      "scripts/test-mission20-discovery-hotfix-browser.cjs",
+      "src/lib/hackathons/providers.ts",
+      "src/lib/hackathons/source.ts"
+    ],
+    "rootCause": "Loose actual/final-before-hackathon description matching and title-only adjacent-activity exclusions minted authoritative schedule provenance for judging, presentations and orientation.",
+    "correction": "Require both a complete build activity label and a complete statement directly identifying this stage as the actual/final build period. Two supported statement forms only; unknown/mixed/preparatory language remains unverified. Reject contradictory parent/detail metadata and hidden/deleted/unknown markup; never classify truncated prefixes.",
+    "provenance": {
+      "parserVersion": "aggregator-6",
+      "current": "explicit_hackathon_build_stage_v2",
+      "revoked": "published_hackathon_build_stage",
+      "oldObservationsRequireFreshCheck": true,
+      "registrationEvidenceRemainsIndependent": true
+    },
+    "redPhase": {
+      "command": "node --import ./qa/fixtures/rack-network-guard.mjs --test --test-reporter=spec scripts/test-aggregator-sources.cjs",
+      "tests": 127,
+      "passed": 78,
+      "failed": 49,
+      "cancelled": 0,
+      "skipped": 0,
+      "note": "Initial added regression matrix against unmodified implementation; final matrix expanded afterward."
+    },
+    "checks": {
+      "source": {
+        "command": "node --import ./qa/fixtures/rack-network-guard.mjs --test --test-reporter=spec scripts/test-aggregator-sources.cjs",
+        "tests": 146,
+        "passed": 146,
+        "failed": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      "application": {
+        "command": "node scripts/qualify-aggregator.cjs",
+        "tests": 1786,
+        "passed": 1786,
+        "failed": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      "postgres": {
+        "command": "AGGREGATOR_TEST_PG_BIN=<existing native17.6>/bin node --import ./qa/fixtures/rack-network-guard.mjs --test scripts/test-aggregator-postgres.cjs",
+        "tests": 1,
+        "passed": 1,
+        "failed": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "checks": 29,
+        "version": "17.6",
+        "disposable": true,
+        "cleanup": "finally stops cluster and removes its verified temporary directory",
+        "productionConnections": 0,
+        "productionWrites": 0
+      },
+      "browser": {
+        "command": "node --import ./qa/fixtures/rack-network-guard.mjs --test scripts/test-mission20-discovery-hotfix-browser.cjs",
+        "tests": 3,
+        "passed": 3,
+        "failed": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "widths": [
+          390,
+          768,
+          1440
+        ],
+        "roles": [
+          "guest",
+          "member"
+        ],
+        "reportedFalsePositiveCases": 3,
+        "windows": [
+          "ongoing",
+          "past"
+        ],
+        "externalRequests": 0,
+        "writes": 0,
+        "note": "Assertions exercise actual parser-produced adjacent-stage observations in directory and guest/member details; no new visual design claim."
+      },
+      "typescript": {
+        "command": "npm run typecheck -- --incremental false --pretty false",
+        "passed": true
+      },
+      "lint": {
+        "command": "node scripts/lint-aggregator.cjs",
+        "scopedFiles": 34,
+        "newErrors": 0,
+        "newWarnings": 0,
+        "baselines": [
+          {
+            "file": "src/app/hackathons/[id]/page.tsx",
+            "errors": 5,
+            "warnings": 5
+          },
+          {
+            "file": "src/app/admin/_tabs/OutreachTab.tsx",
+            "errors": 12,
+            "warnings": 4
+          }
+        ],
+        "base": "3a0b4d0488128fe730607ae1ef024a3bf52992e1"
+      },
+      "build": {
+        "command": "node qa/rack-qualification.cjs build",
+        "passed": true,
+        "syntheticReads": 3,
+        "mutations": 0,
+        "externalApplicationNetwork": "denied",
+        "credentials": "scrubbed; .env files refused"
+      }
+    },
+    "matrix": {
+      "adjacentOrAmbiguousDescriptions": {
+        "passed": 68
+      },
+      "contradictoryParentOrDetailMetadata": {
+        "passed": 6
+      },
+      "unequivocalBuildDescriptions": {
+        "passed": 18
+      },
+      "independentOpenRegistration": {
+        "passed": 1
+      },
+      "revokedCachedProvenance": {
+        "passed": 2
+      },
+      "additionalIndiaUtcMalformedNativeCheck": {
+        "passed": 1
+      },
+      "existingSourceTests": 50
+    },
+    "downstreamInspected": [
+      "provider parsing",
+      "provenance gate",
+      "lifecycle derivation",
+      "active/open/ongoing filtering",
+      "shared public projection",
+      "refresh queue",
+      "sourcePatch",
+      "reconciliation suppression",
+      "retained-report reinterpretation",
+      "real SDK/SQL/public-reader refresh",
+      "guest/member labels"
+    ],
+    "audit": {
+      "regeneratedCommand": "node scripts/reassess-aggregator-lifecycle.cjs",
+      "originalEvidenceUnchanged": true,
+      "derivedArtifactsContentUnchanged": true,
+      "records": 410,
+      "uniqueRecords": 410,
+      "derivedHistoricalCounts": {
+        "requires_fresh_evidence": 322,
+        "historical_registration_open_candidate": 84,
+        "historical_supported_event_end": 4
+      },
+      "withdrawnClaims": {
+        "unstopOngoing": 115,
+        "additionalUnresolvedUnstopOngoingObservations": 81,
+        "unstopEnded": 204
+      },
+      "currentVerifiedCounts": null,
+      "approvedForWrite": 0
+    },
+    "localReview": {
+      "standards": "PASS; no material finding",
+      "spec": "PASS after rejecting preparatory-for-hackathon forms; reviewer independently ran final 146-test source suite",
+      "anotherIndependentReviewBeforePush": "recommended"
+    },
+    "limitations": [
+      "Only two direct stage-identity statement forms are supported; unfamiliar legitimate prose remains unverified by design.",
+      "No live provider recheck, hosted gateway test, production query, adoption, PR mutation, push or deployment occurred.",
+      "GitHub/Linux CI is pending separately authorized publication.",
+      "Initial sandbox PG initdb WAL rename, Chrome crash handler and build directory creation were denied. Final fixtures/build ran outside the Windows filesystem sandbox, retaining their synthetic-data, environment and network guards.",
+      "Initial expanded browser fixture violated ID ordering; rows now honor the public reader ORDER BY id contract without weakening pagination assertions.",
+      "Existing Sentry instrumentation/deprecation/token and webpack-cache warnings remain; no production credentials were supplied."
+    ],
+    "evidence": {
+      "stage-hardening-before.log": {
+        "path": "scratch/aggregator-audit/stage-hardening-before.log",
+        "sha256": "78168ad3e7c651c39143a5b737be0f903b5630c50a49d759a007d6ee4ab076c3"
+      },
+      "stage-hardening-sources-final.log": {
+        "path": "scratch/aggregator-audit/stage-hardening-sources-final.log",
+        "sha256": "a55dd45e45b550c78f884bad49288c97786dce5b7ae35fcb2136763802cbe520"
+      },
+      "stage-hardening-application-final.log": {
+        "path": "scratch/aggregator-audit/stage-hardening-application-final.log",
+        "sha256": "128b7259e5aef716d45a0eca787739539ca5b096b8dfa115e0f5c09a06d0817b"
+      },
+      "stage-hardening-postgres-final.log": {
+        "path": "scratch/aggregator-audit/stage-hardening-postgres-final.log",
+        "sha256": "46417f150f0e2c0c4b9516967ecd43e36cdc8b01a0c78aff3ce118fa4dd0cc34"
+      },
+      "stage-hardening-browser-current.log": {
+        "path": "scratch/aggregator-audit/stage-hardening-browser-current.log",
+        "sha256": "6838a1d295d3cb7a28d4881f5f2f7c8cd3965fdcfef69cac6e22ae03cd78ac83"
+      },
+      "stage-hardening-typecheck-final.log": {
+        "path": "scratch/aggregator-audit/stage-hardening-typecheck-final.log",
+        "sha256": "2712bcfedaa448473286eb8eddfafbd140e5f86179ad29c81a1b1c5232e67fa0"
+      },
+      "stage-hardening-lint-final.log": {
+        "path": "scratch/aggregator-audit/stage-hardening-lint-final.log",
+        "sha256": "1153a9fdc29271ff9c0e48a9bd069da1f8d7dfc8db9c6af823752ca20d6080c1"
+      },
+      "stage-hardening-build-final.log": {
+        "path": "scratch/aggregator-audit/stage-hardening-build-final.log",
+        "sha256": "5a583eb2d33f674946a47e42f53d587e1a71645114a4c795594fd1801295f6c6"
+      },
+      "stage-hardening-postgres.log": {
+        "path": "scratch/aggregator-audit/stage-hardening-postgres.log",
+        "sha256": "25a923f2d90e2f6386f9337c4488dbc9c63a34360886903e39b792abae4232c7"
+      },
+      "stage-hardening-browser.log": {
+        "path": "scratch/aggregator-audit/stage-hardening-browser.log",
+        "sha256": "09334320bc2b10d40d52c103eebbb26d6fc49c250cf1099aad054268e999dc2d"
+      },
+      "stage-hardening-build.log": {
+        "path": "scratch/aggregator-audit/stage-hardening-build.log",
+        "sha256": "05d72090f0380953b0d6eca80b9b9dfbde45155c3151adf01616d316d698130e"
+      },
+      "stage-hardening-browser-qualified.log": {
+        "path": "scratch/aggregator-audit/stage-hardening-browser-qualified.log",
+        "sha256": "01386adb83fe400f4077225b4d55aee1f58e971d57570336f0c50321ce8fda4f"
+      }
+    }
+  },
+  "incompleteEvidenceCorrection": {
+    "reviewedParent": "a9ec8160384f3504120a0fb78e11d177a9088560",
+    "status": "LOCAL_VALIDATION_COMPLETE_READY_FOR_INDEPENDENT_REVIEW",
+    "changedFiles": [
+      "docs/qa/aggregator-repair/README.md",
+      "docs/qa/aggregator-repair/VERIFICATION.json",
+      "qa/fixtures/aggregator/provider-facts.cjs",
+      "qa/fixtures/mission20-hotfix-browser.jsx",
+      "scripts/qualify-aggregator.cjs",
+      "scripts/reconcile-hackathon-catalog.cjs",
+      "scripts/test-aggregator-lifecycle-evidence.cjs",
+      "scripts/test-aggregator-postgres.cjs",
+      "scripts/test-mission20-discovery-hotfix-browser.cjs",
+      "src/lib/hackathons/providers.ts",
+      "src/lib/hackathons/source.ts",
+      "src/lib/hackathons/synchronize.ts"
+    ],
+    "authorization": {
+      "planExplicitlyApproved": true,
+      "localFollowupCommitsAuthorized": 1,
+      "message": "fix(aggregator): fail closed on incomplete lifecycle evidence",
+      "preservePriorCommits": true,
+      "push": false,
+      "merge": false,
+      "deploy": false,
+      "productionWrites": false,
+      "prRemainsDraft": true
+    },
+    "rootCausesAndFixes": [
+      {
+        "finding": "Medium: discarded sibling stages permitted false whole-event certainty",
+        "rootCause": "The positive predicate removed ambiguous stages before reconciliation; only remaining sibling end dates were compared.",
+        "fix": "Reconcile the full potentially public inventory. Unknown semantics, incomplete or contradictory relevant windows, incoherent ordering and parent/child disagreements hold the schedule. Complete no-building assertions distinguish unrelated activity. Equal complete windows or explicitly parent-linked adjoining build stages remain supported."
+      },
+      {
+        "finding": "Medium: evidence-less retained reports preserved unsafe proposals",
+        "rootCause": "reinterpretRetained returned results with no evidence unchanged.",
+        "fix": "Validate evidence before reinterpretation. Missing/malformed evidence yields unresolved plus empty changes. Preserve original claims/evidence, mark every retained result requires_fresh_verification, and test both resume modes through serialized reload/replay. The status resume selector also checks issues as an array before membership testing."
+      },
+      {
+        "finding": "Low: coerced provider metadata bypassed provenance",
+        "rootCause": "String(provider) enum validation disagreed with raw strict provider comparison.",
+        "fix": "Centralize exact primitive provider identity validation. Reject malformed identity fields and enum arrays. Source projection, schedule evidence, patching and reconciliation use validated metadata/identity."
+      }
+    ],
+    "provenance": {
+      "parserVersion": "aggregator-7",
+      "current": "reconciled_hackathon_build_stages_v3",
+      "revoked": [
+        "published_hackathon_build_stage",
+        "explicit_hackathon_build_stage_v2"
+      ],
+      "newCheckRequired": true,
+      "noSchemaChanges": true
+    },
+    "decisions": {
+      "unrelatedActivities": "Full supported no-building statement plus agreeing activity label/optional parent semantics; no title-only keyword exclusions. Missing unrelated boundaries are permitted, supplied malformed/contradictory dates are held.",
+      "multipleBuildStages": "Matching complete boundaries, or a shared explicit whole-build parent with matching complete boundaries and ordered exactly adjoining child windows. No inferred union across independent rounds, unknown gaps or partial overlap.",
+      "unknownRelationships": "Fail closed regardless of where the opaque stage falls relative to the supported build.",
+      "runtime": "Set/Map inventory processing is linear; existing transport/runtime limits and dependencies unchanged."
+    },
+    "redPhase": {
+      "command": "node --import ./qa/fixtures/rack-network-guard.mjs --test --test-reporter=tap scripts/test-aggregator-lifecycle-evidence.cjs",
+      "productionCodeUnchanged": true,
+      "tests": 71,
+      "passed": 24,
+      "failed": 47,
+      "skipped": 0,
+      "allThreeFindingsReproduced": true,
+      "note": "Final suite expanded to 81 tests with more lifecycle-state, UTC/India, malformed-issues and repeated-report-replay assertions."
+    },
+    "beforeAfter": {
+      "futureSiblingPast": {
+        "before": [
+          "v2",
+          "ended",
+          "event-date patches",
+          "confirmed_ended_propose_suppression"
+        ],
+        "after": [
+          "unverified",
+          "unknown",
+          "no event-date patches",
+          "unresolved"
+        ]
+      },
+      "futureSiblingOngoing": {
+        "before": [
+          "v2",
+          "ongoing",
+          "Active selected",
+          "event-date patches"
+        ],
+        "after": [
+          "unverified",
+          "unknown",
+          "not Active",
+          "no event-date patches"
+        ]
+      },
+      "evidenceLessReport": {
+        "before": "Suppression and date proposals retained unchanged",
+        "after": "Unresolved; current changes empty; originals retained; requires fresh verification"
+      },
+      "arrayProvider": {
+        "before": "Accepted as Unstop by coercion, then bypassed marker and authorized lifecycle/patches",
+        "after": "Rejected metadata; no schedule evidence, Active selection or date patches"
+      },
+      "originalThreeExploits": "Grand Finale, Presentations and Orientation remain rejected with ongoing/past windows."
+    },
+    "checks": {
+      "focused": {
+        "command": "node --import ./qa/fixtures/rack-network-guard.mjs --test --test-reporter=tap scripts/test-aggregator-lifecycle-evidence.cjs scripts/test-aggregator-sources.cjs",
+        "tests": 227,
+        "passed": 227,
+        "failed": 0,
+        "skipped": 0,
+        "newTests": 81,
+        "priorSourceTests": 146
+      },
+      "application": {
+        "command": "node scripts/qualify-aggregator.cjs",
+        "tests": 1867,
+        "passed": 1867,
+        "failed": 0,
+        "cancelled": 0,
+        "skipped": 0,
+        "selectedFiles": 32
+      },
+      "postgres": {
+        "command": "AGGREGATOR_TEST_PG_BIN=<existing native17.6>/bin node --import ./qa/fixtures/rack-network-guard.mjs --test scripts/test-aggregator-postgres.cjs",
+        "tests": 1,
+        "passed": 1,
+        "failed": 0,
+        "skipped": 0,
+        "checks": 30,
+        "version": "17.6",
+        "newInventoryWindows": 8,
+        "productionConnections": 0,
+        "productionWrites": 0,
+        "disposable": true,
+        "cleanup": "Existing finally stops and removes its verified temporary cluster"
+      },
+      "browser": {
+        "command": "node --import ./qa/fixtures/rack-network-guard.mjs --test scripts/test-mission20-discovery-hotfix-browser.cjs",
+        "tests": 3,
+        "passed": 3,
+        "failed": 0,
+        "skipped": 0,
+        "widths": [
+          390,
+          768,
+          1440
+        ],
+        "roles": [
+          "guest",
+          "member"
+        ],
+        "originalExploitRows": 6,
+        "newInventoryRows": 8,
+        "malformedOrV2CacheRows": 2,
+        "externalRequests": 0,
+        "writes": 0
+      },
+      "typescript": {
+        "command": "node node_modules/typescript/bin/tsc --noEmit --incremental false --pretty false",
+        "passed": true
+      },
+      "lint": {
+        "command": "node scripts/lint-aggregator.cjs",
+        "passed": true,
+        "scopedFiles": 35,
+        "newErrors": 0,
+        "newWarnings": 0,
+        "preservedLegacyBaselines": [
+          {
+            "file": "src/app/hackathons/[id]/page.tsx",
+            "errors": 5,
+            "warnings": 5
+          },
+          {
+            "file": "src/app/admin/_tabs/OutreachTab.tsx",
+            "errors": 12,
+            "warnings": 4
+          }
+        ]
+      },
+      "build": {
+        "command": "node qa/rack-qualification.cjs build",
+        "passed": true,
+        "syntheticReads": 3,
+        "mutations": 0,
+        "credentials": "Scrubbed; .env files refused",
+        "externalApplicationNetwork": "Denied"
+      },
+      "diffCheck": {
+        "command": "git diff --check",
+        "passed": true
+      }
+    },
+    "initialFailuresAndRecovery": [
+      "Expected red phase: 47 failing new tests before production changes.",
+      "Scoped lint rejected a test-local module variable; renamed to reportModule and final lint passed.",
+      "Sandbox PG initdb WAL rename, Chrome crash-handler launch and Next .next directory creation were denied. Same guarded synthetic fixtures/build passed outside the filesystem sandbox.",
+      "First unsandboxed browser assertions expected Registration closed for unresolved inventory observations. Corrected to the existing Registration availability unverified behavior, with closed retained for valid closed-registration observations. Final three journeys passed.",
+      "Initial audit wrapper attempted a non-exported main function. Re-ran the actual CLI twice; original and derived artifacts remained byte-identical.",
+      "Additional red phase found one malformed issues-object status-resume failure; added an array check and re-ran all 1867 application tests successfully.",
+      "A final historical-file comparison exceeded the default child-process output buffer; the bounded Git diff check and prior byte-for-byte CLI regeneration verification passed."
+    ],
+    "audit": {
+      "deterministic": true,
+      "allOriginalAndDerivedFilesByteIdentical": true,
+      "sourceSha256": "0a0c99b06493ba19736e14f0446133ae04a826fdafbb3ecf9ead4250cdebc603",
+      "records": 410,
+      "uniqueIds": 410,
+      "derived": {
+        "requires_fresh_evidence": 322,
+        "historical_registration_open_candidate": 84,
+        "historical_supported_event_end": 4
+      },
+      "withdrawn": {
+        "unstopOngoing": 115,
+        "additionalUnresolvedUnstopOngoingObservations": 81,
+        "unstopEnded": 204
+      },
+      "currentVerifiedCounts": null,
+      "approvedForWrite": 0
+    },
+    "localReview": {
+      "standards": "PASS; zero findings",
+      "spec": "PASS; zero actionable findings; 44 additional malformed-inventory in-memory probes passed; final malformed-issues selector and README reviewed again with no new findings",
+      "root": "PASS; complete production/test/documentation diff and exact 12-file scope inspected; all requested offline checks passed; no unrelated files."
+    },
+    "limitations": [
+      "No live provider recheck, hosted Auth/gateway acceptance, production query, adoption, PR mutation, push, merge or deployment occurred.",
+      "Only the documented complete grammar and coherent linked/matching multi-stage contracts are supported; unfamiliar genuine stages conservatively remain unverified.",
+      "V2 cached schedules intentionally lose authority until refreshed. Unresolved source checks keep registration availability unverified under existing freshness rules.",
+      "SQL remains unchanged and trusts service-generated patches; current application writer uses the guarded sourcePatch.",
+      "Existing middleware/Sentry instrumentation, missing-token and webpack-cache warnings remain; build uses no production credentials.",
+      "Final independent re-review and separately authorized current-head GitHub/Linux CI remain publication gates."
+    ],
+    "evidence": {
+      "before": {
+        "path": "scratch/aggregator-audit/incomplete-evidence-before.log",
+        "sha256": "0f5f1b6bd2ade79d83e9e636c6edc69e54aa7e79c1012fa86ad83e300018fed7"
+      },
+      "focused": {
+        "path": "scratch/aggregator-audit/incomplete-evidence-focused.log",
+        "sha256": "8acf386985b4cc68ecb2dead29bf59f9bcf639fc8229dd5309ce1479d1fd72c2"
+      },
+      "application": {
+        "path": "scratch/aggregator-audit/incomplete-evidence-application.log",
+        "sha256": "6552c7de8edd4da84d6d7aa3257c0bd6fd30e03e81ba7f64eea251202a6b2d8c"
+      },
+      "postgres": {
+        "path": "scratch/aggregator-audit/incomplete-evidence-postgres.log",
+        "sha256": "858000392e8481ca7273da509b59191005ee93089a1a2594d4cd30acd9202614"
+      },
+      "postgres-sandbox": {
+        "path": "scratch/aggregator-audit/incomplete-evidence-postgres-sandbox.log",
+        "sha256": "2d84e1040d8094f756f0ae373cb60574a7af07f65380eaba4c2198dd56f2375a"
+      },
+      "browser": {
+        "path": "scratch/aggregator-audit/incomplete-evidence-browser.log",
+        "sha256": "ca9576e5fb031825bcab18ab5b2c19538ad4a6bb973cbf87a364b73c3c2d9fb7"
+      },
+      "browser-sandbox": {
+        "path": "scratch/aggregator-audit/incomplete-evidence-browser-sandbox.log",
+        "sha256": "78f978ffe293c617f49f7cde0c80bc3fab6a760dd5254e750cb693a574b0ebf2"
+      },
+      "browser-first": {
+        "path": "scratch/aggregator-audit/incomplete-evidence-browser-first.log",
+        "sha256": "1be4e6da51a9baee435081fd01e12f3879e174bc1658f21b6dacf25762638945"
+      },
+      "typecheck": {
+        "path": "scratch/aggregator-audit/incomplete-evidence-typecheck.log",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "lint": {
+        "path": "scratch/aggregator-audit/incomplete-evidence-lint.log",
+        "sha256": "4e633e6500d57da07884d2dce42e29f4c8919434b31cbb2b5cbd375dcd801e93"
+      },
+      "build": {
+        "path": "scratch/aggregator-audit/incomplete-evidence-build.log",
+        "sha256": "f6da13751050177eca42adae8df5f3c5c5d5604f72dc06cbdd9b5495707421a9"
+      },
+      "build-sandbox": {
+        "path": "scratch/aggregator-audit/incomplete-evidence-build-sandbox.log",
+        "sha256": "3498b9e871f8f8d6cdac2031fec96bdc0dab0ecce13a87a5b40874cc0459297c"
+      },
+      "audit": {
+        "path": "scratch/aggregator-audit/incomplete-evidence-audit.log",
+        "sha256": "0044f45523c72a0cbc56281655d3afc5c9ea35e2be17529e9d4012208e86a2b2"
+      },
+      "resume-before": {
+        "path": "scratch/aggregator-audit/incomplete-evidence-resume-before.log",
+        "sha256": "fd6a54919bdb4350775ce52a896c544ab6fbe723f91bbcf51b2655875216c7ba"
+      }
+    },
+    "additionalRedPhase": {
+      "tests": 81,
+      "passed": 80,
+      "failed": 1,
+      "case": "--recheck-status-from with evidence.issues = {} aborted before reinterpretation",
+      "fix": "Require an actual issues array before inspecting its status marker; malformed evidence is routed through fail-closed reinterpretation."
+    }
+  }
+}

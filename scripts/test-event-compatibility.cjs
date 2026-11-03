@@ -92,8 +92,16 @@ function loadModule(relative, overrides = {}, globals = {}) {
   const code = ts.transpileModule(fs.readFileSync(filename, 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true },
   }).outputText;
-  vm.runInNewContext(code, { exports, console: { error() {}, warn() {} }, setTimeout, clearTimeout,
-    require(name) { return Object.hasOwn(overrides, name) ? overrides[name] : require(name); },
+  vm.runInNewContext(code, { URL, exports, console: { error() {}, warn() {} }, setTimeout, clearTimeout,
+    require(name) {
+      if (Object.hasOwn(overrides, name)) return overrides[name];
+      if (name.startsWith('.') || name.startsWith('@/')) {
+        const target=name.startsWith('@/')?path.join(ROOT,'src',name.slice(2)):path.resolve(path.dirname(filename),name);
+        const file=['.ts','.tsx'].map(ext=>target+ext).find(f=>fs.existsSync(f));
+        if(file)return loadModule(path.relative(ROOT,file),overrides,globals);
+      }
+      return require(name);
+    },
     fetch() { throw new Error('Network forbidden'); },
     ...globals,
   }, { filename });

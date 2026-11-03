@@ -1,0 +1,2439 @@
+{
+  "mode": "REVIEW_ONLY_NOT_EXECUTABLE",
+  "sourceReport": "docs/qa/aggregator-repair/RECONCILIATION-PREVIEW.json",
+  "sourceReportSha256": "0a0c99b06493ba19736e14f0446133ae04a826fdafbb3ecf9ead4250cdebc603",
+  "reassessment": "docs/qa/aggregator-repair/LIFECYCLE-REASSESSMENT.json",
+  "supersedes": "The previous 116-candidate shortlist relied partly on unsupported ongoing claims.",
+  "counts": {
+    "historicalCandidates": 84,
+    "approvedForWrite": 0,
+    "originalUnresolvedHeld": 86,
+    "originalEndedClaims": 208,
+    "originalActiveClaims": 116
+  },
+  "rules": [
+    "Fresh category, actual schedule uncertainty, registration, cancellation/completion and mode/team evidence must be reviewed before approval.",
+    "No target count; no automatic adoption. Retain original UUIDs, editorial controls, registrations, teams, Saved and partner links.",
+    "Unstop start_date/end_date proposals from the historical report are withdrawn, not approved for writing or clearing.",
+    "All candidates require complete current in-memory expected fields and individual field ownership/approval; never replay the historical report.",
+    "Apply requires separately authorized server context and evidence checked within five minutes. No database snapshot/export is created."
+  ],
+  "candidates": [
+    {
+      "id": "00000000-69cc-a4b2-4564-5a10e1172e76",
+      "provider": "hack2skill",
+      "provider_id": "69cca4b245645a10e1172e76",
+      "canonical_url": "https://hack2skill.com/event/pwvirtual1",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:35:57.838Z",
+      "reportSourceHash": "1a5efd7ab5a9439357595158d07aeebff17c1757bb40a988cb7b2b4f370deb9e",
+      "actualEventSchedule": "REQUIRES_FRESH_PROVIDER_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "max_team_size",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "0023fd10-7ae4-40a0-a8b5-a0628b979a14",
+      "provider": "unstop",
+      "provider_id": "1768041",
+      "canonical_url": "https://unstop.com/hackathons/srujan-2026-15-lakh-mega-hackathon-in-association-with-lt-bk-birla-college-1768041",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:35:58.338Z",
+      "reportSourceHash": "d9454b19f9bb196eb4cd47e74c1bff11cea6c2105cd125f9e5734942735f7f13",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "name",
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "min_team_size",
+        "mode",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "032a5e02-3872-45bb-9221-e4ab3fdae861",
+      "provider": "unstop",
+      "provider_id": "1772904",
+      "canonical_url": "https://unstop.com/hackathons/prasunex-innovathon-2026-prasunex-1772904",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:36:01.414Z",
+      "reportSourceHash": "9fce6912e165f9c8aa1b18cfddfb60fef2e12b356ee2ccaebb947653ba7f32e7",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "max_team_size",
+        "prize_pool",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "04bd9903-5ff9-4092-8d42-064d82f634ba",
+      "provider": "unstop",
+      "provider_id": "1772753",
+      "canonical_url": "https://unstop.com/hackathons/innovasia-2026-vasavi-college-of-engineering-vce-hyderabad-1772753",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:36:03.318Z",
+      "reportSourceHash": "225393f38c3856fcb90577597bbaef047651227e4a6443a29795ba60f72d4afa",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "min_team_size",
+        "mode",
+        "prize_pool",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "09d3d8e8-7a02-4e1e-b5a7-04567ef37969",
+      "provider": "unstop",
+      "provider_id": "1772846",
+      "canonical_url": "https://unstop.com/hackathons/firstcommit-26-national-online-hackathon-by-campuscode-campus-code-1772846",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:36:05.516Z",
+      "reportSourceHash": "0224358bdec5b3952344f482bf5890194eebc35c4c332fe52f0a5a76b3eb815c",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "name",
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "prize_pool",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "0aedecd0-a02b-497b-9d4e-648bd4a5840e",
+      "provider": "unstop",
+      "provider_id": "1782514",
+      "canonical_url": "https://unstop.com/hackathons/cmr-hackfest-40-cmr-college-of-engineering-and-technology-cmrcet-hyderabad-1782514",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:36:06.361Z",
+      "reportSourceHash": "4a0c196d458d75eecb102bf46c0c59ae110ef139498e1138c49ff69031a48a8c",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "name",
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "min_team_size",
+        "max_team_size",
+        "mode",
+        "prize_pool",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "0bec85ad-9a30-4a55-a06d-c94dbc823eae",
+      "provider": "unstop",
+      "provider_id": "1765465",
+      "canonical_url": "https://unstop.com/hackathons/the-devforge-hackathon-scaler-school-of-technology-bengaluru-karnataka-1765465",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:36:07.432Z",
+      "reportSourceHash": "d769d22a644da5a2e01d3eafb24101848289ad818793d527bed69e5d5d638684",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "min_team_size",
+        "mode",
+        "prize_pool",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "0cd7a6db-4fda-4e05-be87-7381c6d3ed66",
+      "provider": "unstop",
+      "provider_id": "1776892",
+      "canonical_url": "https://unstop.com/hackathons/operation-ward-zero-wooble-software-private-limited-1776892",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:36:08.345Z",
+      "reportSourceHash": "48d9c33a9ccfe23e1fb573753a143bb7e165b37d22c7a4634fa45a0d25ba9889",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "max_team_size",
+        "prize_pool",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "0dec884c-55ef-4a46-9d3c-8bd4416e63a9",
+      "provider": "unstop",
+      "provider_id": "1764453",
+      "canonical_url": "https://unstop.com/hackathons/codeverse-2026-open-innovation-hackathon-codeverse-community-1764453",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:36:09.058Z",
+      "reportSourceHash": "0c459b49001f20a1a1cbf349fe474328b576b4ea96fdde05ed49a4c789071e59",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "name",
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "prize_pool",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "0f141066-6210-4290-bfa0-ee2f7e1ea166",
+      "provider": "unstop",
+      "provider_id": "1785416",
+      "canonical_url": "https://unstop.com/hackathons/madlab-the-ultimate-innovation-hackathon-shri-chinai-college-of-commerce-economics-1785416",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:36:10.292Z",
+      "reportSourceHash": "b2588f8301bfc5724e1efbc152cc1675f2f93794cdb55806336676aa8dd5fe6f",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "max_team_size",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "1cb182f1-02fc-4842-ab81-87b4b1a5a286",
+      "provider": "unstop",
+      "provider_id": "1745979",
+      "canonical_url": "https://unstop.com/hackathons/nasa-space-apps-challenge-2026-national-institute-of-technology-nit-raipur-1745979",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:36:11.386Z",
+      "reportSourceHash": "d34c2066e90be1bf7f9396d32b5b52befc2b45d0cb911e7fcfcfd7a88d8a5136",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "max_team_size",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "1e3a62fe-a926-44d1-b611-f6dff2dc45de",
+      "provider": "unstop",
+      "provider_id": "1784666",
+      "canonical_url": "https://unstop.com/hackathons/hackday-trishulx-1784666",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:36:12.443Z",
+      "reportSourceHash": "0e9525d1e7a05e05129413a12ee662e27d7672469a99cd44a249c19b6f88292c",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "1eb79251-165d-4aa5-87f7-7d7bd06fcc3f",
+      "provider": "unstop",
+      "provider_id": "1771496",
+      "canonical_url": "https://unstop.com/hackathons/the-big-hack-20-acharya-institute-of-technology-1771496",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:36:13.304Z",
+      "reportSourceHash": "847391bf3b9accb64598522f8e99740823af66a909558128cbe60e5df201593f",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "min_team_size",
+        "mode",
+        "prize_pool",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "1eb7e778-0b2f-46e8-97af-dda2878f2056",
+      "provider": "unstop",
+      "provider_id": "1762854",
+      "canonical_url": "https://unstop.com/hackathons/low-level-hackathon-synergy-26-international-institute-of-information-technology-iiit-bangalore-1762854",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:36:14.336Z",
+      "reportSourceHash": "f6f6afb857c7cc42a268f7aefa86192eef77210966ca88d0d33c156ef76332c5",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "max_team_size",
+        "prize_pool",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "280e4627-ae1a-4595-9fc5-d87aba1cf654",
+      "provider": "unstop",
+      "provider_id": "1763561",
+      "canonical_url": "https://unstop.com/hackathons/newyear-x-thon-2k27-brainwaves-1763561",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:36:17.586Z",
+      "reportSourceHash": "cf517f29a9cc6635be447a3adf8c995ca0ab5ba9bfd530913e784532bae739e0",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "min_team_size",
+        "prize_pool",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "28d92529-ec35-4000-97b1-aa9f2de5e1cc",
+      "provider": "unstop",
+      "provider_id": "1763620",
+      "canonical_url": "https://unstop.com/hackathons/tcu-hack-day-technical-community-universe-1763620",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:36:18.606Z",
+      "reportSourceHash": "fbe8752d27e17f1c28bd04e23ca95032b80e0b47d05a3101f95f0c89311e86e4",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "min_team_size",
+        "mode",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "2ae0b7cc-ed3d-422e-b246-ef7801702e05",
+      "provider": "unstop",
+      "provider_id": "1774573",
+      "canonical_url": "https://unstop.com/hackathons/rebuild-26-the-dashboard-recreation-hackathon-by-campuscode-campus-code-1774573",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:36:19.568Z",
+      "reportSourceHash": "eaf6dfc4c15aa61b65011d8c38c46bea53bf8c9e55b1a57277637071adbdc678",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "max_team_size",
+        "prize_pool",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "2b7de198-7c3a-4956-8148-4e345ea550b7",
+      "provider": "unstop",
+      "provider_id": "1746846",
+      "canonical_url": "https://unstop.com/hackathons/hacknexus-mastermind-research-technologies-1746846",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:36:20.339Z",
+      "reportSourceHash": "8a6c4ac7d3e1ac95a400bd33945d52a6a9a34006c73580ce03ce1f0e2d3db600",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "college",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "max_team_size",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "2f8e6f49-fcbf-422d-b572-81be3d0197ea",
+      "provider": "unstop",
+      "provider_id": "1746142",
+      "canonical_url": "https://unstop.com/hackathons/craft-n-code-haryana-d3-2026-tech-fest-iiit-bhubaneswar-international-institute-of-information-technology-iii-1746142",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:36:21.538Z",
+      "reportSourceHash": "3df58d6c7269f849e3d51f1a2a98ec0b2a35eb67ca986483a623c440f1d1aace",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "min_team_size",
+        "prize_pool",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "2fea1ed3-8af0-4f80-b249-d76a587ebf84",
+      "provider": "unstop",
+      "provider_id": "1766381",
+      "canonical_url": "https://unstop.com/hackathons/the-outpost-frontend-arena-1766381",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:36:22.422Z",
+      "reportSourceHash": "68f40fd1eb1f3033ff02a47ed8b3ed4d144bf155c1db819a0b73efaf5a756c42",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "max_team_size",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "33c0b168-b9eb-4e8c-938a-3d1781dad06d",
+      "provider": "unstop",
+      "provider_id": "1783835",
+      "canonical_url": "https://unstop.com/hackathons/codezen-india-2026-national-hackathon-wecodecoders-1783835",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:36:23.416Z",
+      "reportSourceHash": "a193b628531ce7b2a46eabf567df705ee395fd62a7bbf77691650b6731ba5150",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "max_team_size",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "340cb6cd-da7e-4ef1-a162-67f61b6b915e",
+      "provider": "unstop",
+      "provider_id": "1773120",
+      "canonical_url": "https://unstop.com/hackathons/hackday-20-decodep-community-1773120",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:36:24.497Z",
+      "reportSourceHash": "235bc63d1ca82a719c5931dce439de90670753114d48dac28a5ba90d66e15514",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "max_team_size",
+        "prize_pool",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "3f448203-bf44-4591-ac29-3213bda1f662",
+      "provider": "unstop",
+      "provider_id": "1774071",
+      "canonical_url": "https://unstop.com/hackathons/chaoscore-hackathon-2026-invoqe-1774071",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:36:25.693Z",
+      "reportSourceHash": "51b0585872fffd4395b3f9d92a9239712a9edc26ed4ce2bb0a10015a594be736",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "3f60fb34-017b-4819-933c-97b48600a59d",
+      "provider": "unstop",
+      "provider_id": "1766232",
+      "canonical_url": "https://unstop.com/hackathons/vibex-codes-26-globalyogacourse-1766232",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:36:28.698Z",
+      "reportSourceHash": "2d87a0b11dd1eaa7c39af38c0225ff65b51aac09f526db3ba5fad0b40d4fab4e",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "prize_pool",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "3fb38f8a-7d04-45ca-9fcf-6ad9c02e4cb2",
+      "provider": "unstop",
+      "provider_id": "1785430",
+      "canonical_url": "https://unstop.com/hackathons/tatusta-thakur-college-of-engineering-and-technology-tcet-mumbai-1785430",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:36:33.338Z",
+      "reportSourceHash": "3ef712c976883b4ea474948aec091169081f9c9648afc49e72d5c631f4826f11",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "min_team_size",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "4213b22b-7e38-4300-95de-08dfe0d656e0",
+      "provider": "unstop",
+      "provider_id": "1777504",
+      "canonical_url": "https://unstop.com/hackathons/agents-that-act-systems-that-answer-studentchakra-1777504",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:36:34.042Z",
+      "reportSourceHash": "e8b6e2ee5ac4b46615e435816e355a2feea79d88bdcb389685d90e17336ef742",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "486d7c36-4205-45c9-801f-f4782520d9f4",
+      "provider": "unstop",
+      "provider_id": "1755564",
+      "canonical_url": "https://unstop.com/hackathons/singularity-20-kc-college-of-engineering-and-management-studies-and-research-1755564",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:36:44.258Z",
+      "reportSourceHash": "68857b1c0e250b68324f5bdb1e9bcb5a0c412f876648ab384ec716e41a286a9e",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "min_team_size",
+        "mode",
+        "prize_pool",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "4dfd08ee-8e8a-4ce5-82bd-0a8a49a71965",
+      "provider": "unstop",
+      "provider_id": "1771949",
+      "canonical_url": "https://unstop.com/hackathons/redstone-rush-12-hour-open-innovation-hackathon-continuum-mmmut-gorakhpur-1771949",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:36:46.289Z",
+      "reportSourceHash": "21f661006a879c9c1b844e0fe9ef8eae240580a36f7f143d3cd7bfd7fc72f1bb",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "min_team_size",
+        "max_team_size",
+        "mode",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "52d447ef-f574-4538-b6c1-2e5d9a2e33d6",
+      "provider": "unstop",
+      "provider_id": "1745935",
+      "canonical_url": "https://unstop.com/hackathons/craft-n-code-west-bengal-international-institute-of-information-technology-iiit-bhubaneswar-1745935",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:36:48.584Z",
+      "reportSourceHash": "50ffa836b039b9aa0d2d90749a51d5bd682363ca3485cd8b5f720527a4da13f9",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "name",
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "min_team_size",
+        "mode",
+        "prize_pool",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "52ddc2d1-b747-4055-916b-08727d0ca07b",
+      "provider": "unstop",
+      "provider_id": "1773246",
+      "canonical_url": "https://unstop.com/hackathons/craft-n-code-odisha-d3-2026-tech-fest-iiit-bhubaneswar-international-institute-of-information-technology-iiit-1773246",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:36:49.688Z",
+      "reportSourceHash": "a095ca767f7461ca849fe74eba3f696e572abf9e0b6f640cb49a13f59373cc90",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "min_team_size",
+        "mode",
+        "prize_pool",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "57a52578-2c2a-4c43-9689-87d2b5524ae8",
+      "provider": "unstop",
+      "provider_id": "1766434",
+      "canonical_url": "https://unstop.com/hackathons/threws-odyssey-2026-threws-the-research-world-1766434",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:36:50.493Z",
+      "reportSourceHash": "d532f89f7067717f1d22d91547f04d2de7abd504ebef648c3b6cb8d9820d5526",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "prize_pool",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "5eb0aca4-7a1a-4945-9c19-1c7303248a61",
+      "provider": "unstop",
+      "provider_id": "1778042",
+      "canonical_url": "https://unstop.com/hackathons/hexwartz-sharda-university-agra-1778042",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:36:51.755Z",
+      "reportSourceHash": "696532f5465695b369fac60c6864afafa2a854bfc4c838bc3e6bc2d3b4e51926",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "college",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "min_team_size",
+        "max_team_size",
+        "mode",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "5f89753f-e6b7-4eaf-ab47-913c3fa6ee24",
+      "provider": "unstop",
+      "provider_id": "1756262",
+      "canonical_url": "https://unstop.com/hackathons/avishkaar-season-4-virtual-hackathon-a-national-level-innovation-challenge-aditya-institute-of-technology-and-1756262",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:36:52.532Z",
+      "reportSourceHash": "c8ada77bc243390660194778bb78b2267522994bba691af481aa57bac40413ec",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "prize_pool",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "5fef2bf8-ceb5-4ec8-b037-4a8a9b41f231",
+      "provider": "unstop",
+      "provider_id": "1746234",
+      "canonical_url": "https://unstop.com/hackathons/craft-n-code-tamil-nadu-d3-2026-tech-fest-iiit-bhubaneswar-international-institute-of-information-technology--1746234",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:36:53.572Z",
+      "reportSourceHash": "13e41042d8a7f82f81044b80a80396ae7bc8f91573f11eaa03e1db9cad8db968",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "min_team_size",
+        "prize_pool",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "6659e80d-1382-46c7-aca3-632ca24fef56",
+      "provider": "unstop",
+      "provider_id": "1773229",
+      "canonical_url": "https://unstop.com/hackathons/out-of-bounds-web-game-development-hackathon-code-variant-1773229",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:36:54.485Z",
+      "reportSourceHash": "c759e01cff7ca690c28db3795db0c368e814e0dfd341a3b9788073180cbd8435",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "name",
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "prize_pool",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "69c27d28-8e04-4f69-bbf1-853924a4ae23",
+      "provider": "unstop",
+      "provider_id": "1781078",
+      "canonical_url": "https://unstop.com/hackathons/algonex-10-maya-devi-university-1781078",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:36:56.512Z",
+      "reportSourceHash": "15d436ed57f742205646a36ce8a3554d7781591129ec414fe60187a684117e77",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "min_team_size",
+        "max_team_size",
+        "mode",
+        "prize_pool",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "6aad32eb-dbcd-4129-8903-de53add18605",
+      "provider": "unstop",
+      "provider_id": "1770621",
+      "canonical_url": "https://unstop.com/hackathons/build-your-bharat-hackathon-byb-build-your-bharatbyb-hackathon-next-bharat-ventures-1770621",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:36:57.716Z",
+      "reportSourceHash": "b2c5f9bb2687d29ff32f1f5de5ba14f52dc34cbbf540eb3cf8b09691baa056bb",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "min_team_size",
+        "max_team_size",
+        "mode",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "6c3ef644-1676-4f27-9440-3eebef9e4dea",
+      "provider": "unstop",
+      "provider_id": "1787967",
+      "canonical_url": "https://unstop.com/hackathons/synapase-30-kalindi-college-kc-university-of-delhi-du-delhi-1787967",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:36:58.378Z",
+      "reportSourceHash": "69a06cebc31acfd1da69eb3bf7bb89ab449d99b38dc94cff1fe41411f9451049",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "min_team_size",
+        "mode",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "6d5726c1-22f3-478d-9bd0-c631658c1769",
+      "provider": "unstop",
+      "provider_id": "1771798",
+      "canonical_url": "https://unstop.com/hackathons/catalyst-solo-ai-hackathon-makers-need-more-mnm-1771798",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:36:59.444Z",
+      "reportSourceHash": "32df291d0cfc15c5c219e7b1afa7e9e2d26c1edbfe924482be1bd5273b0e456c",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "max_team_size",
+        "prize_pool",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "7050f4bd-df55-49d0-a399-1c4393a140f7",
+      "provider": "unstop",
+      "provider_id": "1735451",
+      "canonical_url": "https://unstop.com/hackathons/craft-n-code-chattisgarh-international-institute-of-information-technology-iiit-bhubaneswar-1735451",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:37:01.508Z",
+      "reportSourceHash": "435658b3d5b9662dc7385c71a277340d3a92523fccedf7e00e87a958a8a4918b",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "min_team_size",
+        "prize_pool",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "76fcc02f-ad79-4fb5-93ff-a069195ff60a",
+      "provider": "unstop",
+      "provider_id": "1759619",
+      "canonical_url": "https://unstop.com/hackathons/the-arcticathon-bidaya-1759619",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:37:03.303Z",
+      "reportSourceHash": "7dff8fd8924c9de6d506d930ccd08e6546cb0d5cfe4fc71c6fb9641b5e285c27",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "name",
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "max_team_size",
+        "prize_pool",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "7df25627-896f-404b-8fa0-a8925ecc5aa2",
+      "provider": "unstop",
+      "provider_id": "1746232",
+      "canonical_url": "https://unstop.com/hackathons/craft-n-code-telangana-d3-2026-tech-fest-iiit-bhubaneswar-international-institute-of-information-technology-i-1746232",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:37:04.540Z",
+      "reportSourceHash": "f48acb359b2dc8fe7d0808331a64843a0c1e9055b12cbb6d7acf8c461d03216a",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "min_team_size",
+        "prize_pool",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "7e792c42-2c90-42c6-aeea-dab1fc1be1f9",
+      "provider": "unstop",
+      "provider_id": "1776294",
+      "canonical_url": "https://unstop.com/hackathons/bharatcode-build-league-bharatcode-build-league-build-with-ai-and-win-rs10000-and-a-rs60000-sde-internship-bh-1776294",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:37:05.124Z",
+      "reportSourceHash": "1002058f7ba13a1ca8498e75c900ed4097275fad1a2e1f020c0a81fa404133aa",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "name",
+        "description",
+        "college",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "max_team_size",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "7ed6938d-a8eb-459b-8ac4-c5352f70dc1f",
+      "provider": "unstop",
+      "provider_id": "1759592",
+      "canonical_url": "https://unstop.com/hackathons/hacks-2026-hub-for-advanced-creativity-knowledge-solutions-nari-nexus-1759592",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:37:06.513Z",
+      "reportSourceHash": "e0aa866a0f7a92b1ebafb6cef4695c2c91c75b789a3e587ee82dd10c46f265d0",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "max_team_size",
+        "mode",
+        "prize_pool",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "7f33e3d7-20e3-4c2e-9281-865e82dda097",
+      "provider": "unstop",
+      "provider_id": "1772496",
+      "canonical_url": "https://unstop.com/hackathons/k-hacks-40-anna-university-au-chennai-1772496",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:37:07.545Z",
+      "reportSourceHash": "8254287cf1c9e47ac8370816ad9e341e884cb28b54de0f5a56c886d4ac92485a",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "min_team_size",
+        "prize_pool",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "8247fc2f-189a-46f0-a0b9-409c1e6c31bf",
+      "provider": "unstop",
+      "provider_id": "1780735",
+      "canonical_url": "https://unstop.com/hackathons/hacknpitch-e-summit26-jadavpur-university-jadavpur-university-kolkata-1780735",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:37:09.633Z",
+      "reportSourceHash": "f3720b1aba71cdc59b55da5d008eaf7923779cc5e1b2518ad592efce5e9649d7",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "name",
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "min_team_size",
+        "mode",
+        "prize_pool",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "836a0859-4232-4117-a165-5e73641c7153",
+      "provider": "unstop",
+      "provider_id": "1773842",
+      "canonical_url": "https://unstop.com/hackathons/next-horizon-2026-the-institution-of-engineers-and-scientists-1773842",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:37:10.634Z",
+      "reportSourceHash": "843fb2e4b5f68a65e531c07af0e339f28e531d74956056c751c159e3822a7542",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "min_team_size",
+        "prize_pool",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "851d6a67-89e4-4626-8c51-e0d47d51c881",
+      "provider": "unstop",
+      "provider_id": "1773675",
+      "canonical_url": "https://unstop.com/hackathons/starforge-24-hour-hackathon-bms-institute-of-technology-and-management-bmsitm-bangalore-1773675",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:37:11.223Z",
+      "reportSourceHash": "a7927492ab68b96a1244fd18f874de97619849ae8a31433346b3cc7b07f14b61",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "min_team_size",
+        "mode",
+        "prize_pool",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "8653ab12-d773-4783-88c4-80fd03202b38",
+      "provider": "unstop",
+      "provider_id": "1767590",
+      "canonical_url": "https://unstop.com/hackathons/herhack-echelon-institute-of-technology-1767590",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:37:12.524Z",
+      "reportSourceHash": "6307f2181daeb2723beb832059f0de791e9209474b969142ae9b82a062dd7351",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "min_team_size",
+        "max_team_size",
+        "mode",
+        "prize_pool",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "8d8e3f05-3fa6-46bb-89ae-a3cff4d6c5e9",
+      "provider": "unstop",
+      "provider_id": "1772164",
+      "canonical_url": "https://unstop.com/hackathons/codebuild-20-cobuild-1772164",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:37:14.680Z",
+      "reportSourceHash": "f46089d8a4b658096c9d680c1ad5a39432bc628190622f7aab9c948fe582f745",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "min_team_size",
+        "mode",
+        "prize_pool",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "8fd819f3-1ef6-49e9-bf3a-39698f179569",
+      "provider": "unstop",
+      "provider_id": "1758535",
+      "canonical_url": "https://unstop.com/hackathons/buildx-36-hours-online-hackathon-code-a-nova-1758535",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:37:15.781Z",
+      "reportSourceHash": "1b1811beea75c7ef56174604efd8d6a9f3030fa0e3aefd8ac435a857c757cc31",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "91e67c41-da31-45fc-9891-60f3526e0bc0",
+      "provider": "unstop",
+      "provider_id": "1783256",
+      "canonical_url": "https://unstop.com/hackathons/agentx-20-hackqube-1783256",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:37:16.511Z",
+      "reportSourceHash": "c3c188c6e9787dc2c81b5cbea282ecccd12ea5b728d5d0a9c493902776ce39ce",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "min_team_size",
+        "mode",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "931be7e2-63f8-478f-b26a-ce427544ea24",
+      "provider": "unstop",
+      "provider_id": "1781449",
+      "canonical_url": "https://unstop.com/hackathons/neurohack-2027-iit-madras-1781449",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:37:17.730Z",
+      "reportSourceHash": "cdbce0c5c2bd57cfe3b21d05466a0700f004329a347996278d2ff1e352adb8a2",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "mode",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "93eb92f6-c0e1-4e84-a6b8-c7bf55246a21",
+      "provider": "unstop",
+      "provider_id": "1778597",
+      "canonical_url": "https://unstop.com/hackathons/hacksprint-30-karpagam-academy-of-higher-education-1778597",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:37:18.597Z",
+      "reportSourceHash": "114e3dc5d0853f34c53a80ecfa372499184252b90228650adea8d4697438cfa6",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "min_team_size",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "996e60a0-7bc9-4941-9074-1f0cc95f4c7b",
+      "provider": "unstop",
+      "provider_id": "1772671",
+      "canonical_url": "https://unstop.com/hackathons/foodoscope-fork-it-challenge-2026-esya26-indraprastha-institute-of-information-technology-iiit-delhi-1772671",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:37:19.838Z",
+      "reportSourceHash": "51d3d82c7e381e856c1afd9cf9440827b0379fcc0017315636b07610c7ddd74a",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "min_team_size",
+        "mode",
+        "prize_pool",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "9e7c0532-3e5e-4643-beee-62176c411ee6",
+      "provider": "unstop",
+      "provider_id": "1768758",
+      "canonical_url": "https://unstop.com/hackathons/codersinpune-hackathon-hackwithpune-1768758",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:37:20.562Z",
+      "reportSourceHash": "ea6df04b1fb18d101ecf5bf21e3e3da7745c825bcb8bcbcb27a03afe2c554b97",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "a36316dd-74f9-4b11-a2e0-8e72588b2f7b",
+      "provider": "unstop",
+      "provider_id": "1769404",
+      "canonical_url": "https://unstop.com/hackathons/neural-storm-jawaharlal-nehru-technological-university-jntuh-hyderabad-1769404",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:37:22.557Z",
+      "reportSourceHash": "05079fcb0dbd0c26cf18792be888682f5e42320a22f3b2381ef19b6495bcf8bd",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "max_team_size",
+        "prize_pool",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "a4d39f57-67b4-48b9-afe9-7b01af9d332b",
+      "provider": "unstop",
+      "provider_id": "1769121",
+      "canonical_url": "https://unstop.com/hackathons/homingo-hack-days-online-ai-hackathon-homingo-1769121",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:37:24.656Z",
+      "reportSourceHash": "5f648724a0275b330afb48bfede9cf06821d924a89405bfc2f96402cacf91572",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "prize_pool",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "a8f064c4-5438-4445-a1f2-2053a99c7e4d",
+      "provider": "unstop",
+      "provider_id": "1760462",
+      "canonical_url": "https://unstop.com/hackathons/trivora-hackhere-1760462",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:37:26.632Z",
+      "reportSourceHash": "05e8f29c56c30c0385c5ab95538f6c31ce558c0fbe61756855b599672fde94ff",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "mode",
+        "prize_pool",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "ac633274-2726-494e-af3b-8f2277355a36",
+      "provider": "unstop",
+      "provider_id": "1733198",
+      "canonical_url": "https://unstop.com/hackathons/nexhack-20-geeta-university-naultha-panipat-1733198",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:37:28.748Z",
+      "reportSourceHash": "e623a156a9d6da4f632b6b1d3ff4c84480873c1b8d3628fe88aa4cda9218dcdb",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "min_team_size",
+        "mode",
+        "prize_pool",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "af69119f-eb03-4931-b7c1-0637612d39d0",
+      "provider": "unstop",
+      "provider_id": "1767181",
+      "canonical_url": "https://unstop.com/hackathons/codefrontier-hackathon-hackwithpune-1767181",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:37:30.646Z",
+      "reportSourceHash": "0031a6d29acab9192e580b8ac0b2844b73a2ad60f8aa9282839a68391f84544c",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "name",
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "b40f8ec1-2656-4c35-a1d1-314db2de4bf5",
+      "provider": "unstop",
+      "provider_id": "1774876",
+      "canonical_url": "https://unstop.com/hackathons/hacktopia-pune-2026-jspm-rajarshi-shahu-college-of-engineering-tathawade-pimpri-chinchwad-maharashtra-1774876",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:37:32.900Z",
+      "reportSourceHash": "b157ec4b3c76fabe30949cd9369604e98fb71241426ebd491398b84c5e6d4870",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "min_team_size",
+        "max_team_size",
+        "mode",
+        "prize_pool",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "b628afc0-e5bd-4cee-a958-ca28fd952066",
+      "provider": "unstop",
+      "provider_id": "1772406",
+      "canonical_url": "https://unstop.com/hackathons/quasar-50-36-hour-international-hackathon-vasantdada-patil-pratishthans-college-of-engineering-and-visual-art-1772406",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:37:33.765Z",
+      "reportSourceHash": "e364b207b3ceb873a49e314e37c774cc7f887771a0f6c7c64f0ebe0a5c15dd29",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "min_team_size",
+        "mode",
+        "prize_pool",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "b72f5169-6235-404e-b0fe-f16ead156344",
+      "provider": "unstop",
+      "provider_id": "1780048",
+      "canonical_url": "https://unstop.com/hackathons/orbix-48-hour-global-open-innovation-hackathon-makers-need-more-mnm-1780048",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:37:35.714Z",
+      "reportSourceHash": "b90dff352cfab28def6ac5e86f1654df426a9d20924a8952d92743b547c402ee",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "prize_pool",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "b8d8fec1-0b23-4fa6-b6ba-96a81ea34d83",
+      "provider": "unstop",
+      "provider_id": "1760074",
+      "canonical_url": "https://unstop.com/hackathons/buildx-hackathon-code-a-nova-1760074",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:37:36.925Z",
+      "reportSourceHash": "95178f896838951f69bebdb1bba369891206eaca32deaed693965cdeca03dcd4",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "b9452b36-036f-43ab-98e3-dabccf8baa00",
+      "provider": "unstop",
+      "provider_id": "1786992",
+      "canonical_url": "https://unstop.com/hackathons/technova-2027-burhani-college-mumbai-1786992",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:37:37.697Z",
+      "reportSourceHash": "fac23e44deea405b1ac2629113bdd7af9e2ef2969e0fd987f3250c8c4a23e47c",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "min_team_size",
+        "mode",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "b9a88f02-bc38-4714-85ba-3f8cd739f29c",
+      "provider": "unstop",
+      "provider_id": "1771992",
+      "canonical_url": "https://unstop.com/hackathons/india-got-spot-10-swastik-community-1771992",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:37:38.860Z",
+      "reportSourceHash": "85b7f79e43f1f67f93fc927cab1309e007a0df95d15b4ba763ae2a1f77903e15",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "min_team_size",
+        "mode",
+        "prize_pool",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "bd07369c-ff56-4cff-953b-6d550372f415",
+      "provider": "unstop",
+      "provider_id": "1746233",
+      "canonical_url": "https://unstop.com/hackathons/craft-n-code-delhi-d3-2026-tech-fest-iiit-bhubaneswar-international-institute-of-information-technology-iiit--1746233",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:37:39.667Z",
+      "reportSourceHash": "48938cfb7623349838518b7b30a21e2628e4f7d511a464ce853d7cf12c00f2fe",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "min_team_size",
+        "prize_pool",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "c4c2fa58-d4b3-4b96-8b03-10ba80d67a0f",
+      "provider": "unstop",
+      "provider_id": "1766190",
+      "canonical_url": "https://unstop.com/hackathons/codetitans-india-2026-national-hackathon-wecodecoders-1766190",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:37:42.144Z",
+      "reportSourceHash": "79cff8082c02feeb04f73fc96593f9c86f762c07a3b5be706e338c404a1401a6",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "cc0f3f62-4f5a-4532-9418-2c4a24405141",
+      "provider": "unstop",
+      "provider_id": "1783775",
+      "canonical_url": "https://unstop.com/hackathons/codenova-india-2026-national-hackathon-wecodecoders-1783775",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:37:43.412Z",
+      "reportSourceHash": "83a7b7be0fe4e86b36a93f6d12fac304a17b2c702824069036ca5f82f67d0730",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "max_team_size",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "cd53aaba-2bee-48b3-8728-975905bd6ed8",
+      "provider": "unstop",
+      "provider_id": "1773211",
+      "canonical_url": "https://unstop.com/hackathons/build-with-agora-blr-knotic-1773211",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:37:45.166Z",
+      "reportSourceHash": "11413bfc28f44e9ade1541ae66d2725b0951a8d5f086896e64ca3c625e925965",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "max_team_size",
+        "mode",
+        "prize_pool",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "d4d5b2be-038d-4a7d-8658-7741941118bd",
+      "provider": "unstop",
+      "provider_id": "1783838",
+      "canonical_url": "https://unstop.com/hackathons/innovate-online-hackathon-aveeranex-opc-private-limited-1783838",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:37:46.234Z",
+      "reportSourceHash": "b3d8cb9b3242f84cdb4553fdc866df1ec41ec5f37c41a1b635d84d820e6dc4cc",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "max_team_size",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "d73bd59e-941b-49b6-a484-2010c55c93a5",
+      "provider": "unstop",
+      "provider_id": "1767661",
+      "canonical_url": "https://unstop.com/hackathons/codepunethinkers-hackathon-hack-with-pune-hackwithpune-1767661",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:37:47.868Z",
+      "reportSourceHash": "66ea510194b5775a3a55c031e79e4e60a3002d3897d04602bf571e13d3c98c55",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "d79807c3-da41-416f-b184-0ef522ef63cb",
+      "provider": "unstop",
+      "provider_id": "1745778",
+      "canonical_url": "https://unstop.com/hackathons/the-black-box-protocol-stage-03-system-convergence-techhelp4u-1745778",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:37:49.029Z",
+      "reportSourceHash": "fa257f62522c3306cf5f824304f593b35f9767a8ba17b0eab11646a26daa5d93",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "min_team_size",
+        "mode",
+        "prize_pool",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "de27a280-9cee-4213-ab4a-93c3d7173c19",
+      "provider": "unstop",
+      "provider_id": "1770422",
+      "canonical_url": "https://unstop.com/hackathons/buildlab-2026-frontend-arena-1770422",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:37:51.145Z",
+      "reportSourceHash": "e1bc7d2dcb467bc65840ff1bd034496a10a5a4d32882802b69df31712459999e",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "max_team_size",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "e1cd5ff5-4fb4-4e8a-8012-01eac0c7cde2",
+      "provider": "unstop",
+      "provider_id": "1770609",
+      "canonical_url": "https://unstop.com/hackathons/wh-versehack-writers-haven-1770609",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:37:51.841Z",
+      "reportSourceHash": "58c4f2e4f2a9fa16ab9daf89e41bfa80a89521bb20be1c2f818487325c04fc72",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "max_team_size",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "e26f16d0-4425-45b7-a99f-849d190d54ea",
+      "provider": "unstop",
+      "provider_id": "1770284",
+      "canonical_url": "https://unstop.com/hackathons/innovathon-faculty-of-engineering-and-technology-agra-college-x-nimblux-nimblux-1770284",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:37:53.061Z",
+      "reportSourceHash": "6287a237213e394abfc5926be0e9921c466b1420cec674b7523cef4862adebf8",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "min_team_size",
+        "mode",
+        "prize_pool",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "eadd0344-26e9-4f4f-9423-1ea4d49a6ced",
+      "provider": "unstop",
+      "provider_id": "1783202",
+      "canonical_url": "https://unstop.com/hackathons/cobot-ex-2026-inter-college-hackathon-b-s-abdur-rahman-crescent-institute-of-science-and-technology-chennai-t-1783202",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:37:54.788Z",
+      "reportSourceHash": "182c9081218a701b788ea5e2ca2a034ef24bae3d29a08ea7d608566e01d18686",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "max_team_size",
+        "mode",
+        "prize_pool",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "ebaf10bb-f6d9-4d59-8026-0ad1f20c6425",
+      "provider": "unstop",
+      "provider_id": "1761841",
+      "canonical_url": "https://unstop.com/hackathons/vihaan-x-software-track-dtu-new-delhi-1761841",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:37:56.022Z",
+      "reportSourceHash": "94df7c6916261c2bbf52e4e0f00de0aba747936d6f0d7fadebce08e4e1453561",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "mode",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "ec0f3d58-3388-42eb-b76a-5822639d5ba8",
+      "provider": "unstop",
+      "provider_id": "1777958",
+      "canonical_url": "https://unstop.com/hackathons/aegython-2026-aeglysai-1777958",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:37:57.007Z",
+      "reportSourceHash": "55b63bec783101de9978276ece1d5db7d56488a011782d766a88cbe71b94abae",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "mode",
+        "prize_pool",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "ec79d4a3-01c9-4f2b-9f25-2a11a9be6afe",
+      "provider": "unstop",
+      "provider_id": "1771785",
+      "canonical_url": "https://unstop.com/hackathons/hack-era-20-erazone-1771785",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:37:57.937Z",
+      "reportSourceHash": "d9667127e3292002327025a0eb164e1167eab0da14034995ad9ca934a47dd6ad",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "min_team_size",
+        "max_team_size",
+        "prize_pool",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "ec8cf750-272f-4bd2-a3f2-624c3403aeb3",
+      "provider": "unstop",
+      "provider_id": "1786809",
+      "canonical_url": "https://unstop.com/hackathons/hack-a-sol-50-international-institute-of-information-technology-iiit-naya-raipur-1786809",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:37:58.966Z",
+      "reportSourceHash": "f22c9652e9c37783a93dca3f4006aa897008dbde797f6b8b67e5501c97e1d9f2",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "min_team_size",
+        "mode",
+        "prize_pool",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "f26b1fa7-bdeb-40d4-9476-81d97eb0de2d",
+      "provider": "unstop",
+      "provider_id": "1750320",
+      "canonical_url": "https://unstop.com/hackathons/avishkaar-season-4-hackathon-a-national-level-innovation-challenge-aditya-institute-of-technology-and-managem-1750320",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:37:59.983Z",
+      "reportSourceHash": "653f9438222b5141b0c22256237593b5adc654566c8f8655b5e743a78234a2c8",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "min_team_size",
+        "mode",
+        "prize_pool",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    },
+    {
+      "id": "f8dd958a-bb3a-46e5-bd51-432ecf067203",
+      "provider": "unstop",
+      "provider_id": "1777639",
+      "canonical_url": "https://unstop.com/hackathons/rack-it-up-2026-48-hour-online-hackathon-by-rackem-karma-enterprises-1777639",
+      "reportClassification": "registration_open",
+      "reportCheckedAt": "2026-11-02T13:38:02.616Z",
+      "reportSourceHash": "448e09b5893da71bf820f18dc93661f3cf05f54de0d09f6b4feb8ef01c33e3f3",
+      "actualEventSchedule": "UNVERIFIED_REQUIRES_FRESH_STAGE_EVIDENCE",
+      "proposedFieldsForReview": [
+        "description",
+        "registration_start",
+        "registration_end",
+        "registration_status",
+        "rounds_info",
+        "rounds_count",
+        "tags"
+      ],
+      "approval": {
+        "status": "PENDING_FRESH_SOURCE_AND_FIELD_REVIEW",
+        "approvedFields": [],
+        "approver": null,
+        "approvedAt": null
+      },
+      "controlsVerified": false,
+      "freshEvidenceVerified": false
+    }
+  ]
+}

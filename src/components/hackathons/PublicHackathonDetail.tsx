@@ -5,18 +5,16 @@ import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { browsingActionHref, loadPublicEvent, type PublicEvent } from "@/lib/hackathons/publicBrowsing";
-import { eventDate, listedTags, prizeLabel } from "@/lib/hackathons/discovery";
-import { registrationLabel, eventStateLabel, scheduleIsUnverified } from "@/lib/hackathons/lifecycle";
+import { listedTags, prizeLabel } from "@/lib/hackathons/discovery";
+import SourceInformation from "./SourceInformation";
+import { registrationDestination, sourceMetadata } from "@/lib/hackathons/source";
+import { dateLabel, registrationLabel, eventStateLabel, scheduleIsUnverified } from "@/lib/hackathons/lifecycle";
 import StructuredHackathonDescription from "@/components/StructuredHackathonDescription";
 import { ButtonLink, EmptyState, ErrorNotice, Page, PageHeader, PageLoader, Section } from "@/components/system";
 import { isRackItUpEvent } from "@/lib/partners/rackItUp2026";
 import { eventDiscoveryTab } from "@/lib/hackathons/discoveryNavigation";
 import RackPublicDiscovery from "@/components/partners/RackPublicDiscovery";
 
-function dateLabel(value: string | null | undefined) {
-  const time = eventDate(value);
-  return time === null ? "Not listed" : new Date(time).toLocaleDateString("en-IN", { dateStyle: "medium", timeZone: "Asia/Kolkata" });
-}
 function publicWebsite(value: string | null): string | null {
   try { const url = new URL(value || ""); return ["http:", "https:"].includes(url.protocol) && !url.username && !url.password ? url.href : null; }
   catch { return null; }
@@ -51,7 +49,7 @@ export default function PublicHackathonDetail({ onboard = false }: { onboard?: b
   if (!event) return <Page><EmptyState title="Event unavailable" body="This event is not publicly listed." action={<ButtonLink href="/hackathons">Browse hackathons</ButtonLink>} /></Page>;
   const destination = `/hackathons/${encodeURIComponent(id)}${search.toString() ? `?${search}` : ""}`;
   const href = browsingActionHref(destination, onboard);
-  const website = publicWebsite(event.website_url);
+  const website = publicWebsite(registrationDestination(event));
   const rounds = Array.isArray(event.rounds_info) ? event.rounds_info.filter(round => round && typeof round.name === "string") : [];
   const rack = isRackItUpEvent({ isExternal: event.type === "external", registrationUrl: event.website_url });
   const discoveryTab = eventDiscoveryTab(search.getAll("tab"));
@@ -78,14 +76,16 @@ export default function PublicHackathonDetail({ onboard = false }: { onboard?: b
         </Section>
       </div>
       <aside className="min-w-0 space-y-4">
+        <SourceInformation event={event} now={now} />
         <Section title="Event details"><dl className="space-y-3 text-sm">
-          <div><dt className="text-ink-3">{scheduleIsUnverified(event) ? "Listed dates (unverified)" : "Dates"}</dt><dd>{dateLabel(event.start_date)} – {dateLabel(event.end_date)}</dd></div>
+          <div><dt className="text-ink-3">{scheduleIsUnverified(event, now) ? "Listed dates (unverified)" : "Dates"}</dt><dd>{dateLabel(event.start_date)} – {dateLabel(event.end_date)}</dd></div>
           <div><dt className="text-ink-3">Status</dt><dd>{eventStateLabel(event, now)}</dd></div>
           <div><dt className="text-ink-3">Registration availability</dt><dd>{registrationLabel(event, now)}</dd></div>
+          <div><dt className="text-ink-3">Registration starts</dt><dd>{dateLabel(event.registration_start)}</dd></div>
           <div><dt className="text-ink-3">Registration deadline</dt><dd>{dateLabel(event.registration_end)}</dd></div>
           <div><dt className="text-ink-3">Prizes</dt><dd>{prizeLabel(event)}</dd></div>
-          <div><dt className="text-ink-3">{scheduleIsUnverified(event) ? "Listed team size (unverified)" : "Team size"}</dt><dd>{event.min_team_size != null && event.max_team_size != null ? `${event.min_team_size}–${event.max_team_size}` : "Not listed"}</dd></div>
-          {event.college && <div><dt className="text-ink-3">College</dt><dd>{event.college}</dd></div>}
+          <div><dt className="text-ink-3">{scheduleIsUnverified(event, now) ? "Listed team size (unverified)" : "Team size"}</dt><dd>{event.min_team_size != null && event.max_team_size != null ? `${event.min_team_size}–${event.max_team_size}` : "Not listed"}</dd></div>
+          {event.college && <div><dt className="text-ink-3">{sourceMetadata(event.source_metadata) ? "Organizer" : "College"}</dt><dd>{event.college}</dd></div>}
         </dl></Section>
         <p className="text-sm leading-relaxed text-ink-2">Official registration is separate from the HackerMate community. Check the organizer’s site for current availability; a listed link does not guarantee registration.</p>
         {website && <a href={website} target="_blank" rel="noopener noreferrer" className="inline-flex text-sm font-medium text-ink underline">View event website ↗</a>}

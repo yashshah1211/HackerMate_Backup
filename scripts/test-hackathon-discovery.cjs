@@ -7,7 +7,7 @@ const NOW = Date.parse('2026-10-14T12:00:00Z');
 const event = (id, fields = {}) => ({ id, name: `Event ${id}`, description: 'Build useful tools', tags: ['Coding', 'Hackathon'],
   start_date: '2026-10-20', end_date: '2026-10-22', registration_end: null, created_at: '2026-10-01T00:00:00Z',
   location: 'Venue in India', mode: 'Online', prize_pool: 'Certificate & Perks', currency: null, website_url: 'https://unstop.com/event',
-  type: 'native', organizer_id: null, college: null, ...fields });
+  type: 'native', registration_status: 'open', organizer_id: null, college: null, ...fields });
 const settings = query => { const params = new URLSearchParams(query); if (!params.has('tab')) params.set('tab', 'recommended'); return api.readDiscoverySettings(params); };
 const results = (events, query = '', skills = [], saved = new Set()) => api.discoverEvents(events, settings(query), skills, saved, NOW).map(h => h.id);
 const plain = value => JSON.parse(JSON.stringify(value));
@@ -114,7 +114,7 @@ test('Saved retains ended and unknown events and still respects explicit filters
 });
 test('shareable settings validate enums, duplicate parameters, dates and preserve unrelated query context', () => {
   const invalid = settings('tab=bad&mode=bad&sort=bad&from=2026-02-30&q=one&q=two');
-  assert.equal(invalid.tab, 'all'); assert.equal(invalid.mode, ''); assert.equal(invalid.from, ''); assert.equal(invalid.q, '');
+  assert.equal(invalid.tab, 'active'); assert.equal(invalid.mode, ''); assert.equal(invalid.from, ''); assert.equal(invalid.q, '');
   const first = new URLSearchParams(api.discoveryQuery(new URLSearchParams('source=partner'), { tab: 'ongoing', mode: 'hybrid', topic: 'Web3', q: ' climate ', sort: 'prize-usd' }));
   assert.equal(first.get('source'), 'partner'); assert.equal(settings(first.toString()).tab, 'ongoing'); assert.equal(settings(first.toString()).topic, 'web3');
   const reset = new URLSearchParams(api.discoveryQuery(first, { q: '', mode: '', topic: '', sort: 'date' }));

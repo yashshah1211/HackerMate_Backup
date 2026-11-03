@@ -1,0 +1,64 @@
+name: Aggregator isolated qualification
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/lib/hackathons/**'
+      - 'src/app/api/admin/scrape-unstop/**'
+      - 'src/app/api/cron/auto-scrape-leads/**'
+      - 'src/app/hackathons/**'
+      - 'src/components/hackathons/**'
+      - 'src/lib/getLandingData.ts'
+      - 'src/components/landing/LandingHero.tsx'
+      - 'src/app/admin/_tabs/OutreachTab.tsx'
+      - 'docs/qa/aggregator-repair/**'
+      - 'qa/fixtures/aggregator/**'
+      - 'scripts/*aggregator*.cjs'
+      - '.github/workflows/aggregator-qualification.yml'
+permissions:
+  contents: read
+concurrency:
+  group: aggregator-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  isolated-qualification:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm run typecheck -- --incremental false --pretty false
+      - run: node scripts/lint-aggregator.cjs
+      - name: Explicit offline application and source selection
+        run: node scripts/qualify-aggregator.cjs
+      - name: Build verified official native PostgreSQL 17.6
+        run: |
+          mkdir -p scratch/pg17-source
+          cd scratch/pg17-source
+          curl --fail --location --retry 2 --output postgresql-17.6.tar.bz2 https://ftp.postgresql.org/pub/source/v17.6/postgresql-17.6.tar.bz2
+          echo 'e0630a3600aea27511715563259ec2111cd5f4353a4b040e0be827f94cd7a8b0  postgresql-17.6.tar.bz2' | sha256sum --check
+          tar -xjf postgresql-17.6.tar.bz2
+          cd postgresql-17.6
+          ./configure --prefix="$GITHUB_WORKSPACE/scratch/pg17" --without-readline --without-zlib --without-icu
+          make -j2
+          make install
+      - name: Review-only SQL on a fresh disposable PG17.6 cluster, never a Supabase project
+        env:
+          AGGREGATOR_TEST_PG_BIN: ${{ github.workspace }}/scratch/pg17/bin
+        run: node --import ./qa/fixtures/rack-network-guard.mjs --test scripts/test-aggregator-postgres.cjs
+      - name: Sandbox Chrome source-aware guest and member journeys
+        run: node --import ./qa/fixtures/rack-network-guard.mjs --test scripts/test-mission20-discovery-hotfix-browser.cjs
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: aggregator-browser-${{ github.event.pull_request.head.sha }}
+          path: scratch/hotfix-browser/
+          retention-days: 7

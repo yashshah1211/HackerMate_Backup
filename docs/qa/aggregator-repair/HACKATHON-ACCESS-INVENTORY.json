@@ -1,0 +1,1600 @@
+{
+  "base": "3a0b4d0488128fe730607ae1ef024a3bf52992e1",
+  "note": "Pre-migration whole-repository direct/joined queries and SQL dependencies. Expressions/spreads/wildcards remain explicit for review; existing table SELECT privileges will not be restricted.",
+  "files": [
+    {
+      "file": "supabase\\rollback\\phase1_prestate.sql",
+      "queries": [
+        {
+          "line": 215,
+          "sql": "\n  -- Fetch hackathon registrations\n  SELECT COALESCE(jsonb_agg(\n    jsonb_build_object(\n      'registration_id', r.id,\n      'hackathon_id', h.id,\n      'hackathon_name', h.name,\n      'mode', h.mode,\n      'location', h.location,\n      'prize_pool', h.prize_pool,\n      'start_date', h.start_date,\n      'end_date', h.end_date,\n      'website_url', h.website_url,\n      'registration_status', r.status,\n      'looking_for_team', r.looking_for_team,\n      'registered_at', r.created_at\n    ) ORDER BY h.start_date DESC NULLS LAST\n  ), '[]'::jsonb)\n  INTO v_registrations\n  FROM public.hackathon_registrations r\n  JOIN public.hackathons h ON h.id = r.hackathon_id\n  WHERE r.user_id = v_user_uuid\n    AND COALESCE(r.is_hidden, false) = false;"
+        },
+        {
+          "line": 557,
+          "sql": "CREATE OR REPLACE FUNCTION public.get_pending_deadline_reminders()\n RETURNS TABLE(saved_id uuid, user_id uuid, user_email text, user_name text, hackathon_id uuid, hackathon_name text, registration_end timestamp with time zone)\n LANGUAGE plpgsql\n SECURITY DEFINER\nAS $function$\nBEGIN\n  RETURN QUERY\n  SELECT \n    sh.id AS saved_id,\n    sh.user_id AS user_id,\n    p.email::TEXT AS user_email,\n    p.full_name::TEXT AS user_name,\n    h.id AS hackathon_id,\n    h.name::TEXT AS hackathon_name,\n    h.registration_end AS registration_end\n  FROM public.saved_hackathons sh\n  JOIN public.profiles p ON p.id = sh.user_id\n  JOIN public.hackathons h ON h.id = sh.hackathon_id\n  LEFT JOIN public.hackathon_registrations hr ON hr.hackathon_id = sh.hackathon_id AND hr.user_id = sh.user_id\n  WHERE \n    sh.reminder_sent_at IS NULL\n    AND hr.id IS NULL -- Only builders who have NOT registered yet\n    AND h.registration_end IS NOT NULL\n    AND h.registration_end >= NOW()\n    AND h.registration_end <= NOW() + INTERVAL '24 hours';"
+        }
+      ]
+    },
+    {
+      "file": "scripts\\test-squad-matching.sql",
+      "queries": [
+        {
+          "line": 109,
+          "sql": "\n-- Capacity/recruiting and explicit event limits (including multi-event links).\ninsert into public.hackathons values ('20000000-0000-0000-0000-000000000001',2,3),('20000000-0000-0000-0000-000000000002',1,2);"
+        }
+      ]
+    },
+    {
+      "file": "scripts\\test-registration-privacy.sql",
+      "queries": [
+        {
+          "line": 39,
+          "sql": "CREATE TABLE public.team_hackathons (\n  team_id uuid REFERENCES public.teams(id), hackathon_id uuid REFERENCES public.hackathons(id),\n  PRIMARY KEY(team_id, hackathon_id)\n);"
+        },
+        {
+          "line": 50,
+          "sql": "-- production's registration/profile FK ordinarily prevents this state.\nCREATE TABLE public.hackathon_registrations (\n  id uuid PRIMARY KEY DEFAULT gen_random_uuid(), hackathon_id uuid NOT NULL REFERENCES public.hackathons(id), user_id uuid NOT NULL REFERENCES auth.users(id),\n  status text NOT NULL DEFAULT 'confirmed' CHECK(status IN ('confirmed','waitlisted')), looking_for_team boolean NOT NULL DEFAULT false, created_at timestamptz NOT NULL DEFAULT now(), is_hidden boolean DEFAULT false,\n  team_id uuid, metadata jsonb, UNIQUE(hackathon_id, user_id)\n);"
+        },
+        {
+          "line": 60,
+          "sql": "-- No authenticated base-table SELECT grants: RPCs must work without broad grants.\n\n\nGRANT SELECT ON public.hackathons TO authenticated,anon;"
+        },
+        {
+          "line": 75,
+          "sql": "INSERT INTO public.hackathons(id,type,organizer_id,status,archived,name) VALUES\n (public.fixture_id(101),'external',public.fixture_id(15),'approved',false,'A'),\n (public.fixture_id(102),'external',NULL,'approved',false,'B'),\n (public.fixture_id(103),'native',public.fixture_id(6),'approved',false,'Native'),\n (public.fixture_id(104),'native',public.fixture_id(6),'pending',false,'Pending'),\n (public.fixture_id(105),'external',NULL,'approved',true,'Archived');"
+        },
+        {
+          "line": 102,
+          "sql": "-- Audited production-effective base DDL, not an unrelated migration backlog.\nCREATE TABLE public.hackathon_announcements (\n id uuid PRIMARY KEY DEFAULT gen_random_uuid(), hackathon_id uuid NOT NULL REFERENCES public.hackathons(id) ON DELETE CASCADE,\n organizer_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,\n title text NOT NULL, message text NOT NULL, linked_stage_id uuid REFERENCES public.hackathon_stages(id) ON DELETE SET NULL,\n sent_at timestamptz, created_at timestamptz DEFAULT now()\n);"
+        },
+        {
+          "line": 109,
+          "sql": "CREATE POLICY hackathon_announcements_read ON public.hackathon_announcements FOR SELECT TO authenticated USING (\n EXISTS(SELECT 1 FROM public.hackathons h WHERE h.id=hackathon_announcements.hackathon_id AND h.organizer_id=auth.uid())\n OR EXISTS(SELECT 1 FROM public.hackathon_registrations hr WHERE hr.hackathon_id=hr.hackathon_id AND hr.user_id=auth.uid())\n);"
+        },
+        {
+          "line": 113,
+          "sql": "CREATE POLICY hackathon_announcements_insert ON public.hackathon_announcements FOR INSERT TO authenticated WITH CHECK(\n EXISTS(SELECT 1 FROM public.hackathons h WHERE h.id=hackathon_announcements.hackathon_id AND h.organizer_id=auth.uid())\n);"
+        },
+        {
+          "line": 116,
+          "sql": "CREATE POLICY hackathon_announcements_update ON public.hackathon_announcements FOR UPDATE TO authenticated USING(\n EXISTS(SELECT 1 FROM public.hackathons h WHERE h.id=hackathon_announcements.hackathon_id AND h.organizer_id=auth.uid())\n) WITH CHECK(\n EXISTS(SELECT 1 FROM public.hackathons h WHERE h.id=hackathon_announcements.hackathon_id AND h.organizer_id=auth.uid())\n);"
+        },
+        {
+          "line": 118,
+          "sql": "CREATE POLICY hackathon_announcements_update ON public.hackathon_announcements FOR UPDATE TO authenticated USING(\n EXISTS(SELECT 1 FROM public.hackathons h WHERE h.id=hackathon_announcements.hackathon_id AND h.organizer_id=auth.uid())\n) WITH CHECK(\n EXISTS(SELECT 1 FROM public.hackathons h WHERE h.id=hackathon_announcements.hackathon_id AND h.organizer_id=auth.uid())\n);"
+        },
+        {
+          "line": 121,
+          "sql": "CREATE POLICY hackathon_announcements_delete ON public.hackathon_announcements FOR DELETE TO authenticated USING(\n EXISTS(SELECT 1 FROM public.hackathons h WHERE h.id=hackathon_announcements.hackathon_id AND h.organizer_id=auth.uid())\n);"
+        }
+      ]
+    },
+    {
+      "file": "scripts\\test-partner-isolation.sql",
+      "queries": [
+        {
+          "line": 39,
+          "sql": "CREATE TABLE public.team_hackathons (\n  team_id uuid REFERENCES public.teams(id), hackathon_id uuid REFERENCES public.hackathons(id),\n  PRIMARY KEY(team_id, hackathon_id)\n);"
+        },
+        {
+          "line": 50,
+          "sql": "-- production's registration/profile FK ordinarily prevents this state.\nCREATE TABLE public.hackathon_registrations (\n  id uuid PRIMARY KEY, hackathon_id uuid REFERENCES public.hackathons(id), user_id uuid REFERENCES auth.users(id),\n  status text, looking_for_team boolean, created_at timestamptz, is_hidden boolean DEFAULT false,\n  team_id uuid, metadata jsonb, UNIQUE(hackathon_id, user_id)\n);"
+        },
+        {
+          "line": 71,
+          "sql": "INSERT INTO public.hackathons VALUES\n (public.fixture_id(10001), NULL, 'external', 2, 4, 'approved', '{}', false),\n (public.fixture_id(10002), NULL, 'external', NULL, NULL, 'approved', '{}', false),\n (public.fixture_id(10003), NULL, 'external', 1, 4, 'approved', '{}', false),\n (public.fixture_id(10004), NULL, 'external', 1, 4, 'approved', '{}', false),\n (public.fixture_id(10005), public.fixture_id(4), 'native', 1, 4, 'pending', '{}', false),\n (public.fixture_id(10006), public.fixture_id(4), 'native', 1, 4, 'approved', '{}', false),\n (public.fixture_id(10007), NULL, 'external', 1, 4, 'approved', '{}', true),\n (public.fixture_id(10008), NULL, 'external', 1, 4, 'approved', '{}', false);"
+        },
+        {
+          "line": 380,
+          "sql": "UPDATE public.hackathons SET min_team_size = 5, max_team_size = 2 WHERE id = public.fixture_id(10001);"
+        }
+      ]
+    },
+    {
+      "file": "scripts\\test-partner-access.sql",
+      "queries": [
+        {
+          "line": 52,
+          "sql": "INSERT INTO public.hackathons VALUES\n ('10000000-0000-4000-8000-000000000001', NULL, 'external'),\n ('10000000-0000-4000-8000-000000000002', '00000000-0000-4000-8000-000000000004', 'native'),\n ('10000000-0000-4000-8000-000000000003', '00000000-0000-4000-8000-000000000004', 'external');"
+        }
+      ]
+    },
+    {
+      "file": "scripts\\check_and_restore_partner_portals.js",
+      "queries": [
+        {
+          "line": 39,
+          "method": "select",
+          "columnsOrPayload": [
+            {
+              "expression": "\"id, name, type, start_date, end_date\""
+            }
+          ]
+        },
+        {
+          "line": 39,
+          "method": "from",
+          "columnsOrPayload": [
+            {
+              "expression": "\"hackathons\""
+            }
+          ]
+        },
+        {
+          "line": 49,
+          "method": "upsert",
+          "columnsOrPayload": [
+            {
+              "expression": "{\r\n      id: axcentraHackathonId,\r\n      name: \"Axcentra x All India Hackathon\",\r\n      description: \"The Flagship 72-Hour National Innovation Sprint. Find your team and build the future.\",\r\n      type: \"official\", // Set type = 'official' so scraper auto-purge NEVER targets it!\r\n      start_date: \"2026-08-01\",\r\n      end_date: \"2026-08-31\",\r\n      location: \"India / Online\",\r\n      mode: \"online\",\r\n      prize_pool: \"₹1,00,000+\",\r\n      currency: \"INR\",\r\n      website_url: \"https://unstop.com/o/1703933\",\r\n      college: \"Axcentra National Team\",\r\n      tags: [\"Axcentra\", \"Coding\", \"Hackathon\", \"Official Partner\"],\r\n    }"
+            }
+          ]
+        },
+        {
+          "line": 49,
+          "method": "from",
+          "columnsOrPayload": [
+            {
+              "expression": "\"hackathons\""
+            }
+          ]
+        },
+        {
+          "line": 72,
+          "method": "update",
+          "columnsOrPayload": [
+            {
+              "expression": "{ type: \"official\" }"
+            }
+          ]
+        },
+        {
+          "line": 72,
+          "method": "from",
+          "columnsOrPayload": [
+            {
+              "expression": "\"hackathons\""
+            }
+          ]
+        },
+        {
+          "line": 105,
+          "method": "update",
+          "columnsOrPayload": [
+            {
+              "expression": "{ type: \"official\" }"
+            }
+          ]
+        },
+        {
+          "line": 105,
+          "method": "from",
+          "columnsOrPayload": [
+            {
+              "expression": "\"hackathons\""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "supabase\\migrations\\202607120003_team_single_active_hackathon.sql",
+      "queries": [
+        {
+          "line": 17,
+          "sql": "BEGIN\n  -- Count active hackathon registrations for this team (excluding the one being updated, if any)\n  SELECT count(*)\n  INTO v_active_count\n  FROM public.team_hackathons th\n  JOIN public.hackathons h ON th.hackathon_id = h.id\n  WHERE th.team_id = NEW.team_id\n    AND th.hackathon_id <> NEW.hackathon_id\n    AND (h.end_date IS NULL OR h.end_date >= timezone('utc'::text, now()));"
+        }
+      ]
+    },
+    {
+      "file": "supabase\\migrations\\202607020001_core_security.sql",
+      "queries": [
+        {
+          "line": 658,
+          "sql": "\ncreate policy hackathons_read on public.hackathons for select to authenticated using (true);"
+        },
+        {
+          "line": 659,
+          "sql": "create policy hackathons_create on public.hackathons for insert to authenticated\n  with check (organizer_id = auth.uid());"
+        },
+        {
+          "line": 661,
+          "sql": "create policy hackathons_update_organizer on public.hackathons for update to authenticated\n  using (organizer_id = auth.uid()) with check (organizer_id = auth.uid());"
+        },
+        {
+          "line": 663,
+          "sql": "create policy hackathons_delete_organizer on public.hackathons for delete to authenticated\n  using (organizer_id = auth.uid());"
+        },
+        {
+          "line": 670,
+          "sql": "\ncreate policy registrations_read on public.hackathon_registrations for select to authenticated\n  using (\n    user_id = auth.uid()\n    or exists (\n      select 1 from public.hackathons h\n      where h.id = hackathon_id and h.organizer_id = auth.uid()\n    )\n  );"
+        }
+      ]
+    },
+    {
+      "file": "supabase\\migrations\\202607080007_team_multiple_hackathons.sql",
+      "queries": [
+        {
+          "line": 6,
+          "sql": "-- Migration: 202607080007_team_multiple_hackathons\n-- Create team_hackathons junction table to support multiple hackathon listings per team.\n\nCREATE TABLE IF NOT EXISTS public.team_hackathons (\n  team_id UUID REFERENCES public.teams(id) ON DELETE CASCADE,\n  hackathon_id UUID REFERENCES public.hackathons(id) ON DELETE CASCADE,\n  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),\n  PRIMARY KEY (team_id, hackathon_id)\n);"
+        }
+      ]
+    },
+    {
+      "file": "supabase\\migrations\\202607080006_saved_hackathons_reminder.sql",
+      "queries": [
+        {
+          "line": 31,
+          "sql": "BEGIN\n  RETURN QUERY\n  SELECT \n    sh.id AS saved_id,\n    sh.user_id AS user_id,\n    p.email::TEXT AS user_email,\n    p.full_name::TEXT AS user_name,\n    h.id AS hackathon_id,\n    h.name::TEXT AS hackathon_name,\n    h.registration_end AS registration_end\n  FROM public.saved_hackathons sh\n  JOIN public.profiles p ON p.id = sh.user_id\n  JOIN public.hackathons h ON h.id = sh.hackathon_id\n  LEFT JOIN public.hackathon_registrations hr ON hr.hackathon_id = sh.hackathon_id AND hr.user_id = sh.user_id\n  WHERE \n    sh.reminder_sent_at IS NULL\n    AND hr.id IS NULL -- Only builders who have NOT registered yet\n    AND h.registration_end IS NOT NULL\n    AND h.registration_end >= NOW()\n    AND h.registration_end <= NOW() + INTERVAL '24 hours';"
+        }
+      ]
+    },
+    {
+      "file": "supabase\\migrations\\202607080001_security_and_schema_fixes.sql",
+      "queries": [
+        {
+          "line": 109,
+          "sql": "ALTER TABLE public.teams ADD CONSTRAINT teams_hackathon_id_fkey \n  FOREIGN KEY (hackathon_id) REFERENCES public.hackathons(id) ON DELETE SET NULL;"
+        }
+      ]
+    },
+    {
+      "file": "supabase\\migrations\\202607270003_stampers_partner_page.sql",
+      "queries": [
+        {
+          "line": 4,
+          "sql": "-- Migration: 202607270003_stampers_partner_page\n-- Creates hackathons row and partner_configs row for STAMPERS National Hackathon 2026.\n\n-- 1. Insert STAMPERS Hackathon into public.hackathons\nINSERT INTO public.hackathons (\n  id,\n  name,\n  description,\n  start_date,\n  end_date,\n  location,\n  mode,\n  prize_pool,\n  website_url,\n  tags,\n  type\n) VALUES (\n  '00000000-0000-0000-0000-000001703934',\n  'STAMPERS National Hackathon 2026',\n  'National Innovation Challenge. Find your team, build, and submit your project.',\n  '2026-08-15T00:00:00Z',\n  '2026-08-20T23:59:59Z',\n  'Online',\n  'online',\n  'Prize Pool TBA',\n  'https://www.hackermate.in/partners/stampers',\n  ARRAY['AI', 'Web3', 'Open Innovation', 'Hackathon'],\n  'native'\n) ON CONFLICT (id) DO UPDATE SET\n  name = EXCLUDED.name,\n  start_date = EXCLUDED.start_date,\n  end_date = EXCLUDED.end_date;"
+        },
+        {
+          "line": 5,
+          "sql": "-- Migration: 202607270003_stampers_partner_page\n-- Creates hackathons row and partner_configs row for STAMPERS National Hackathon 2026.\n\n-- 1. Insert STAMPERS Hackathon into public.hackathons\nINSERT INTO public.hackathons (\n  id,\n  name,\n  description,\n  start_date,\n  end_date,\n  location,\n  mode,\n  prize_pool,\n  website_url,\n  tags,\n  type\n) VALUES (\n  '00000000-0000-0000-0000-000001703934',\n  'STAMPERS National Hackathon 2026',\n  'National Innovation Challenge. Find your team, build, and submit your project.',\n  '2026-08-15T00:00:00Z',\n  '2026-08-20T23:59:59Z',\n  'Online',\n  'online',\n  'Prize Pool TBA',\n  'https://www.hackermate.in/partners/stampers',\n  ARRAY['AI', 'Web3', 'Open Innovation', 'Hackathon'],\n  'native'\n) ON CONFLICT (id) DO UPDATE SET\n  name = EXCLUDED.name,\n  start_date = EXCLUDED.start_date,\n  end_date = EXCLUDED.end_date;"
+        }
+      ]
+    },
+    {
+      "file": "supabase\\migrations\\202607260002_grant_anon_hackathons_read.sql",
+      "queries": [
+        {
+          "line": 4,
+          "sql": "-- Migration: 202607260002_grant_anon_hackathons_read.sql\n-- Description: Grant anonymous/public read access to hackathon public display fields for partner pages.\n\n-- 1. Create narrow RLS policy for anon SELECT on public.hackathons\nDROP POLICY IF EXISTS hackathons_read_anon ON public.hackathons;"
+        },
+        {
+          "line": 5,
+          "sql": "-- Migration: 202607260002_grant_anon_hackathons_read.sql\n-- Description: Grant anonymous/public read access to hackathon public display fields for partner pages.\n\n-- 1. Create narrow RLS policy for anon SELECT on public.hackathons\nDROP POLICY IF EXISTS hackathons_read_anon ON public.hackathons;"
+        },
+        {
+          "line": 6,
+          "sql": "CREATE POLICY hackathons_read_anon ON public.hackathons \n  FOR SELECT TO anon \n  USING (true);"
+        },
+        {
+          "line": 11,
+          "sql": "\n-- 2. Scope column-level GRANT for anon role to public display fields only\nREVOKE ALL ON public.hackathons FROM anon;"
+        },
+        {
+          "line": 26,
+          "sql": "GRANT SELECT (\n  id,\n  name,\n  description,\n  start_date,\n  end_date,\n  location,\n  mode,\n  prize_pool,\n  website_url,\n  tags,\n  type,\n  college,\n  created_at\n) ON public.hackathons TO anon;"
+        }
+      ]
+    },
+    {
+      "file": "supabase\\migrations\\202607260001_axcentra_and_partner_engine.sql",
+      "queries": [
+        {
+          "line": 8,
+          "sql": "-- Migration: 202607260001_axcentra_and_partner_engine\n-- Creates user_badges, partner_configs, RLS policies, Axcentra seed data, and grant_hackathon_winner_badges RPC.\n\n-- 1. Create public.user_badges table\nCREATE TABLE IF NOT EXISTS public.user_badges (\n  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),\n  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,\n  hackathon_id UUID REFERENCES public.hackathons(id) ON DELETE SET NULL,\n  badge_type VARCHAR(50) NOT NULL DEFAULT 'verified_winner',\n  badge_name TEXT NOT NULL,\n  issuer_name TEXT NOT NULL DEFAULT 'HackerMate',\n  rank_title TEXT,\n  metadata JSONB DEFAULT '{}'::jsonb,\n  issued_at TIMESTAMPTZ DEFAULT NOW(),\n  CONSTRAINT user_badges_unique_user_hackathon_type UNIQUE(user_id, hackathon_id, badge_type)\n);"
+        },
+        {
+          "line": 22,
+          "sql": "\n-- 2. Create public.partner_configs table\nCREATE TABLE IF NOT EXISTS public.partner_configs (\n  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),\n  slug VARCHAR(100) UNIQUE NOT NULL,\n  hackathon_id UUID REFERENCES public.hackathons(id) ON DELETE CASCADE NOT NULL,\n  partner_name TEXT NOT NULL,\n  tagline TEXT,\n  brand_color VARCHAR(50) DEFAULT '#3B82F6',\n  accent_color VARCHAR(50) DEFAULT '#8B5CF6',\n  logo_url TEXT,\n  banner_url TEXT,\n  override_prize_pool TEXT,\n  features JSONB DEFAULT '{}'::jsonb,\n  created_at TIMESTAMPTZ DEFAULT NOW(),\n  updated_at TIMESTAMPTZ DEFAULT NOW()\n);"
+        }
+      ]
+    },
+    {
+      "file": "supabase\\migrations\\202607250001_native_hackathon_hosting.sql",
+      "queries": [
+        {
+          "line": 6,
+          "sql": "-- Migration: 202607250001_native_hackathon_hosting\n-- Ensure hackathon_posts and hackathon_resources tables exist with RLS policies for Native Event Hosting.\n\nCREATE TABLE IF NOT EXISTS public.hackathon_posts (\n  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),\n  hackathon_id UUID REFERENCES public.hackathons(id) ON DELETE CASCADE NOT NULL,\n  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,\n  content TEXT NOT NULL,\n  is_announcement BOOLEAN DEFAULT false,\n  created_at TIMESTAMPTZ DEFAULT NOW()\n);"
+        },
+        {
+          "line": 15,
+          "sql": "\nCREATE TABLE IF NOT EXISTS public.hackathon_resources (\n  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),\n  hackathon_id UUID REFERENCES public.hackathons(id) ON DELETE CASCADE NOT NULL,\n  created_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL,\n  title TEXT NOT NULL,\n  url TEXT NOT NULL,\n  category TEXT DEFAULT 'general',\n  created_at TIMESTAMPTZ DEFAULT NOW()\n);"
+        },
+        {
+          "line": 38,
+          "sql": "CREATE POLICY hackathon_posts_insert ON public.hackathon_posts\n  FOR INSERT TO authenticated\n  WITH CHECK (\n    user_id = auth.uid() AND (\n      EXISTS (\n        SELECT 1 FROM public.hackathons h\n        WHERE h.id = hackathon_id AND h.organizer_id = auth.uid()\n      ) OR EXISTS (\n        SELECT 1 FROM public.hackathon_registrations hr\n        WHERE hr.hackathon_id = hackathon_id AND hr.user_id = auth.uid()\n      )\n    )\n  );"
+        },
+        {
+          "line": 52,
+          "sql": "CREATE POLICY hackathon_posts_delete ON public.hackathon_posts\n  FOR DELETE TO authenticated\n  USING (\n    user_id = auth.uid() OR EXISTS (\n      SELECT 1 FROM public.hackathons h\n      WHERE h.id = hackathon_id AND h.organizer_id = auth.uid()\n    )\n  );"
+        },
+        {
+          "line": 67,
+          "sql": "CREATE POLICY hackathon_resources_insert ON public.hackathon_resources\n  FOR INSERT TO authenticated\n  WITH CHECK (\n    EXISTS (\n      SELECT 1 FROM public.hackathons h\n      WHERE h.id = hackathon_id AND h.organizer_id = auth.uid()\n    )\n  );"
+        },
+        {
+          "line": 77,
+          "sql": "CREATE POLICY hackathon_resources_delete ON public.hackathon_resources\n  FOR DELETE TO authenticated\n  USING (\n    EXISTS (\n      SELECT 1 FROM public.hackathons h\n      WHERE h.id = hackathon_id AND h.organizer_id = auth.uid()\n    )\n  );"
+        }
+      ]
+    },
+    {
+      "file": "supabase\\migrations\\202607180006_add_missing_indexes.sql",
+      "queries": [
+        {
+          "line": 11,
+          "sql": "CREATE INDEX IF NOT EXISTS idx_hackathons_organizer_id ON public.hackathons(organizer_id);"
+        },
+        {
+          "line": 12,
+          "sql": "CREATE INDEX IF NOT EXISTS idx_hackathons_college ON public.hackathons(college);"
+        }
+      ]
+    },
+    {
+      "file": "supabase\\migrations\\202607290001_sih_team_builder.sql",
+      "queries": [
+        {
+          "line": 2,
+          "sql": "-- Migration: 202607290001_sih_team_builder\n-- Adds gender column to profiles and inserts Smart India Hackathon 2026 anchor row into public.hackathons.\n\n-- 1. Ensure profiles has optional gender column for SIH team composition checks\nALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS gender VARCHAR(20);"
+        },
+        {
+          "line": 8,
+          "sql": "\n-- 2. Insert Smart India Hackathon 2026 anchor row in public.hackathons\nINSERT INTO public.hackathons (\n  id,\n  name,\n  description,\n  start_date,\n  end_date,\n  location,\n  mode,\n  prize_pool,\n  website_url,\n  tags,\n  type\n) VALUES (\n  '00000000-0000-0000-0000-000001703935',\n  'Smart India Hackathon 2026 (SIH Internal Round)',\n  'Official college-level internal team formation round for Smart India Hackathon 2026. Assemble your 6-member team from your college with diverse skills and mandatory female representation.',\n  '2026-08-01T00:00:00Z',\n  '2026-09-30T23:59:59Z',\n  'Your College Campus',\n  'hybrid',\n  'Nomination to SIH 2026 National Round',\n  'https://sih.gov.in',\n  ARRAY['SIH 2026', 'College Round', 'Internal Selection', 'Government of India'],\n  'external'\n) ON CONFLICT (id) DO UPDATE SET\n  name = EXCLUDED.name,\n  description = EXCLUDED.description,\n  website_url = EXCLUDED.website_url,\n  tags = EXCLUDED.tags,\n  type = EXCLUDED.type;"
+        }
+      ]
+    },
+    {
+      "file": "supabase\\migrations\\202607280004_hackathon_announcements.sql",
+      "queries": [
+        {
+          "line": 6,
+          "sql": "-- Migration: 202607280004_hackathon_announcements\n-- Creates hackathon_announcements table for organizer broadcasts with RLS policies.\n\nCREATE TABLE IF NOT EXISTS public.hackathon_announcements (\n  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),\n  hackathon_id UUID REFERENCES public.hackathons(id) ON DELETE CASCADE NOT NULL,\n  organizer_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,\n  title TEXT NOT NULL,\n  message TEXT NOT NULL,\n  linked_stage_id UUID REFERENCES public.hackathon_stages(id) ON DELETE SET NULL,\n  sent_at TIMESTAMPTZ,\n  created_at TIMESTAMPTZ DEFAULT NOW()\n);"
+        },
+        {
+          "line": 24,
+          "sql": "CREATE POLICY hackathon_announcements_read ON public.hackathon_announcements\n  FOR SELECT TO authenticated\n  USING (\n    EXISTS (\n      SELECT 1 FROM public.hackathons h\n      WHERE h.id = hackathon_id AND h.organizer_id = auth.uid()\n    ) OR EXISTS (\n      SELECT 1 FROM public.hackathon_registrations hr\n      WHERE hr.hackathon_id = hackathon_id AND hr.user_id = auth.uid()\n    )\n  );"
+        },
+        {
+          "line": 37,
+          "sql": "CREATE POLICY hackathon_announcements_insert ON public.hackathon_announcements\n  FOR INSERT TO authenticated\n  WITH CHECK (\n    EXISTS (\n      SELECT 1 FROM public.hackathons h\n      WHERE h.id = hackathon_id AND h.organizer_id = auth.uid()\n    )\n  );"
+        },
+        {
+          "line": 47,
+          "sql": "CREATE POLICY hackathon_announcements_update ON public.hackathon_announcements\n  FOR UPDATE TO authenticated\n  USING (\n    EXISTS (\n      SELECT 1 FROM public.hackathons h\n      WHERE h.id = hackathon_id AND h.organizer_id = auth.uid()\n    )\n  )\n  WITH CHECK (\n    EXISTS (\n      SELECT 1 FROM public.hackathons h\n      WHERE h.id = hackathon_id AND h.organizer_id = auth.uid()\n    )\n  );"
+        },
+        {
+          "line": 53,
+          "sql": "CREATE POLICY hackathon_announcements_update ON public.hackathon_announcements\n  FOR UPDATE TO authenticated\n  USING (\n    EXISTS (\n      SELECT 1 FROM public.hackathons h\n      WHERE h.id = hackathon_id AND h.organizer_id = auth.uid()\n    )\n  )\n  WITH CHECK (\n    EXISTS (\n      SELECT 1 FROM public.hackathons h\n      WHERE h.id = hackathon_id AND h.organizer_id = auth.uid()\n    )\n  );"
+        },
+        {
+          "line": 63,
+          "sql": "CREATE POLICY hackathon_announcements_delete ON public.hackathon_announcements\n  FOR DELETE TO authenticated\n  USING (\n    EXISTS (\n      SELECT 1 FROM public.hackathons h\n      WHERE h.id = hackathon_id AND h.organizer_id = auth.uid()\n    )\n  );"
+        }
+      ]
+    },
+    {
+      "file": "supabase\\migrations\\202607280003_hackathon_stages.sql",
+      "queries": [
+        {
+          "line": 6,
+          "sql": "-- Migration: 202607280003_hackathon_stages\n-- Creates hackathon_stages table for event schedule and stage management with RLS policies.\n\nCREATE TABLE IF NOT EXISTS public.hackathon_stages (\n  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),\n  hackathon_id UUID REFERENCES public.hackathons(id) ON DELETE CASCADE NOT NULL,\n  title TEXT NOT NULL,\n  description TEXT,\n  start_time TIMESTAMPTZ NOT NULL,\n  end_time TIMESTAMPTZ,\n  stage_type VARCHAR(50) DEFAULT 'other',\n  sort_order INT DEFAULT 0,\n  created_at TIMESTAMPTZ DEFAULT NOW()\n);"
+        },
+        {
+          "line": 29,
+          "sql": "CREATE POLICY hackathon_stages_insert ON public.hackathon_stages\n  FOR INSERT TO authenticated\n  WITH CHECK (\n    EXISTS (\n      SELECT 1 FROM public.hackathons h\n      WHERE h.id = hackathon_id AND h.organizer_id = auth.uid()\n    )\n  );"
+        },
+        {
+          "line": 39,
+          "sql": "CREATE POLICY hackathon_stages_update ON public.hackathon_stages\n  FOR UPDATE TO authenticated\n  USING (\n    EXISTS (\n      SELECT 1 FROM public.hackathons h\n      WHERE h.id = hackathon_id AND h.organizer_id = auth.uid()\n    )\n  )\n  WITH CHECK (\n    EXISTS (\n      SELECT 1 FROM public.hackathons h\n      WHERE h.id = hackathon_id AND h.organizer_id = auth.uid()\n    )\n  );"
+        },
+        {
+          "line": 45,
+          "sql": "CREATE POLICY hackathon_stages_update ON public.hackathon_stages\n  FOR UPDATE TO authenticated\n  USING (\n    EXISTS (\n      SELECT 1 FROM public.hackathons h\n      WHERE h.id = hackathon_id AND h.organizer_id = auth.uid()\n    )\n  )\n  WITH CHECK (\n    EXISTS (\n      SELECT 1 FROM public.hackathons h\n      WHERE h.id = hackathon_id AND h.organizer_id = auth.uid()\n    )\n  );"
+        },
+        {
+          "line": 55,
+          "sql": "CREATE POLICY hackathon_stages_delete ON public.hackathon_stages\n  FOR DELETE TO authenticated\n  USING (\n    EXISTS (\n      SELECT 1 FROM public.hackathons h\n      WHERE h.id = hackathon_id AND h.organizer_id = auth.uid()\n    )\n  );"
+        }
+      ]
+    },
+    {
+      "file": "supabase\\migrations\\202607270005_restore_stampers_unstop_url.sql",
+      "queries": [
+        {
+          "line": 2,
+          "sql": "-- Migration: 202607270005_restore_stampers_unstop_url\n-- Restores real external Unstop registration URL on public.hackathons for STAMPERS (id 00000000-0000-0000-0000-000001726290).\n\nUPDATE public.hackathons\nSET website_url = 'https://unstop.com/hackathons/stampers-national-hackathon-2026-stampers-1726290'\nWHERE id = '00000000-0000-0000-0000-000001726290';"
+        },
+        {
+          "line": 4,
+          "sql": "-- Migration: 202607270005_restore_stampers_unstop_url\n-- Restores real external Unstop registration URL on public.hackathons for STAMPERS (id 00000000-0000-0000-0000-000001726290).\n\nUPDATE public.hackathons\nSET website_url = 'https://unstop.com/hackathons/stampers-national-hackathon-2026-stampers-1726290'\nWHERE id = '00000000-0000-0000-0000-000001726290';"
+        }
+      ]
+    },
+    {
+      "file": "supabase\\migrations\\202607270004_merge_stampers_duplicate.sql",
+      "queries": [
+        {
+          "line": 8,
+          "sql": "-- Migration: 202607270004_merge_stampers_duplicate\n-- Merges duplicate STAMPERS hackathon rows:\n-- Retains original scraped row (00000000-0000-0000-0000-000001726290) with type = 'external',\n-- updates website_url, updates partner_configs link and sets override_prize_pool to NULL,\n-- and removes the duplicate native hackathon row (00000000-0000-0000-0000-000001703934).\n\n-- 1. Update original scraped hackathon row (keep type as 'external', set website_url)\nUPDATE public.hackathons\nSET website_url = 'https://www.hackermate.in/partners/stampers'\nWHERE id = '00000000-0000-0000-0000-000001726290';"
+        },
+        {
+          "line": 20,
+          "sql": "\n-- 3. Delete duplicate hackathon row created in previous step\nDELETE FROM public.hackathons\nWHERE id = '00000000-0000-0000-0000-000001703934';"
+        }
+      ]
+    },
+    {
+      "file": "supabase\\migrations\\202608030001_spiderverse_partner_portal.sql",
+      "queries": [
+        {
+          "line": 5,
+          "sql": "-- Migration: 202608030001_spiderverse_partner_portal\n-- Creates/Updates XPLORE'26 - Into the SpiderVerse Hackathon and partner_configs row for LICET CSE Symposium.\n\n-- 1. Ensure Hackathon record exists\nINSERT INTO public.hackathons (\n  id, name, description, mode, type, prize_pool, college, start_date, end_date, website_url, tags\n) VALUES (\n  '00000000-0000-0000-0000-000001703936',\n  'XPLORE''26 — Into the SpiderVerse',\n  'National-Level Tech Symposium by Department of CSE, LICET, Chennai featuring 6 Spider-Verse events: Web Forge, Multiverse Breach CTF, Spider Sense, Across the SpiderVerse Treasure Hunt, Beyond the Web, and Spider Sprint speed coding.',\n  'offline',\n  'external',\n  'Exciting Prizes & Certificates',\n  'LICET, Chennai',\n  '2026-08-08 09:00:00+05:30',\n  '2026-08-08 18:00:00+05:30',\n  'https://xplore26.xyz/',\n  ARRAY['web-forge', 'multiverse-breach-ctf', 'spider-sense', 'spiderverse', 'paper-presentation', 'speed-coding']\n) ON CONFLICT (id) DO UPDATE SET\n  name = EXCLUDED.name,\n  description = EXCLUDED.description,\n  prize_pool = EXCLUDED.prize_pool,\n  college = EXCLUDED.college,\n  start_date = EXCLUDED.start_date,\n  end_date = EXCLUDED.end_date,\n  website_url = EXCLUDED.website_url,\n  tags = EXCLUDED.tags;"
+        }
+      ]
+    },
+    {
+      "file": "supabase\\migrations\\202607300002_hackathons_dedup_unique_index.sql",
+      "queries": [
+        {
+          "line": 3,
+          "sql": "-- Migration: Add unique index on website_url to public.hackathons for scraper deduplication\n-- Trim trailing slashes from website_url\nUPDATE public.hackathons \nSET website_url = RTRIM(website_url, '/') \nWHERE website_url IS NOT NULL AND website_url LIKE '%/';"
+        },
+        {
+          "line": 9,
+          "sql": "\n-- Create partial unique index on website_url (excluding nulls/empty strings)\nCREATE UNIQUE INDEX IF NOT EXISTS hackathons_website_url_unique_idx \nON public.hackathons (website_url) \nWHERE website_url IS NOT NULL AND website_url != '';"
+        }
+      ]
+    },
+    {
+      "file": "supabase\\migrations\\202608030004_add_unique_website_url_to_hackathons.sql",
+      "queries": [
+        {
+          "line": 5,
+          "sql": "-- Migration: 202608030004_add_unique_website_url_to_hackathons\n-- Adds UNIQUE constraint on website_url in public.hackathons so multi-platform scraper upserts succeed cleanly.\n\n-- 1. Deduplicate any existing duplicate website_url rows in public.hackathons (keeping the newest row)\nDELETE FROM public.hackathons a\nUSING public.hackathons b\nWHERE a.id < b.id \n  AND a.website_url IS NOT NULL \n  AND LOWER(a.website_url) = LOWER(b.website_url);"
+        }
+      ]
+    },
+    {
+      "file": "supabase\\migrations\\202608040001_morrow_partner_page.sql",
+      "queries": [
+        {
+          "line": 4,
+          "sql": "-- Migration: 202608040001_morrow_partner_page\n-- Creates/updates partner_configs row for Morrow 1.0 (Makers Need More - MnM).\n\nINSERT INTO public.hackathons (\n  id,\n  name,\n  description,\n  start_date,\n  end_date,\n  location,\n  mode,\n  prize_pool,\n  website_url,\n  type,\n  tags,\n  college,\n  currency\n) VALUES (\n  '44067b2e-3c82-4502-8398-4ba8d1b91022',\n  'Morrow 1.0',\n  'Morrow 1.0 is a global open-source hackathon by Makers Need More (MnM) where students, developers, designers, and innovators build impactful open-source solutions.',\n  '2026-07-29',\n  '2026-08-31',\n  'Online / Global',\n  'online',\n  'Certificate & Perks',\n  'https://unstop.com/hackathons/morrow-10-makers-need-more-mnm-1727667',\n  'external',\n  ARRAY['Open Source', 'AI', 'Coding', 'Unstop'],\n  'Makers Need More (MnM)',\n  'INR'\n) ON CONFLICT (id) DO UPDATE SET\n  name = EXCLUDED.name,\n  website_url = EXCLUDED.website_url,\n  end_date = EXCLUDED.end_date,\n  college = EXCLUDED.college;"
+        }
+      ]
+    },
+    {
+      "file": "scripts\\fixtures\\hustle-auth-foundation.sql",
+      "queries": [
+        {
+          "line": 10,
+          "sql": "CREATE TABLE public.event_organizers(hackathon_id uuid REFERENCES public.hackathons(id),user_id uuid REFERENCES public.profiles(id),PRIMARY KEY(hackathon_id,user_id));"
+        },
+        {
+          "line": 18,
+          "sql": "GRANT SELECT(id) ON hackathons TO authenticated;"
+        },
+        {
+          "line": 19,
+          "sql": "CREATE POLICY fixture_event_read ON hackathons FOR SELECT TO authenticated USING(true);"
+        }
+      ]
+    },
+    {
+      "file": "src\\lib\\discordCommandHelper.ts",
+      "queries": [
+        {
+          "line": 196,
+          "method": "select",
+          "columnsOrPayload": [
+            {
+              "expression": "\"id, title, organizer, mode, start_date, prize_pool\""
+            }
+          ]
+        },
+        {
+          "line": 196,
+          "method": "from",
+          "columnsOrPayload": [
+            {
+              "expression": "\"hackathons\""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "src\\lib\\partners\\workspace.ts",
+      "queries": [
+        {
+          "line": 48,
+          "method": "select",
+          "columnsOrPayload": [
+            {
+              "expression": "\"id, name, start_date, end_date, location, mode, min_team_size, max_team_size, archived, status, type\""
+            }
+          ]
+        },
+        {
+          "line": 48,
+          "method": "from",
+          "columnsOrPayload": [
+            {
+              "expression": "\"hackathons\""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "src\\lib\\partners\\requirePartnerAccess.ts",
+      "queries": [
+        {
+          "line": 58,
+          "method": "select",
+          "columnsOrPayload": [
+            {
+              "expression": "\"id\""
+            }
+          ]
+        },
+        {
+          "line": 58,
+          "method": "from",
+          "columnsOrPayload": [
+            {
+              "expression": "\"hackathons\""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "src\\lib\\partners\\public.ts",
+      "queries": [
+        {
+          "line": 39,
+          "method": "select",
+          "columnsOrPayload": [
+            {
+              "expression": "EVENT_COLUMNS",
+              "values": [
+                "id, name, description, start_date, end_date, location, mode, min_team_size, max_team_size, website_url, type, archived, status, approval_status:ai_feedback->>status",
+                "id, name, type, archived, start_date, end_date, mode, location, min_team_size, max_team_size"
+              ]
+            }
+          ]
+        },
+        {
+          "line": 39,
+          "method": "from",
+          "columnsOrPayload": [
+            {
+              "expression": "\"hackathons\""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "src\\lib\\partners\\hustleCarnivalPublic.ts",
+      "queries": [
+        {
+          "line": 11,
+          "method": "select",
+          "columnsOrPayload": [
+            {
+              "expression": "HUSTLE_EVENT_COLUMNS",
+              "values": [
+                "id,status,archived,type,start_date,end_date,mode,location,min_team_size,max_team_size,website_url"
+              ]
+            }
+          ]
+        },
+        {
+          "line": 11,
+          "method": "from",
+          "columnsOrPayload": [
+            {
+              "expression": "\"hackathons\""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "src\\lib\\partners\\eventSeriesPublic.ts",
+      "queries": [
+        {
+          "line": 16,
+          "method": "select",
+          "columnsOrPayload": [
+            {
+              "expression": "SERIES_EVENT_COLUMNS",
+              "values": [
+                "id,name,website_url,mode,location,status,archived"
+              ]
+            }
+          ]
+        },
+        {
+          "line": 16,
+          "method": "from",
+          "columnsOrPayload": [
+            {
+              "expression": "\"hackathons\""
+            }
+          ]
+        },
+        {
+          "line": 37,
+          "method": "select",
+          "columnsOrPayload": [
+            {
+              "expression": "SERIES_EVENT_COLUMNS",
+              "values": [
+                "id,name,website_url,mode,location,status,archived"
+              ]
+            }
+          ]
+        },
+        {
+          "line": 37,
+          "method": "from",
+          "columnsOrPayload": [
+            {
+              "expression": "\"hackathons\""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "supabase\\migrations\\20260808181000_builder_track_record_privacy_and_slug.sql",
+      "queries": [
+        {
+          "line": 94,
+          "sql": "\n  SELECT COALESCE(jsonb_agg(\n    jsonb_build_object(\n      'registration_id', r.id,\n      'hackathon_id', h.id,\n      'hackathon_name', h.name,\n      'mode', h.mode,\n      'location', h.location,\n      'prize_pool', h.prize_pool,\n      'start_date', h.start_date,\n      'end_date', h.end_date,\n      'website_url', h.website_url,\n      'registration_status', r.status,\n      'looking_for_team', r.looking_for_team,\n      'registered_at', r.created_at\n    ) ORDER BY h.start_date DESC NULLS LAST\n  ), '[]'::jsonb)\n  INTO v_registrations\n  FROM public.hackathon_registrations r\n  JOIN public.hackathons h ON h.id = r.hackathon_id\n  WHERE r.user_id = v_user_uuid\n    AND COALESCE(r.is_hidden, false) = false;"
+        }
+      ]
+    },
+    {
+      "file": "supabase\\migrations\\202608080005_hackathon_scoped_github_and_links.sql",
+      "queries": [
+        {
+          "line": 8,
+          "sql": "-- Migration: 202608080005_hackathon_scoped_github_and_links\n-- 1. Create team_github_repos table for hackathon-scoped GitHub repository URLs.\n-- 2. Add optional hackathon_id to team_links for event-specific vs global resource links.\n\n-- 1. Create team_github_repos table\nCREATE TABLE IF NOT EXISTS public.team_github_repos (\n  team_id UUID REFERENCES public.teams(id) ON DELETE CASCADE,\n  hackathon_id UUID REFERENCES public.hackathons(id) ON DELETE CASCADE,\n  github_repo_url TEXT DEFAULT '',\n  updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()),\n  PRIMARY KEY (team_id, hackathon_id)\n);"
+        },
+        {
+          "line": 66,
+          "sql": "\n-- 2. Add optional hackathon_id column to team_links\nALTER TABLE public.team_links\n  ADD COLUMN IF NOT EXISTS hackathon_id UUID REFERENCES public.hackathons(id) ON DELETE CASCADE;"
+        }
+      ]
+    },
+    {
+      "file": "supabase\\migrations\\202608080003_team_submissions_composite_pk.sql",
+      "queries": [
+        {
+          "line": 6,
+          "sql": "-- Migration: 202608080003_team_submissions_composite_pk\n-- Converts team_submissions primary key from (team_id) to (team_id, hackathon_id) to support multi-event project submissions.\n\n-- 1. Add hackathon_id column if not exists\nALTER TABLE public.team_submissions\n  ADD COLUMN IF NOT EXISTS hackathon_id UUID REFERENCES public.hackathons(id) ON DELETE CASCADE;"
+        }
+      ]
+    },
+    {
+      "file": "supabase\\migrations\\202608070004_aethos_partner_portal.sql",
+      "queries": [
+        {
+          "line": 8,
+          "sql": "begin\n  -- Check if hackathon already exists\n  select id into v_hackathon_id\n  from public.hackathons\n  where name ilike '%AETHOS%' or name ilike '%ÆTHOS%' or name ilike '%Day Zero%'\n  limit 1;"
+        },
+        {
+          "line": 13,
+          "sql": "\n  if v_hackathon_id is null then\n    insert into public.hackathons (\n      id,\n      name,\n      description,\n      mode,\n      type,\n      prize_pool,\n      currency,\n      website_url,\n      tags,\n      start_date\n    ) values (\n      gen_random_uuid(),\n      'ÆTHOS — Day Zero Hackathon',\n      'Official National Innovation & Tech Hackathon organized by Alpha Forge. Build high-impact solutions across AI, Web3, Systems, and Open Innovation.',\n      'online',\n      'external',\n      '₹1,00,000+ & Perks',\n      'INR (₹)',\n      'https://hackermate.in/partners/aethos',\n      array['AI/ML', 'Web3', 'Open Innovation', 'Cyber Security', 'GameDev'],\n      now()\n    )\n    returning id into v_hackathon_id;"
+        }
+      ]
+    },
+    {
+      "file": "supabase\\migrations\\20260808184000_fix_get_public_builder_profile_rpc.sql",
+      "queries": [
+        {
+          "line": 75,
+          "sql": "\n  -- Fetch hackathon registrations\n  SELECT COALESCE(jsonb_agg(\n    jsonb_build_object(\n      'registration_id', r.id,\n      'hackathon_id', h.id,\n      'hackathon_name', h.name,\n      'mode', h.mode,\n      'location', h.location,\n      'prize_pool', h.prize_pool,\n      'start_date', h.start_date,\n      'end_date', h.end_date,\n      'website_url', h.website_url,\n      'registration_status', r.status,\n      'looking_for_team', r.looking_for_team,\n      'registered_at', r.created_at\n    ) ORDER BY h.start_date DESC NULLS LAST\n  ), '[]'::jsonb)\n  INTO v_registrations\n  FROM public.hackathon_registrations r\n  JOIN public.hackathons h ON h.id = r.hackathon_id\n  WHERE r.user_id = v_user_uuid\n    AND COALESCE(r.is_hidden, false) = false;"
+        }
+      ]
+    },
+    {
+      "file": "supabase\\migrations\\20260808183000_fix_team_submissions_default_and_cleanup.sql",
+      "queries": [
+        {
+          "line": 91,
+          "sql": "\n  -- Fetch hackathon registrations\n  SELECT COALESCE(jsonb_agg(\n    jsonb_build_object(\n      'id', hr.id,\n      'hackathon_id', hr.hackathon_id,\n      'registered_at', hr.created_at,\n      'looking_for_team', hr.looking_for_team,\n      'hackathon', jsonb_build_object(\n        'id', h.id,\n        'title', h.title,\n        'tagline', h.tagline,\n        'start_date', h.start_date,\n        'end_date', h.end_date,\n        'banner_url', h.banner_url,\n        'is_partner', h.is_partner\n      )\n    )\n  ), '[]'::jsonb)\n  INTO v_registrations\n  FROM public.hackathon_registrations hr\n  JOIN public.hackathons h ON h.id = hr.hackathon_id\n  WHERE hr.user_id = v_user_uuid;"
+        }
+      ]
+    },
+    {
+      "file": "supabase\\migrations\\202608120001_startupx_partner_page.sql",
+      "queries": [
+        {
+          "line": 4,
+          "sql": "-- Migration: 202608120001_startupx_partner_page\n-- Creates hackathons row and partner_configs row for Gamnexis - StartupX 2026.\n\nINSERT INTO public.hackathons (\n  id,\n  name,\n  description,\n  start_date,\n  end_date,\n  location,\n  mode,\n  prize_pool,\n  website_url,\n  type,\n  tags,\n  college,\n  currency\n) VALUES (\n  '00000000-0000-0000-0000-000001111000',\n  'StartupX Hackathon 2026',\n  'Free online innovation and startup hackathon organized by Gamnexis. Turn your idea into a real startup! Open innovation across any domain (AI/ML, Web/SaaS, Mobile, FinTech, HealthTech, EdTech, Cybersecurity, Gaming, Blockchain, IoT, Social Impact). Solo builders & teams of 1-6 allowed.',\n  '2026-08-10 00:00:00+05:30',\n  '2026-09-25 12:00:00+05:30',\n  'Online / Virtual',\n  'online',\n  '₹10,000 Cash Pool + Uplearn Subscriptions',\n  'https://unstop.com/o/xqEjdze?lb=xDftlMXW&utm_medium=Share&utm_source=WhatsApp',\n  'external',\n  ARRAY['Startup', 'Innovation', 'AI', 'SaaS', 'Unstop'],\n  'Gamnexis',\n  'INR'\n) ON CONFLICT (id) DO UPDATE SET\n  name = EXCLUDED.name,\n  description = EXCLUDED.description,\n  start_date = EXCLUDED.start_date,\n  end_date = EXCLUDED.end_date,\n  prize_pool = EXCLUDED.prize_pool,\n  website_url = EXCLUDED.website_url,\n  college = EXCLUDED.college;"
+        }
+      ]
+    },
+    {
+      "file": "supabase\\migrations\\202608110003_hackathon_team_sizes_and_status.sql",
+      "queries": [
+        {
+          "line": 2,
+          "sql": "-- Migration: 202608110003_hackathon_team_sizes_and_status\n-- Ensure team size limits, status, rounds info, and ai_feedback exist on public.hackathons table.\n\nALTER TABLE public.hackathons \n  ADD COLUMN IF NOT EXISTS min_team_size INT DEFAULT 1,\n  ADD COLUMN IF NOT EXISTS max_team_size INT DEFAULT 4,\n  ADD COLUMN IF NOT EXISTS rounds_count INT DEFAULT 1,\n  ADD COLUMN IF NOT EXISTS rounds_info JSONB DEFAULT '[]'::jsonb,\n  ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'approved',\n  ADD COLUMN IF NOT EXISTS ai_feedback JSONB DEFAULT '{}'::jsonb;"
+        },
+        {
+          "line": 12,
+          "sql": "\n-- Grant read access on public.hackathons to authenticated and anon roles\nGRANT SELECT ON public.hackathons TO authenticated, anon;"
+        },
+        {
+          "line": 13,
+          "sql": "\n-- Grant read access on public.hackathons to authenticated and anon roles\nGRANT SELECT ON public.hackathons TO authenticated, anon;"
+        }
+      ]
+    },
+    {
+      "file": "supabase\\migrations\\202608120003_cleanup_duplicate_hackathons.sql",
+      "queries": [
+        {
+          "line": 4,
+          "sql": "-- Migration: 202608120003_cleanup_duplicate_hackathons\n-- Deletes unreferenced duplicate hackathon rows for StartupX Hackathon 2026 and Codeissance 2026.\n\nDELETE FROM public.hackathons\nWHERE id = '4c2761b2-0257-47e2-84ff-23226b4efac4'; -- StartupX unreferenced scraped duplicate"
+        },
+        {
+          "line": 7,
+          "sql": "\nDELETE FROM public.hackathons\nWHERE id = 'e649af25-763c-4a32-b721-4629f890300d'; -- Codeissance unreferenced scraped duplicate"
+        }
+      ]
+    },
+    {
+      "file": "supabase\\migrations\\202608120002_update_startupx_official_details.sql",
+      "queries": [
+        {
+          "line": 4,
+          "sql": "-- Migration: 202608120002_update_startupx_official_details\n-- Updates public.hackathons and public.partner_configs with official StartupX 2026 details.\n\nUPDATE public.hackathons\nSET\n  description = 'Free online innovation and startup hackathon organized by Gamnexis. Turn your idea into a real startup! Open innovation across any domain (AI/ML, Web/SaaS, Mobile, FinTech, HealthTech, EdTech, Cybersecurity, Gaming, Blockchain, IoT, Social Impact). Solo builders & teams of 1-6 allowed.',\n  start_date = '2026-08-10 00:00:00+05:30',\n  end_date = '2026-09-25 12:00:00+05:30',\n  prize_pool = '₹10,000 Cash Pool + Uplearn Subscriptions',\n  website_url = 'https://unstop.com/o/xqEjdze?lb=xDftlMXW&utm_medium=Share&utm_source=WhatsApp'\nWHERE id = '00000000-0000-0000-0000-000001111000';"
+        }
+      ]
+    },
+    {
+      "file": "src\\lib\\getLandingData.ts",
+      "queries": [
+        {
+          "line": 52,
+          "method": "select",
+          "columnsOrPayload": [
+            {
+              "expression": "\"id, name, type, mode, start_date, end_date, registration_start, registration_end, registration_status\""
+            }
+          ]
+        },
+        {
+          "line": 52,
+          "method": "from",
+          "columnsOrPayload": [
+            {
+              "expression": "\"hackathons\""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "src\\lib\\hackathonRunMode.ts",
+      "queries": [
+        {
+          "line": 60,
+          "method": "select",
+          "columnsOrPayload": [
+            {
+              "expression": "\"id, name, start_date, end_date, website_url, rounds_info\""
+            },
+            {
+              "expression": "{ count: \"exact\" }"
+            }
+          ]
+        },
+        {
+          "line": 60,
+          "method": "from",
+          "columnsOrPayload": [
+            {
+              "expression": "\"hackathons\""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "supabase\\migrations\\202608180002_update_sih_team_size.sql",
+      "queries": [
+        {
+          "line": 4,
+          "sql": "-- Migration: 202608180002_update_sih_team_size.sql\n-- Description: Update SIH 2026 team size to 1-6 members\n\nUPDATE public.hackathons\nSET min_team_size = 1,\n    max_team_size = 6\nWHERE id = '00000000-0000-0000-0000-000001703935'\n   OR LOWER(name) LIKE '%smart india hackathon%';"
+        }
+      ]
+    },
+    {
+      "file": "supabase\\migrations\\20260928100000_phase1a_definer_function_privileges.sql",
+      "queries": [
+        {
+          "line": 290,
+          "sql": "\n  -- Fetch hackathon registrations\n  SELECT COALESCE(jsonb_agg(\n    jsonb_build_object(\n      'registration_id', r.id,\n      'hackathon_id', h.id,\n      'hackathon_name', h.name,\n      'mode', h.mode,\n      'location', h.location,\n      'prize_pool', h.prize_pool,\n      'start_date', h.start_date,\n      'end_date', h.end_date,\n      'website_url', h.website_url,\n      'registration_status', r.status,\n      'looking_for_team', r.looking_for_team,\n      'registered_at', r.created_at\n    ) ORDER BY h.start_date DESC NULLS LAST\n  ), '[]'::jsonb)\n  INTO v_registrations\n  FROM public.hackathon_registrations r\n  JOIN public.hackathons h ON h.id = r.hackathon_id\n  WHERE r.user_id = v_user_uuid\n    AND COALESCE(r.is_hidden, false) = false;"
+        }
+      ]
+    },
+    {
+      "file": "supabase\\migrations\\20261018082156_hustle_phase2_shortlist.sql",
+      "queries": [
+        {
+          "line": 6,
+          "sql": "CREATE TABLE public.hustle_phase2_batches (\n  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),\n  event_id uuid NOT NULL DEFAULT '0da43cba-90dc-449c-a126-a2fc8be8a379' REFERENCES public.hackathons(id),\n  source_digest text NOT NULL UNIQUE CHECK (source_digest ~ '^[a-f0-9]{64}$'),\n  imported_by uuid NOT NULL REFERENCES auth.users(id),\n  imported_at timestamptz NOT NULL DEFAULT clock_timestamp(),\n  row_count integer NOT NULL CHECK (row_count BETWEEN 1 AND 500),\n  activated_at timestamptz,\n  CHECK (event_id = '0da43cba-90dc-449c-a126-a2fc8be8a379')\n);"
+        },
+        {
+          "line": 16,
+          "sql": "CREATE TABLE public.hustle_phase2_teams (\n  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),\n  event_id uuid NOT NULL DEFAULT '0da43cba-90dc-449c-a126-a2fc8be8a379' REFERENCES public.hackathons(id),\n  batch_id uuid NOT NULL REFERENCES public.hustle_phase2_batches(id),\n  external_team_id text NOT NULL CHECK (external_team_id ~ '^[A-Z0-9][A-Z0-9_-]{0,63}$'),\n  team_name text NOT NULL CHECK (length(team_name) BETWEEN 1 AND 120),\n  leader_name text NOT NULL CHECK (length(leader_name) BETWEEN 1 AND 120),\n  leader_email text NOT NULL CHECK (length(leader_email) <= 254 AND leader_email = lower(btrim(leader_email)) AND leader_email ~ '^[^[:space:]@]+@[^[:space:]@]+\\.[^[:space:]@]+$'),\n  leader_whatsapp text CHECK (leader_whatsapp ~ '^\\+[1-9][0-9]{7,14}$'),\n  second_member_name text CHECK (length(second_member_name) BETWEEN 1 AND 120 AND lower(second_member_name) <> lower(leader_name)),\n  decision text NOT NULL DEFAULT 'pending' CHECK (decision IN ('pending','confirmed','declined')),\n  decided_at timestamptz,\n  CHECK ((decision = 'pending') = (decided_at IS NULL)),\n  CHECK (event_id = '0da43cba-90dc-449c-a126-a2fc8be8a379'),\n  UNIQUE(event_id, external_team_id), UNIQUE(event_id, leader_email), UNIQUE(event_id, leader_whatsapp)\n);"
+        }
+      ]
+    },
+    {
+      "file": "supabase\\migrations\\202610090001_squad_matcher.sql",
+      "queries": [
+        {
+          "line": 33,
+          "sql": "  -- Recorded event limits only. Multiple linked events use the strictest supplied maximum.\n  select min(h.max_team_size) into event_capacity from public.hackathons h\n  where h.max_team_size>0 and (h.id=t.hackathon_id or exists (select 1\n    from public.team_hackathons th where th.team_id=p_team_id and th.hackathon_id=h.id));"
+        }
+      ]
+    },
+    {
+      "file": "supabase\\migrations\\202610060004_partner_registration_privacy.sql",
+      "queries": [
+        {
+          "line": 148,
+          "sql": "-- Preserve existing native broadcast writes and authoritative admin/founder\n-- access. Explicit partner assignments grant reads, not new broadcast writes.\nCREATE POLICY hackathon_announcements_insert ON public.hackathon_announcements\nFOR INSERT TO authenticated WITH CHECK (\n  organizer_id = (SELECT auth.uid())\n  AND public.can_access_partner_event(hackathon_announcements.hackathon_id)\n  AND (public.has_partner_admin_access() OR EXISTS (\n    SELECT 1 FROM public.hackathons AS h WHERE h.id = hackathon_announcements.hackathon_id\n      AND h.type = 'native' AND h.organizer_id = (SELECT auth.uid())\n  ))\n);"
+        },
+        {
+          "line": 156,
+          "sql": "CREATE POLICY hackathon_announcements_update ON public.hackathon_announcements\nFOR UPDATE TO authenticated USING (\n  public.can_access_partner_event(hackathon_announcements.hackathon_id)\n  AND (public.has_partner_admin_access() OR EXISTS (\n    SELECT 1 FROM public.hackathons AS h WHERE h.id = hackathon_announcements.hackathon_id\n      AND h.type = 'native' AND h.organizer_id = (SELECT auth.uid())\n  ))\n) WITH CHECK (\n  public.can_access_partner_event(hackathon_announcements.hackathon_id)\n  AND (public.has_partner_admin_access() OR EXISTS (\n    SELECT 1 FROM public.hackathons AS h WHERE h.id = hackathon_announcements.hackathon_id\n      AND h.type = 'native' AND h.organizer_id = (SELECT auth.uid())\n  ))\n);"
+        },
+        {
+          "line": 162,
+          "sql": "CREATE POLICY hackathon_announcements_update ON public.hackathon_announcements\nFOR UPDATE TO authenticated USING (\n  public.can_access_partner_event(hackathon_announcements.hackathon_id)\n  AND (public.has_partner_admin_access() OR EXISTS (\n    SELECT 1 FROM public.hackathons AS h WHERE h.id = hackathon_announcements.hackathon_id\n      AND h.type = 'native' AND h.organizer_id = (SELECT auth.uid())\n  ))\n) WITH CHECK (\n  public.can_access_partner_event(hackathon_announcements.hackathon_id)\n  AND (public.has_partner_admin_access() OR EXISTS (\n    SELECT 1 FROM public.hackathons AS h WHERE h.id = hackathon_announcements.hackathon_id\n      AND h.type = 'native' AND h.organizer_id = (SELECT auth.uid())\n  ))\n);"
+        },
+        {
+          "line": 170,
+          "sql": "CREATE POLICY hackathon_announcements_delete ON public.hackathon_announcements\nFOR DELETE TO authenticated USING (\n  public.can_access_partner_event(hackathon_announcements.hackathon_id)\n  AND (public.has_partner_admin_access() OR EXISTS (\n    SELECT 1 FROM public.hackathons AS h WHERE h.id = hackathon_announcements.hackathon_id\n      AND h.type = 'native' AND h.organizer_id = (SELECT auth.uid())\n  ))\n);"
+        },
+        {
+          "line": 284,
+          "sql": "\n  -- Fetch hackathon registrations\n  SELECT COALESCE(jsonb_agg(\n    jsonb_build_object(\n      'hackathon_id', h.id,\n      'hackathon_name', h.name,\n      'mode', h.mode,\n      'location', h.location,\n      'prize_pool', h.prize_pool,\n      'start_date', h.start_date,\n      'end_date', h.end_date,\n      'website_url', h.website_url\n    ) || CASE WHEN v_caller = v_user_uuid THEN jsonb_build_object(\n      'registration_id', r.id, 'registration_status', r.status,\n      'looking_for_team', r.looking_for_team, 'registered_at', r.created_at\n    ) ELSE '{}'::jsonb END ORDER BY h.start_date DESC NULLS LAST\n  ), '[]'::jsonb)\n  INTO v_registrations\n  FROM public.hackathon_registrations r\n  JOIN public.hackathons h ON h.id = r.hackathon_id\n  WHERE r.user_id = v_user_uuid\n    AND r.is_hidden IS FALSE\n    AND (v_caller = v_user_uuid OR (h.archived IS FALSE AND\n      (h.type = 'external' OR h.type IS NULL OR\n       COALESCE(h.status, h.ai_feedback->>'status', CASE WHEN h.type <> 'native' THEN 'approved' END) = 'approved')));"
+        }
+      ]
+    },
+    {
+      "file": "supabase\\migrations\\202610060003_partner_read_projections.sql",
+      "queries": [
+        {
+          "line": 140,
+          "sql": "  SELECT h.min_team_size, h.max_team_size INTO v_min, v_max\n    FROM public.hackathons AS h WHERE h.id = p_hackathon_id;"
+        },
+        {
+          "line": 219,
+          "sql": "  -- archived, missing events. Aggregate/count calls use the same event gate.\n  IF NOT EXISTS (SELECT 1 FROM public.hackathons AS h WHERE h.id = p_hackathon_id\n    AND h.archived IS FALSE AND (h.type = 'external' OR h.type IS NULL\n      OR coalesce(h.status, h.ai_feedback->>'status', CASE WHEN h.type <> 'native' THEN 'approved' END) = 'approved')) THEN\n    RAISE EXCEPTION 'Event is unavailable' USING ERRCODE = '42501';"
+        },
+        {
+          "line": 249,
+          "sql": "BEGIN\n  IF NOT EXISTS (SELECT 1 FROM public.hackathons AS h WHERE h.id = p_hackathon_id\n    AND h.archived IS FALSE AND (h.type = 'external' OR h.type IS NULL\n      OR coalesce(h.status, h.ai_feedback->>'status', CASE WHEN h.type <> 'native' THEN 'approved' END) = 'approved')) THEN\n    RAISE EXCEPTION 'Event is unavailable' USING ERRCODE = '42501';"
+        }
+      ]
+    },
+    {
+      "file": "supabase\\migrations\\202610060002_partner_organizer_access.sql",
+      "queries": [
+        {
+          "line": 8,
+          "sql": "\nCREATE TABLE public.event_organizers (\n  hackathon_id uuid NOT NULL REFERENCES public.hackathons(id) ON DELETE CASCADE,\n  user_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,\n  created_at timestamptz NOT NULL DEFAULT now(),\n  created_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,\n  PRIMARY KEY (hackathon_id, user_id)\n);"
+        },
+        {
+          "line": 43,
+          "sql": "  SELECT EXISTS (\n    SELECT 1 FROM public.hackathons AS h\n    JOIN public.profiles AS p ON p.id = auth.uid()\n    JOIN auth.users AS u ON u.id = p.id\n    WHERE h.id = p_hackathon_id\n      AND p.is_banned IS FALSE\n      AND u.email IS NOT NULL AND u.email <> ''\n      AND (\n        public.has_partner_admin_access()\n        OR (h.type = 'native' AND h.organizer_id = auth.uid())\n        OR EXISTS (\n          SELECT 1 FROM public.event_organizers AS eo\n          WHERE eo.hackathon_id = h.id AND eo.user_id = auth.uid()\n        )\n      )\n  );"
+        }
+      ]
+    },
+    {
+      "file": "src\\lib\\hackathons\\publicBrowsing.ts",
+      "queries": [
+        {
+          "line": 27,
+          "method": "select",
+          "columnsOrPayload": [
+            {
+              "expression": "PUBLIC_EVENT_COLUMNS",
+              "values": [
+                "id,name,description,tags,start_date,end_date,registration_start,registration_end,registration_status,created_at,location,mode,prize_pool,currency,website_url,type,college,min_team_size,max_team_size,max_participants,rounds_count,rounds_info,status,archived"
+              ]
+            }
+          ]
+        },
+        {
+          "line": 27,
+          "method": "from",
+          "columnsOrPayload": [
+            {
+              "expression": "\"hackathons\""
+            }
+          ]
+        },
+        {
+          "line": 55,
+          "method": "select",
+          "columnsOrPayload": [
+            {
+              "expression": "PUBLIC_EVENT_COLUMNS",
+              "values": [
+                "id,name,description,tags,start_date,end_date,registration_start,registration_end,registration_status,created_at,location,mode,prize_pool,currency,website_url,type,college,min_team_size,max_team_size,max_participants,rounds_count,rounds_info,status,archived"
+              ]
+            }
+          ]
+        },
+        {
+          "line": 55,
+          "method": "from",
+          "columnsOrPayload": [
+            {
+              "expression": "\"hackathons\""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "src\\lib\\admin\\databaseActivityReport.ts",
+      "queries": [
+        {
+          "line": 232,
+          "method": "select",
+          "columnsOrPayload": [
+            {
+              "expression": "\"team_id, hackathon_id, created_at, teams(name), hackathons(name)\""
+            }
+          ]
+        },
+        {
+          "line": 253,
+          "method": "select",
+          "columnsOrPayload": [
+            {
+              "expression": "\"id, name, start_date, end_date, location, mode, prize_pool, created_at\""
+            }
+          ]
+        },
+        {
+          "line": 253,
+          "method": "from",
+          "columnsOrPayload": [
+            {
+              "expression": "\"hackathons\""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "src\\lib\\admin\\partnerManagement.ts",
+      "queries": [
+        {
+          "line": 55,
+          "method": "select",
+          "columnsOrPayload": [
+            {
+              "expression": "EVENT_COLUMNS",
+              "values": [
+                "id, name, description, start_date, end_date, location, mode, min_team_size, max_team_size, website_url, type, archived, status, approval_status:ai_feedback->>status",
+                "id, name, type, archived, start_date, end_date, mode, location, min_team_size, max_team_size"
+              ]
+            }
+          ]
+        },
+        {
+          "line": 55,
+          "method": "from",
+          "columnsOrPayload": [
+            {
+              "expression": "\"hackathons\""
+            }
+          ]
+        },
+        {
+          "line": 64,
+          "method": "select",
+          "columnsOrPayload": [
+            {
+              "expression": "EVENT_COLUMNS",
+              "values": [
+                "id, name, description, start_date, end_date, location, mode, min_team_size, max_team_size, website_url, type, archived, status, approval_status:ai_feedback->>status",
+                "id, name, type, archived, start_date, end_date, mode, location, min_team_size, max_team_size"
+              ]
+            }
+          ]
+        },
+        {
+          "line": 64,
+          "method": "from",
+          "columnsOrPayload": [
+            {
+              "expression": "\"hackathons\""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "src\\components\\PPTEvaluatorTab.tsx",
+      "queries": [
+        {
+          "line": 160,
+          "method": "select",
+          "columnsOrPayload": [
+            {
+              "expression": "\"id, name, owner_id, hackathon_name, team_members(user_id), team_hackathons(hackathons(id, name, description))\""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "src\\components\\partners\\LegacyPartnerPage.tsx",
+      "queries": [
+        {
+          "line": 355,
+          "method": "select",
+          "columnsOrPayload": [
+            {
+              "expression": "\"id, name, description, start_date, end_date, location, mode, prize_pool, currency, website_url, tags, type, college, max_participants\""
+            }
+          ]
+        },
+        {
+          "line": 355,
+          "method": "from",
+          "columnsOrPayload": [
+            {
+              "expression": "\"hackathons\""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "src\\components\\shell\\useShellSession.ts",
+      "queries": [
+        {
+          "line": 191,
+          "method": "select",
+          "columnsOrPayload": [
+            {
+              "expression": "\"id, name, hackathon_id, owner_id, team_hackathons(hackathon_id, hackathons(id, name, type, tags))\""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "src\\app\\hackathons\\[id]\\page.tsx",
+      "queries": [
+        {
+          "line": 347,
+          "method": "select",
+          "columnsOrPayload": [
+            {
+              "expression": "`${PUBLIC_EVENT_COLUMNS},organizer_id`"
+            }
+          ]
+        },
+        {
+          "line": 347,
+          "method": "from",
+          "columnsOrPayload": [
+            {
+              "expression": "\"hackathons\""
+            }
+          ]
+        },
+        {
+          "line": 472,
+          "method": "select",
+          "columnsOrPayload": [
+            {
+              "expression": "`\r\n          teams (\r\n            id,\r\n            name,\r\n            description,\r\n            college,\r\n            skills,\r\n            roles_needed,\r\n            max_members,\r\n            is_recruiting,\r\n            owner_id,\r\n            created_at,\r\n            team_members (\r\n              id\r\n            ),\r\n            team_hackathons (\r\n              hackathon_id\r\n            )\r\n          )\r\n        `"
+            }
+          ]
+        },
+        {
+          "line": 989,
+          "method": "delete",
+          "columnsOrPayload": []
+        },
+        {
+          "line": 989,
+          "method": "from",
+          "columnsOrPayload": [
+            {
+              "expression": "\"hackathons\""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "src\\app\\hackathons\\[id]\\organizer\\page.tsx",
+      "queries": [
+        {
+          "line": 158,
+          "method": "select",
+          "columnsOrPayload": [
+            {
+              "expression": "\"*\""
+            }
+          ]
+        },
+        {
+          "line": 158,
+          "method": "from",
+          "columnsOrPayload": [
+            {
+              "expression": "\"hackathons\""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "src\\app\\hackathons\\create\\page.tsx",
+      "queries": [
+        {
+          "line": 131,
+          "method": "select",
+          "columnsOrPayload": []
+        },
+        {
+          "line": 131,
+          "method": "insert",
+          "columnsOrPayload": [
+            {
+              "expression": "{\r\n          name: name.trim(),\r\n          description: description.trim() || null,\r\n          start_date: startDate || null,\r\n          end_date: endDate || null,\r\n          location: mode === \"online\" ? \"Online\" : location.trim() || null,\r\n          mode,\r\n          prize_pool: prizePool.trim() || null,\r\n          currency,\r\n          website_url: websiteUrl.trim() || null,\r\n          type,\r\n          max_participants: maxParticipants ? parseInt(maxParticipants, 10) : null,\r\n          min_team_size: minTeamSize,\r\n          max_team_size: maxTeamSize,\r\n          rounds_count: roundsCount,\r\n          rounds_info: formattedRounds,\r\n          tags: tags.length > 0 ? tags : null,\r\n          organizer_id: user.id,\r\n          college: college === \"Other\" ? customCollege.trim() || null : college || null,\r\n          status: initialStatus,\r\n          ai_feedback: { status: initialStatus, submitted_at: new Date().toISOString() },\r\n        }"
+            }
+          ]
+        },
+        {
+          "line": 131,
+          "method": "from",
+          "columnsOrPayload": [
+            {
+              "expression": "\"hackathons\""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "src\\app\\admin\\page.tsx",
+      "queries": [
+        {
+          "line": 253,
+          "method": "select",
+          "columnsOrPayload": [
+            {
+              "expression": "\"id, name, website_url\""
+            }
+          ]
+        },
+        {
+          "line": 253,
+          "method": "from",
+          "columnsOrPayload": [
+            {
+              "expression": "\"hackathons\""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "src\\app\\dashboard\\useDashboardData.ts",
+      "queries": [
+        {
+          "line": 312,
+          "method": "select",
+          "columnsOrPayload": [
+            {
+              "expression": "\"id\""
+            },
+            {
+              "expression": "{ count: \"exact\", head: true }"
+            }
+          ]
+        },
+        {
+          "line": 312,
+          "method": "from",
+          "columnsOrPayload": [
+            {
+              "expression": "\"hackathons\""
+            }
+          ]
+        },
+        {
+          "line": 314,
+          "method": "select",
+          "columnsOrPayload": [
+            {
+              "expression": "\"id\""
+            },
+            {
+              "expression": "{ count: \"exact\", head: true }"
+            }
+          ]
+        },
+        {
+          "line": 314,
+          "method": "from",
+          "columnsOrPayload": [
+            {
+              "expression": "\"hackathons\""
+            }
+          ]
+        },
+        {
+          "line": 322,
+          "method": "select",
+          "columnsOrPayload": [
+            {
+              "expression": "\"slug, partner_name, logo_url, hackathons(id, name, end_date)\""
+            }
+          ]
+        },
+        {
+          "line": 377,
+          "method": "select",
+          "columnsOrPayload": [
+            {
+              "expression": "\"id, name, hackathon_id, max_members, owner_id, team_members(role, user_id, profiles(id, full_name, avatar_url)), team_hackathons(hackathon_id, hackathons(id, name, type, tags))\""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "src\\app\\teams\\useTeamsData.ts",
+      "queries": [
+        {
+          "line": 63,
+          "method": "select",
+          "columnsOrPayload": [
+            {
+              "expression": "\"*, team_members(id), hackathons!teams_hackathon_id_fkey(id, name, end_date, status, archived), team_hackathons(hackathons(id, name, end_date, status, archived)), team_ppt_evaluations(total_score, grade, status)\""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "src\\app\\teams\\create\\page.tsx",
+      "queries": [
+        {
+          "line": 115,
+          "method": "select",
+          "columnsOrPayload": [
+            {
+              "expression": "\"id, name, min_team_size, max_team_size, status, end_date\""
+            }
+          ]
+        },
+        {
+          "line": 115,
+          "method": "from",
+          "columnsOrPayload": [
+            {
+              "expression": "\"hackathons\""
+            }
+          ]
+        },
+        {
+          "line": 123,
+          "method": "select",
+          "columnsOrPayload": [
+            {
+              "expression": "\"id, name, status, end_date\""
+            }
+          ]
+        },
+        {
+          "line": 123,
+          "method": "from",
+          "columnsOrPayload": [
+            {
+              "expression": "\"hackathons\""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "src\\app\\teams\\[id]\\page.tsx",
+      "queries": [
+        {
+          "line": 160,
+          "method": "select",
+          "columnsOrPayload": [
+            {
+              "expression": "\"*, team_hackathons(hackathon_id)\""
+            }
+          ]
+        },
+        {
+          "line": 245,
+          "method": "select",
+          "columnsOrPayload": [
+            {
+              "expression": "`\r\n          hackathon_id,\r\n          hackathons (\r\n            id,\r\n            name,\r\n            description,\r\n            start_date,\r\n            end_date\r\n          )\r\n        `"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "src\\app\\teams\\[id]\\workspace\\page.tsx",
+      "queries": [
+        {
+          "line": 69,
+          "method": "select",
+          "columnsOrPayload": [
+            {
+              "expression": "\"*, team_hackathons(hackathon_id)\""
+            }
+          ]
+        },
+        {
+          "line": 134,
+          "method": "select",
+          "columnsOrPayload": [
+            {
+              "expression": "`\r\n        hackathon_id,\r\n        hackathons (\r\n          id,\r\n          name,\r\n          description,\r\n          start_date,\r\n          end_date\r\n        )\r\n      `"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "src\\app\\api\\organizer\\broadcast\\route.ts",
+      "queries": [
+        {
+          "line": 41,
+          "method": "select",
+          "columnsOrPayload": [
+            {
+              "expression": "\"id, name, type, organizer_id\""
+            }
+          ]
+        },
+        {
+          "line": 41,
+          "method": "from",
+          "columnsOrPayload": [
+            {
+              "expression": "\"hackathons\""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "src\\app\\api\\teams\\[id]\\ppt-evaluate\\route.ts",
+      "queries": [
+        {
+          "line": 41,
+          "method": "select",
+          "columnsOrPayload": [
+            {
+              "expression": "\"id, owner_id, hackathon_name, team_hackathons(hackathons(name, description)), team_members(profiles(skills))\""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "src\\app\\api\\admin\\hackathons\\route.ts",
+      "queries": [
+        {
+          "line": 14,
+          "method": "select",
+          "columnsOrPayload": [
+            {
+              "expression": "\"*, profiles:organizer_id(id, full_name, email)\""
+            }
+          ]
+        },
+        {
+          "line": 14,
+          "method": "from",
+          "columnsOrPayload": [
+            {
+              "expression": "\"hackathons\""
+            }
+          ]
+        },
+        {
+          "line": 70,
+          "method": "delete",
+          "columnsOrPayload": []
+        },
+        {
+          "line": 70,
+          "method": "from",
+          "columnsOrPayload": [
+            {
+              "expression": "\"hackathons\""
+            }
+          ]
+        },
+        {
+          "line": 87,
+          "method": "select",
+          "columnsOrPayload": [
+            {
+              "expression": "\"id, ai_feedback\""
+            }
+          ]
+        },
+        {
+          "line": 87,
+          "method": "from",
+          "columnsOrPayload": [
+            {
+              "expression": "\"hackathons\""
+            }
+          ]
+        },
+        {
+          "line": 107,
+          "method": "select",
+          "columnsOrPayload": []
+        },
+        {
+          "line": 107,
+          "method": "update",
+          "columnsOrPayload": [
+            {
+              "expression": "{\r\n        ai_feedback: updatedFeedback,\r\n        status: newStatus,\r\n      }"
+            }
+          ]
+        },
+        {
+          "line": 107,
+          "method": "from",
+          "columnsOrPayload": [
+            {
+              "expression": "\"hackathons\""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "src\\app\\api\\admin\\create-partner-portal\\route.ts",
+      "queries": [
+        {
+          "line": 51,
+          "method": "select",
+          "columnsOrPayload": [
+            {
+              "expression": "\"id\""
+            }
+          ]
+        },
+        {
+          "line": 51,
+          "method": "from",
+          "columnsOrPayload": [
+            {
+              "expression": "\"hackathons\""
+            }
+          ]
+        },
+        {
+          "line": 63,
+          "method": "select",
+          "columnsOrPayload": []
+        },
+        {
+          "line": 63,
+          "method": "insert",
+          "columnsOrPayload": [
+            {
+              "expression": "{\r\n          name: lead.title,\r\n          description: `Official Partner Hackathon — ${lead.title}`,\r\n          website_url: lead.unstop_url,\r\n          college: lead.college_or_host,\r\n          mode: \"online\",\r\n          type: \"external\",\r\n          prize_pool: \"Certificate & Perks\",\r\n          start_date: new Date().toISOString(),\r\n        }"
+            }
+          ]
+        },
+        {
+          "line": 63,
+          "method": "from",
+          "columnsOrPayload": [
+            {
+              "expression": "\"hackathons\""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "src\\app\\api\\admin\\partner-composition\\route.ts",
+      "queries": [
+        {
+          "line": 21,
+          "method": "select",
+          "columnsOrPayload": [
+            {
+              "expression": "\"id, name, type, mode, prize_pool\""
+            }
+          ]
+        },
+        {
+          "line": 21,
+          "method": "from",
+          "columnsOrPayload": [
+            {
+              "expression": "\"hackathons\""
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "file": "src\\app\\api\\admin\\scrape-unstop\\route.ts",
+      "queries": [
+        {
+          "line": 198,
+          "method": "select",
+          "columnsOrPayload": [
+            {
+              "expression": "\"name, website_url\""
+            }
+          ]
+        },
+        {
+          "line": 198,
+          "method": "from",
+          "columnsOrPayload": [
+            {
+              "expression": "\"hackathons\""
+            }
+          ]
+        },
+        {
+          "line": 522,
+          "method": "upsert",
+          "columnsOrPayload": [
+            {
+              "expression": "normalizedHackathons"
+            },
+            {
+              "expression": "{ onConflict: \"website_url\" }"
+            }
+          ]
+        },
+        {
+          "line": 522,
+          "method": "from",
+          "columnsOrPayload": [
+            {
+              "expression": "\"hackathons\""
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { activeOpportunity } from "@/lib/hackathons/lifecycle";
 import Link from "next/link";
 import { ArrowRight, ArrowDown } from "lucide-react";
 import { ButtonLink } from "@/components/system";
@@ -29,12 +31,15 @@ function modeLabel(mode: string | null) {
 export function LandingHero({
   builderCount,
   teamCount,
-  upcoming,
+  upcoming: candidates,
 }: {
   builderCount: number;
   teamCount: number;
   upcoming: UpcomingHackathon[];
 }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => { const clock = setInterval(() => setNow(Date.now()), 60_000); return () => clearInterval(clock); }, []);
+  const upcoming = candidates.filter(event => activeOpportunity(event, now));
   // Real platform totals from getLandingData (server snapshot, refreshed every minute).
   // Each label names exactly what is counted. A number is only shown when the query
   // returned one, so a failed count never reads as "0".
@@ -98,10 +103,10 @@ export function LandingHero({
 
         <div className="border-t border-line">
           <Container className="flex items-stretch gap-0 px-0 md:px-8">
-            <p className="hidden shrink-0 items-center border-r border-line pr-5 caps-label text-ink-3 md:flex">{upcoming.length ? "Upcoming on HackerMate" : "Explore hackathons"}</p>
+            <p className="hidden shrink-0 items-center border-r border-line pr-5 caps-label text-ink-3 md:flex">{upcoming.length ? "Active on HackerMate" : "Explore hackathons"}</p>
             <div className="relative min-w-0 flex-1">
-              <ul className="flex snap-x overflow-x-auto scroll-px-5 scrollbar-none md:scroll-px-0" aria-label="Upcoming hackathons on HackerMate">
-                <li className="flex shrink-0 items-center pl-5 pr-3 caps-label text-ink-3 md:hidden">{upcoming.length ? "Upcoming" : "Explore"}</li>
+              <ul className="flex snap-x overflow-x-auto scroll-px-5 scrollbar-none md:scroll-px-0" aria-label="Active hackathons on HackerMate">
+                <li className="flex shrink-0 items-center pl-5 pr-3 caps-label text-ink-3 md:hidden">{upcoming.length ? "Active" : "Explore"}</li>
                 {upcoming.map((h) => {
                   const d = dayStamp(h.start_date);
                   return (
