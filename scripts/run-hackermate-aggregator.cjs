@@ -15,7 +15,15 @@ const MIN_BUDGET_MS=15000;
 function assertEnvironment(mode,env=process.env) {
   if (!["--dry-run","--apply"].includes(mode)) throw new Error("Specify --dry-run or --apply");
   if (env.NEXT_PUBLIC_SUPABASE_URL!==PROJECT_URL) throw new Error("Project URL does not match reviewed existing Supabase project");
-  if (!env.SUPABASE_SERVICE_ROLE_KEY) throw new Error("Aggregator service role secret is not configured");
+  // An explicitly public Supabase key is allowed for read-only review on a PR.
+  // It cannot use the metadata writer RPCs, and --apply still requires the main-branch secret.
+  const readonlyKey=env.HACKERMATE_AGGREGATOR_READONLY_PUBLISHABLE_KEY;
+  if (readonlyKey && !/^sb_publishable_[A-Za-z0-9_-]+$/.test(readonlyKey))
+    throw new Error("Review key must be a public Supabase publishable key");
+  if (mode==="--apply" && readonlyKey)
+    throw new Error("Production writes cannot use the review-only key");
+  if (!env.SUPABASE_SERVICE_ROLE_KEY && !(mode==="--dry-run" && readonlyKey))
+    throw new Error("Aggregator database credential is not configured");
   if (mode==="--apply" && (env.HACKERMATE_AGGREGATOR_ENABLED!=="true"
     || env.GITHUB_ACTIONS!=="true" || env.GITHUB_REPOSITORY!==REPO
     || env.GITHUB_REF!=="refs/heads/main"
@@ -65,7 +73,7 @@ async function main(mode=process.argv[2]) {
   const {summarizeSourceCoverage}=loader.load("src/lib/hackathons/sourceCoverage.ts");
   const {persistApprovedSourceEvidence,evidenceSnapshot}=loader.load("src/lib/hackathons/sourceEvidenceWriter.ts");
   const source={identifySource,validateSourceObservation,windowState};
-  const client=createClient(PROJECT_URL,process.env.SUPABASE_SERVICE_ROLE_KEY,
+  const client=createClient(PROJECT_URL,dryRun && process.env.HACKERMATE_AGGREGATOR_READONLY_PUBLISHABLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY,
     {auth:{autoRefreshToken:false,persistSession:false},global:{headers:{"X-HackerMate-Worker":"source-refresh-v1"}}});
   const started=Date.now(),slot=Math.floor(started/policy.RUN_SLOT_MS),observations=[];
   const catalog=await readCatalog(client);
