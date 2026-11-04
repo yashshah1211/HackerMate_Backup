@@ -70,6 +70,34 @@ test("provider-discovery round robin prevents one provider dominating and rotate
   const longer=p.discoveryPlan(all,new Set(),2,18),later=p.discoveryPlan(all,new Set(),3,18);
   assert.notDeepEqual(longer.filter(x=>x.provider==="devfolio").map(x=>x.provider_id),later.filter(x=>x.provider==="devfolio").map(x=>x.provider_id));
 });
+test("discovery reallocates empty provider shares instead of wasting bounded checks",()=>{
+  const unstop=Array.from({length:54},(_,i)=>({
+    provider:"unstop",provider_id:String(2000+i),
+    canonical_url:"https://unstop.com/hackathons/h-"+(2000+i)
+  }));
+  const devfolio=Array.from({length:2},(_,i)=>({
+    provider:"devfolio",provider_id:"dev-"+i,
+    canonical_url:"https://dev-"+i+".devfolio.co"
+  }));
+  const onlyUnstop=p.discoveryPlan(unstop,new Set(),0,18);
+  assert.equal(onlyUnstop.length,18);
+  assert.equal(new Set(onlyUnstop.map(p.sourceKey)).size,18);
+  assert.ok(onlyUnstop.every(x=>x.provider==="unstop"));
+  assert.notDeepEqual(onlyUnstop.map(p.sourceKey),
+    p.discoveryPlan(unstop,new Set(),1,18).map(p.sourceKey));
+
+  const mixed=p.discoveryPlan([...unstop,...devfolio],new Set(),0,18);
+  assert.equal(mixed.length,18);
+  assert.equal(mixed.filter(x=>x.provider==="devfolio").length,2);
+  assert.equal(mixed.filter(x=>x.provider==="unstop").length,16);
+  const blocked=new Set([p.sourceKey(unstop[0]),p.sourceKey(devfolio[0])]);
+  const remaining=p.discoveryPlan([...unstop,...devfolio],blocked,0,18);
+  assert.equal(remaining.length,18);
+  assert.equal(new Set(remaining.map(p.sourceKey)).size,18);
+  assert.ok(remaining.every(x=>!blocked.has(p.sourceKey(x))));
+  assert.equal(p.discoveryPlan(devfolio,new Set(),0,18).length,2);
+  assert.deepEqual(p.discoveryPlan(unstop,new Set(),0,0),[]);
+});
 test("evidence requires precise, current and contradiction-free registration proof",()=>{
   const at=Date.parse("2026-11-04T10:00:00Z");
   const good={metadata:{checked_at:new Date(at-60_000).toISOString(),
