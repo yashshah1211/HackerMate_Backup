@@ -37,7 +37,7 @@ function setup(options = {}) {
           const record = { table, op, payload, filters };
           (op === 'read' ? state.reads : state.writes).push(record);
           if (options.throwWrite === table && op !== 'read') return Promise.reject(new Error('Fixture write unavailable')).then(resolve, reject);
-          if ((options.readError === table && op === 'read') || (options.writeError === table && op !== 'read')) {
+          if ((options.readError === table && op === 'read') || (options.writeError === table && op !== 'read') || (options.checkpointWriteError && table === 'app_settings' && op === 'upsert')) {
             return Promise.resolve({ data: null, error: { message: 'Fixture unavailable' } }).then(resolve, reject);
           }
           let rows = [];
@@ -218,7 +218,7 @@ for (const route of ['contact', 'admin/send-outreach-summary-pdf', 'cron/daily-e
   });
 }
 test('report acceptance survives checkpoint failure without inviting a resend', async () => {
-  const h = setup({ provider: () => json({ id: 'fixture' }), writeError: 'app_settings' });
+  const h = setup({ provider: () => json({ id: 'fixture' }), checkpointWriteError: true });
   const { body } = await h.call('cron/database-activity-report'); assert.equal(body.dispatch.status, 'accepted'); assert.equal(body.bookkeeping, 'failed');
 });
 test('contact honeypot preserves its deliberate non-email success behavior', async () => {
