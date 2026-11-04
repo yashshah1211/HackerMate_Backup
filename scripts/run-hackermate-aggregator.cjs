@@ -75,21 +75,25 @@ async function main(mode=process.argv[2]) {
   const approvedRow=r=>(r.status==="approved" && r.archived===false
     && ["external","official"].includes(String(r.type)));
   // Existing trusted records are refreshed first, even if their evidence has expired.
-  const refresh=policy.refreshPlan(catalog.filter(approvedRow));
+  const allRefresh=catalog.filter(approvedRow).filter(r=>r.source_metadata != null);
+  const refresh=policy.refreshPlan(allRefresh);
   const refreshTransport=new SourceTransport(fetch,MAX_SOURCE_MS,1000);
   for(const row of refresh){
     if(refreshTransport.remaining()<MIN_BUDGET_MS)break;
     const identity=identityForRow(row,source),key=policy.sourceKey(identity);
     if(!identity || !key || counts.get(key)!==1){result.refresh_held++;continue;}
+    const evidenceOnly=row.source_metadata.evidence_only===true;
     result.checked.refresh++;
     const attempt=randomUUID();
     let leased=false;
     try {
       let snapshot=null;
       if(!dryRun){
-        const lease=await client.rpc("store_hackathon_source_evidence",{
-          p_id:row.id,p_identity:identity,p_observation:null,
-          p_expected:evidenceSnapshot(row),p_attempt:attempt,p_action:"lease",p_allow_initial:false});
+        const lease=await client.rpc(evidenceOnly?"store_hackathon_source_evidence":"begin_hackathon_source_check",
+          evidenceOnly?{
+            p_id:row.id,p_identity:identity,p_observation:null,
+            p_expected:evidenceSnapshot(row),p_attempt:attempt,p_action:"lease",p_allow_initial:false,
+          }:{p_id:row.id,p_attempt:attempt});
         if(lease.error)throw new Error("refresh lease RPC failed");
         if(lease.data?.status!=="leased"){result.refresh_held++;continue;}
         snapshot=lease.data.snapshot;leased=true;
@@ -98,23 +102,34 @@ async function main(mode=process.argv[2]) {
       const validated=validateSourceObservation(observation,row.website_url);
       if(!admission(validated,observation,Date.now(),source))throw new Error("invalid refresh evidence");
       if(!dryRun){
-        const apply=await client.rpc("store_hackathon_source_evidence",{
-          p_id:row.id,p_identity:identity,p_observation:observation,p_expected:snapshot,
-          p_attempt:attempt,p_action:"apply",p_allow_initial:false});
-        if(apply.error || apply.data?.status!=="evidence_refreshed")throw new Error("refresh apply rejected");
+        const apply=await client.rpc(evidenceOnly?"store_hackathon_source_evidence":"apply_hackathon_source_check",
+          evidenceOnly?{
+            p_id:row.id,p_identity:identity,p_observation:observation,p_expected:snapshot,
+            p_attempt:attempt,p_action:"apply",p_allow_initial:false,
+          }:{
+            p_id:row.id,p_identity:identity,p_observation:observation,p_patch:sourcePatch(observation,row.website_url),
+            p_expected:snapshot,p_attempt:attempt,p_failure:null,p_adopt_fields:null,
+          });
+        if(apply.error || apply.data?.status!==(evidenceOnly?"evidence_refreshed":"refreshed"))
+          throw new Error("refresh apply rejected");
       }
       result.refreshed++;
     }catch(e){
       result.refresh_held++;
       if(leased && !dryRun){
-        const failed=await client.rpc("store_hackathon_source_evidence",{
-          p_id:row.id,p_identity:identity,p_observation:null,p_expected:null,
-          p_attempt:attempt,p_action:"failure",p_allow_initial:false});
+        const failed=await client.rpc(evidenceOnly?"store_hackathon_source_evidence":"apply_hackathon_source_check",
+          evidenceOnly?{
+            p_id:row.id,p_identity:identity,p_observation:null,p_expected:null,
+            p_attempt:attempt,p_action:"failure",p_allow_initial:false,
+          }:{
+            p_id:row.id,p_identity:identity,p_observation:null,p_patch:{},
+            p_expected:null,p_attempt:attempt,p_failure:"source_check_unsuccessful",p_adopt_fields:null,
+          });
         if(failed.error)result.phase_errors.push("refresh_failure_receipt_unavailable");
       }
     }
   }
-  result.remaining_refresh=Math.max(0,policy.refreshPlan(catalog.filter(approvedRow)).length-result.checked.refresh);
+  result.remaining_refresh=Math.max(0,allRefresh.length-result.checked.refresh);
   // Legacy adoption never replaces source/editorial fields. A standing founder approval
   // authorizes this policy, NOT an unreviewed factual overwrite or identity exception.
   const legacyTransport=new SourceTransport(fetch,MAX_SOURCE_MS,1000);
