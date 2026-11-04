@@ -63,8 +63,8 @@ function dayStamp(iso: string | null) {
 const PLATFORM_LABELS: Record<string, string> = { native: "HackerMate", unstop: "Unstop", hack2skill: "Hack2skill", devfolio: "Devfolio", other: "External" };
 const FORMAT_LABELS: Record<string, string> = { online: "Online", "in-person": "In person", hybrid: "Hybrid" };
 const SORT_OPTIONS = [
-  { value: "relevant", label: "Relevant events first" }, { value: "date", label: "Nearest start (past: latest end)" },
-  { value: "recent", label: "Recently added" }, { value: "prize-inr", label: "Cash prize: INR (highest)" }, { value: "prize-usd", label: "Cash prize: USD (highest)" },
+  { value: "relevant", label: "Best match" }, { value: "date", label: "Starting soon" },
+  { value: "recent", label: "Recently added" }, { value: "prize-inr", label: "Highest INR prize" }, { value: "prize-usd", label: "Highest USD prize" },
 ];
 
 const MODE_OPTIONS: [string, string][] = [
@@ -215,6 +215,7 @@ function HackathonsContent({ access }: { access: Extract<BrowsingAccess, { kind:
   const [loadError, setLoadError] = useState<string | null>(null);
   const [userSkills, setUserSkills] = useState<string[]>([]);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [showEvidenceInfo, setShowEvidenceInfo] = useState(false);
   const closeFilters = useCallback(() => setFiltersOpen(false), []);
   const [actionPrompt, setActionPrompt] = useState(false);
   const [personalError, setPersonalError] = useState(false);
@@ -357,19 +358,24 @@ function HackathonsContent({ access }: { access: Extract<BrowsingAccess, { kind:
   const openCount = discoverEvents(hackathons, { ...settings, tab: "open" }, userSkills, savedIds, now).length;
   const ongoingCount = discoverEvents(hackathons, { ...settings, tab: "ongoing" }, userSkills, savedIds, now).length;
   const activeCount = discoverEvents(hackathons, { ...settings, tab: "active" }, userSkills, savedIds, now).length;
-  const unknownCount = hackathons.filter(h => eventState(h, now) === "unknown").length;
   const defaultSort = activeTab === "recommended" ? "relevant" : "date";
   const activeFilterCount = [search.trim(), modeFilter, platformFilter, settings.topic, settings.from, settings.to,
     settings.participation, settings.registration, settings.registrationFrom, settings.registrationTo, sortBy !== defaultSort ? sortBy : ""].filter(Boolean).length;
+  const advancedFilterCount = [platformFilter, settings.topic, settings.from, settings.to,
+    settings.participation, settings.registration, settings.registrationFrom, settings.registrationTo,
+    sortBy !== defaultSort ? sortBy : ""].filter(Boolean).length;
   const hasAnyFilter = activeFilterCount > 0;
   function clearFilters() {
     updateSettings({ q: "", mode: "", platform: "", topic: "", from: "", to: "", participation: "", registration: "", registrationFrom: "", registrationTo: "", sort: defaultSort });
   }
 
+  // Keep legacy URL tabs (open, past, upcoming and recommended) working while
+  // offering three clear public choices instead of overlapping technical filters.
   const tabOptions: { value: Tab; label: string; count?: number }[] = [
-    { value: "active", label: "All Active", count: activeCount },
-    { value: "open", label: "Registration Open", count: openCount },
-    { value: "ongoing", label: "Ongoing", count: ongoingCount },
+    { value: "active", label: "Available now", count: activeCount },
+    { value: "ongoing", label: "Happening now", count: ongoingCount },
+    { value: "all", label: "All listings", count: hackathons.length },
+    { value: "saved", label: "Saved", count: savedIds.size || undefined },
   ];
 
   const header = (
@@ -382,9 +388,8 @@ function HackathonsContent({ access }: { access: Extract<BrowsingAccess, { kind:
           "Events unavailable"
         ) : (
           <>
-            <span className="font-medium text-ink-2 tabular-nums">{hackathons.length.toLocaleString("en-IN")}</span> listed ·{" "}
-            <span className="font-medium text-ink-2 tabular-nums">{openCount.toLocaleString("en-IN")}</span> registration open ·{" "}
-            <span className="font-medium text-ink-2 tabular-nums">{ongoingCount.toLocaleString("en-IN")}</span> ongoing · {unknownCount} schedules unverified or unclear{access.kind === "member" && !personalError ? ` · ${savedIds.size} saved` : ""}
+            <span className="font-medium text-ink tabular-nums">{openCount.toLocaleString("en-IN")}</span> accepting registrations ·{" "}
+            <span className="tabular-nums">{hackathons.length.toLocaleString("en-IN")}</span> total listings
           </>
         )
       }
@@ -486,105 +491,82 @@ function HackathonsContent({ access }: { access: Extract<BrowsingAccess, { kind:
   const emptyBody = hasAnyFilter ? "No events match these settings. Clear filters to explore more events."
     : activeTab === "saved" ? "You haven't saved any listed events yet. Use a bookmark to keep an event here."
     : activeTab === "past" ? "No listings with past dates match this view. Imported schedules remain unverified."
-    : activeTab === "ongoing" ? "No currently verified ongoing hackathons match this view."
+    : activeTab === "ongoing" ? "We can’t currently confirm an event is happening right now. Some organizers haven’t published verifiable event dates yet; try Available now for open registrations."
     : activeTab === "upcoming" ? "No currently verified upcoming hackathons match this view."
     : activeTab === "all" ? "No public listings match this view."
-    : "No active hackathons with current source evidence match this view. Saved events and all listings remain available.";
+    : "No currently verified opportunities match this view. Try All listings to explore more events.";
 
   return (
     <Page>
       {header}
 
-      <div className="mt-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div role="tablist" aria-label="Hackathon discovery" className="flex flex-wrap gap-x-5 gap-y-2 border-b border-line self-start sm:w-auto w-full">
+      <div className="mt-6 flex flex-col gap-4">
+        <div role="tablist" aria-label="Browse hackathons" className="flex flex-wrap gap-2">
           {tabOptions.map((opt) => (
             <button
+              type="button"
               key={opt.value}
               onClick={() => setActiveTab(opt.value)}
               role="tab"
-              aria-selected={activeTab === opt.value}
+              aria-selected={activeTab === opt.value || (activeTab === "open" && opt.value === "active")}
               className={cn(
-                "relative pb-2.5 text-[14.5px] transition-colors font-medium",
-                activeTab === opt.value ? "text-ink" : "text-ink-3 hover:text-ink-2",
+                "inline-flex min-h-10 items-center gap-1.5 rounded-full border px-4 py-2 text-[13.5px] font-medium transition-colors",
+                activeTab === opt.value || (activeTab === "open" && opt.value === "active")
+                  ? "border-ink bg-ink text-page" : "border-line bg-sunken text-ink-2 hover:border-line-strong hover:text-ink"
               )}
             >
               {opt.label}
-              {opt.count !== undefined && <span className="ml-1.5 text-[12px] text-ink-4">{opt.count}</span>}
-              {activeTab === opt.value && (
-                <span className="absolute bottom-0 left-0 right-0 h-[2px] rounded-t-full bg-ink" />
-              )}
+              {opt.count !== undefined && <span className="text-[12px] opacity-75 tabular-nums">{opt.count}</span>}
             </button>
           ))}
         </div>
-        <div className="flex min-w-0 gap-2 lg:w-[340px]">
-          <SearchField className="min-w-0 flex-1" value={search} onChange={setSearch} placeholder="Title, topic, college or location" label="Search hackathons" />
-          <Button
-            variant="secondary"
-            icon={<SlidersHorizontal />}
-            onClick={() => setFiltersOpen(true)}
-            aria-label="Filters"
-            className="h-9 lg:hidden"
-          >
-            {activeFilterCount > 0 ? activeFilterCount : null}
-          </Button>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <SearchField className="min-w-0 flex-1" value={search} onChange={setSearch}
+            placeholder="Search hackathons, topics or colleges" label="Search hackathons" />
+          <div className="flex items-center gap-2">
+            <div className="min-w-0 flex-1 sm:w-[160px] sm:flex-none">
+              <DiscoveryDropdown id="hk-mode-quick" label="Event format" value={modeFilter}
+                onChange={setModeFilter} compact options={[
+                  { value: "", label: "All formats" }, { value: "online", label: "Online" },
+                  { value: "in-person", label: "In person" }, { value: "hybrid", label: "Hybrid" },
+                ]} />
+            </div>
+            <Button variant="secondary" icon={<SlidersHorizontal />} onClick={() => setFiltersOpen(true)}
+              aria-label="More hackathon filters" className="h-9 whitespace-nowrap">
+              Filters{advancedFilterCount > 0 ? ` (${advancedFilterCount})` : ""}
+            </Button>
+          </div>
         </div>
       </div>
 
-      <nav aria-label="Other event views" className="mt-3 flex flex-wrap gap-4 text-sm text-ink-3">
-        <button onClick={() => setActiveTab("saved")} aria-current={activeTab === "saved" ? "page" : undefined}>Saved{savedIds.size ? ` (${savedIds.size})` : ""}</button>
-        <button onClick={() => setActiveTab("all")} aria-current={activeTab === "all" ? "page" : undefined}>All listings / Unverified</button>
-        <button onClick={() => setActiveTab("past")} aria-current={activeTab === "past" ? "page" : undefined}>Past listings</button>
-      </nav>
-      {/* Desktop filters */}
-      <div className="mt-4 hidden lg:flex flex-wrap items-center gap-x-6 gap-y-2">
-        <div className="flex items-center gap-3">
-          <span className="text-[13px] text-ink-3">Mode:</span>
-          <div className="flex flex-wrap gap-3">
-            {MODE_OPTIONS.map(([v, label]) => (
-              <button
-                key={v || "any"}
-                onClick={() => setModeFilter(v)}
-                aria-pressed={modeFilter === v}
-                className={cn(
-                  "text-[13px] transition-colors relative",
-                  modeFilter === v ? "text-ink font-medium" : "text-ink-3 hover:text-ink-2"
-                )}
-              >
-                {label}
-                {modeFilter === v && <span className="absolute -bottom-1 left-0 right-0 h-[1.5px] rounded-t-full bg-ink" />}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3 border-l border-line pl-6">
-          <span className="text-[13px] text-ink-3">Platform:</span>
-          <div className="flex flex-wrap gap-3">
-            {PLATFORM_OPTIONS.map(([v, label]) => (
-              <button
-                key={v || "any"}
-                onClick={() => setPlatformFilter(v)}
-                aria-pressed={platformFilter === v}
-                className={cn(
-                  "text-[13px] transition-colors relative",
-                  platformFilter === v ? "text-ink font-medium" : "text-ink-3 hover:text-ink-2"
-                )}
-              >
-                {label}
-                {platformFilter === v && <span className="absolute -bottom-1 left-0 right-0 h-[1.5px] rounded-t-full bg-ink" />}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="ml-auto flex items-center gap-2 text-[13px] text-ink-3">
-          <span>Sort by:</span>
-          <DiscoveryDropdown id="hk-sort-desktop" label="Sort by" value={sortBy} onChange={setSortBy} options={SORT_OPTIONS} compact />
-        </div>
-      </div>
-
-      <div className="mt-4 hidden grid-cols-2 gap-3 lg:grid xl:grid-cols-5">{extraFilters("desktop")}</div>
-      <p className="mt-3 text-[12px] text-ink-3">Active listings require current source evidence: registration open or an ongoing hackathon. Ongoing does not mean registration is open. Source checks expire after 26 hours; dates and deadlines recalculate while you browse. All listings / Unverified retains unchecked and historical imports. Official registration stays on the provider’s site; joining the HackerMate community is separate.</p>
+      {activeTab === "all" && (
+        <p className="mt-3 text-[12.5px] text-ink-3">
+          Includes historical and unverified listings. Check the organizer’s page before applying.
+        </p>
+      )}
+      {activeTab === "ongoing" && (
+        <p className="mt-3 text-[12.5px] text-ink-3">
+          Happening now only includes events whose current event dates are confirmed by their source.
+          Unverified schedules aren’t counted.
+        </p>
+      )}
+      {["past", "upcoming", "recommended"].includes(activeTab) && (
+        <p className="mt-3 text-[12.5px] text-ink-3">
+          Viewing a saved link to an older discovery view. Switch to Available now or All listings to browse.
+        </p>
+      )}
+      <button type="button" className="mt-2 text-left text-[12px] text-ink-3 underline underline-offset-4 hover:text-ink-2"
+        aria-expanded={showEvidenceInfo} onClick={() => setShowEvidenceInfo(v => !v)}>
+        {showEvidenceInfo ? "Hide verification details" : "How are these listings verified?"}
+      </button>
+      {showEvidenceInfo && (
+        <p role="note" className="mt-2 max-w-3xl text-[12.5px] leading-relaxed text-ink-2">
+          Available now means registration is confirmed open or the event itself is verified as running.
+          Happening now requires current evidence for both event dates; registration can already be closed.
+          Source checks expire after 26 hours. We retain other historical and uncertain listings in All listings,
+          and official registration always happens on the provider’s website.
+        </p>
+      )}
       {sortBy.startsWith("prize-") && <p className="mt-1 text-[12px] text-ink-3">Known {sortBy === "prize-inr" ? "INR" : "USD"} cash prizes first; other rewards follow. No currency conversion.</p>}
       {settings.from && settings.to && settings.from > settings.to && <p role="alert" className="mt-2 text-[13px] text-warn">Choose a “Starts by” date on or after “Starts from”.</p>}
 
@@ -592,9 +574,9 @@ function HackathonsContent({ access }: { access: Extract<BrowsingAccess, { kind:
       {/* Results count */}
       {!(loadError && hackathons.length === 0) && <div className="mb-3 mt-5 flex flex-wrap items-center justify-between gap-2">
         <p className="text-[12.5px] text-ink-3">
-          <span className="font-mono text-ink-2 tabular">{filtered.length}</span> event{filtered.length !== 1 ? "s" : ""}
+          <span className="font-semibold text-ink tabular-nums">{filtered.length}</span> hackathon{filtered.length !== 1 ? "s" : ""} found
         </p>
-        {hasAnyFilter && <span className="text-[12px] text-ink-3">{activeFilterCount} active setting{activeFilterCount === 1 ? "" : "s"}</span>}
+        {hasAnyFilter && <span className="text-[12px] text-ink-3">{activeFilterCount} selected filter{activeFilterCount === 1 ? "" : "s"}</span>}
         {hasAnyFilter && (
           <button
             type="button"
@@ -606,7 +588,7 @@ function HackathonsContent({ access }: { access: Extract<BrowsingAccess, { kind:
         )}
       </div>}
 
-      <CopyDiscoveryLink searchParams={searchParams} />
+      <div className="mt-1"><CopyDiscoveryLink searchParams={searchParams} compact /></div>
 
       {loadError && (
         <ErrorNotice
@@ -667,7 +649,16 @@ function HackathonsContent({ access }: { access: Extract<BrowsingAccess, { kind:
           </div>
         }
       >
-        <div className="px-4 py-4">{filterGroups}</div>
+        <div className="px-4 py-4">
+          {filterGroups}
+          <div className="mt-6 border-t border-line pt-4">
+            <p className="mb-2 text-[12px] font-semibold text-ink-2">More ways to browse</p>
+            <button type="button" className="text-sm text-ink-2 underline underline-offset-4 hover:text-ink"
+              onClick={() => { setActiveTab("past"); setFiltersOpen(false); }}>
+              See past events
+            </button>
+          </div>
+        </div>
       </Sheet>
     </Page>
   );
