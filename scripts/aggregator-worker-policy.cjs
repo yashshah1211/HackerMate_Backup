@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-require-imports -- Scheduled Node.js operator policy. */
 "use strict";
 const PROVIDERS = ["unstop","devfolio","hack2skill"];
 const REFRESH_LIMIT = 145;
