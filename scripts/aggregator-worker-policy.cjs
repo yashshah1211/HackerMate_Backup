@@ -48,7 +48,7 @@ function discoveryPlan(identities, existingKeys, slot, limit=DISCOVERY_LIMIT) {
   const queues=PROVIDERS.map(provider=>{
     const list=identities.filter(i=>i.provider===provider && !existingKeys.has(sourceKey(i)));
     const unique=[...new Map(list.map(i=>[sourceKey(i),i])).values()];
-    return rotate(unique.map(i=>({...i,id:sourceKey(i)})),slot,Math.min(limit,unique.length));
+    return rotate(unique.map(i=>({...i,id:sourceKey(i)})),slot,Math.min(Math.ceil(limit/PROVIDERS.length),unique.length));
   });
   const result=[],seen=new Set();
   for(let i=0;result.length<limit && queues.some(q=>q.length);i++){
