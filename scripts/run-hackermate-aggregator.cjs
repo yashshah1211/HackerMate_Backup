@@ -57,6 +57,7 @@ async function main(mode=process.argv[2]) {
   // All imports use the repository's existing production source parser, identity rules and robots policy.
   const loader=harness({}, {fetch,Date,URLSearchParams});
   const {readCatalog,observe,sourcePatch}=loader.load("src/lib/hackathons/synchronize.ts");
+  const {activeOpportunity,registrationState,eventState}=loader.load("src/lib/hackathons/lifecycle.ts");
   const {SourceTransport,discoverSources}=loader.load("src/lib/hackathons/sourceTransport.ts");
   const {identifySource}=loader.load("src/lib/hackathons/providers.ts");
   const {validateSourceObservation,sourceFresh}=loader.load("src/lib/hackathons/source.ts");
@@ -68,7 +69,7 @@ async function main(mode=process.argv[2]) {
   const started=Date.now(),slot=Math.floor(started/policy.RUN_SLOT_MS);
   const catalog=await readCatalog(client);
   const counts=policy.countIdentities(catalog,r=>identityForRow(r,source)),known=new Set(counts.keys());
-  const result={mode:dryRun?"dry-run":"apply",project_ref:PROJECT_REF,started_at:new Date(started).toISOString(),
+  const result={mode:dryRun?"dry-run":"apply",dry_run_no_writes:dryRun,project_ref:PROJECT_REF,started_at:new Date(started).toISOString(),
     catalog_before:catalog.length,refreshed:0,adopted:0,created:0,
     refresh_held:0,legacy_held:0,discovery_held:0,checked:{refresh:0,legacy:0,new:0},
     providers_unavailable:[],remaining_refresh:0,phase_errors:[]};
@@ -190,11 +191,16 @@ async function main(mode=process.argv[2]) {
   const finalRows=dryRun?catalog:await readCatalog(client);
   const now=Date.now();
   result.catalog_after=finalRows.length;
-  result.fresh_open=finalRows.filter(r=>approvedRow(r)
-    && sourceFresh(validateSourceObservation(r.source_metadata,r.website_url).metadata,now,["registration_start","registration_end","registration_status"])
-    && r.source_metadata?.category==="hackathon" && r.source_metadata?.facts?.registration_status==="open").length;
   result.verified_metadata=finalRows.filter(r=>approvedRow(r)
     && sourceFresh(validateSourceObservation(r.source_metadata,r.website_url).metadata,now)).length;
+  // Use the exact production lifecycle projections, not raw registration timestamps.
+  result.registration_open=finalRows.filter(r=>approvedRow(r)
+    && registrationState(r,now)==="open"
+    && sourceFresh(validateSourceObservation(r.source_metadata,r.website_url).metadata,now,
+      ["registration_start","registration_end","registration_status"])).length;
+  result.active=finalRows.filter(r=>approvedRow(r)&&activeOpportunity(r,now)).length;
+  result.ongoing=finalRows.filter(r=>approvedRow(r)&&eventState(r,now)==="ongoing").length;
+  result.fresh_open=result.registration_open;
   result.finished_at=new Date(now).toISOString();
   writeSummary(result);
   if(result.providers_unavailable.length===3)throw new Error("All three providers unavailable; unattended discovery requires intervention");
