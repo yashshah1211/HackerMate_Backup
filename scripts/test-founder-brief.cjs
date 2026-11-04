@@ -40,6 +40,11 @@ test("missing metrics never masquerade as zeros or a clean day", () => {
   assert.ok(brief.caveats.some(x => x.includes("Unavailable metrics")));
   assert.ok(!brief.headline.includes("0 builders"));
 });
+test("secondary count gaps preserve useful core narrative", () => {
+  const brief = buildFounderBrief(fixture, { ...metrics, feedback: null });
+  assert.match(brief.headline, /6 builders joined/);
+  assert.ok(brief.caveats.some(x => x.includes("Unavailable metrics")));
+});
 test("zero action day is not automatically declared failure", () => {
   const brief = buildFounderBrief({ ...fixture, hackathons: [] }, {
     ...metrics, builders: 0, hackathons: 0, leads: 0,
@@ -64,6 +69,8 @@ test("HTML escapes untrusted listing titles; no private email or feedback body p
   // The PDF has its own escaped drawing path; the email is safe even when a
   // rendered section includes externally sourced text.
   assert.match(html, /What to do next/);
+  assert.match(html, /&bull;/);
+  assert.match(html, /charset="UTF-8"/);
 });
 test("new founder PDF is valid PDF and renders private-free, no external dependencies", () => {
   const brief = buildFounderBrief(fixture, metrics);
