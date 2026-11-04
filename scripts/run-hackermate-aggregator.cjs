@@ -67,7 +67,7 @@ async function main(mode=process.argv[2]) {
     {auth:{autoRefreshToken:false,persistSession:false},global:{headers:{"X-HackerMate-Worker":"source-refresh-v1"}}});
   const started=Date.now(),slot=Math.floor(started/policy.RUN_SLOT_MS);
   const catalog=await readCatalog(client);
-  const counts=policy.countIdentities(catalog,r=>keyForRow(r,source)),known=new Set(counts.keys());
+  const counts=policy.countIdentities(catalog,r=>identityForRow(r,source)),known=new Set(counts.keys());
   const result={mode:dryRun?"dry-run":"apply",project_ref:PROJECT_REF,started_at:new Date(started).toISOString(),
     catalog_before:catalog.length,refreshed:0,adopted:0,created:0,
     refresh_held:0,legacy_held:0,discovery_held:0,checked:{refresh:0,legacy:0,new:0},
