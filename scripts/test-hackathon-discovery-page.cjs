@@ -114,7 +114,7 @@ test('simplified default keeps advanced settings out of the initial layout and m
   assert.match(view.html, /Available now/);
   assert.match(view.html, /Happening now/);
   assert.match(view.html, /All listings/);
-  assert.match(view.html, /Event format/);
+  assert.match(view.html, /All formats/);
   assert(!view.html.includes('Registration deadline from'));
   assert(!view.html.includes('416 schedules unverified'));
   await view.click('Filters');
