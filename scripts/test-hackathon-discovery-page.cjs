@@ -113,7 +113,7 @@ test('simplified default keeps advanced settings out of the initial layout and m
   const view = await page();
   assert.match(view.html, /Available now/);
   assert.match(view.html, /Happening now/);
-  assert.match(view.html, /All listings/);
+  assert.match(view.html, /Explore all/);
   assert.match(view.html, /All formats/);
   assert(!view.html.includes('Registration deadline from'));
   assert(!view.html.includes('416 schedules unverified'));
@@ -159,7 +159,7 @@ test('zero verified ongoing hides the navigation tab but preserves ongoing deep 
   const view=await page({events:[event('future'),event('unknown',{start_date:'invalid',end_date:null})]});
   assert.doesNotMatch(view.html,/Happening now/);
   assert.match(view.html,/Available now/);
-  assert.match(view.html,/All listings/);
+  assert.match(view.html,/Explore all/);
   await view.navigate('tab=ongoing');
   assert.match(view.html,/Happening now/);
   assert.match(view.html,/can’t currently confirm/);
@@ -183,4 +183,35 @@ test('ongoing navigation automatically appears as a verified event begins withou
   await view.advance(Date.parse('2026-10-14T13:01:00Z'));
   assert.match(view.html,/Happening now/);
   assert.equal(view.reads.length,reads);
+});
+
+// The mixed historical catalog must not compete visually with the actionable count.
+test('primary discovery header promotes verified registration availability, not the mixed catalog total',async()=>{
+  const view=await page({events:[event('open'),event('archived',{registration_status:'closed',start_date:'2026-01-01',end_date:'2026-01-02'})]});
+  assert.match(view.html,/accepting registrations/);
+  assert.doesNotMatch(view.html,/total listings/);
+  assert.match(view.html,/Explore all/);
+  await view.click('Explore all');
+  assert.deepEqual(view.ids(),['open','archived']);
+  assert.match(view.html,/Full directory:/);
+  assert.match(view.html,/older and unverified events/);
+  assert.match(view.html,/Not all are accepting registrations/);
+  assert.equal(new URLSearchParams(view.location.search).get('tab'),'all');
+});
+test('old all-listings deep links remain functional and the archive warning stays visible',async()=>{
+  const view=await page({query:'tab=all',events:[event('closed',{start_date:'2026-09-01',end_date:'2026-09-02',registration_status:'closed'})]});
+  assert.deepEqual(view.ids(),['closed']);
+  assert.match(view.html,/Full directory:/);
+  assert.match(view.html,/Not all are accepting registrations/);
+});
+
+// The top-line number must remain the catalog-wide actionable count, not a
+// surprising search-dependent fraction of that count.
+test('headline count remains catalog-wide while filtering within current results',async()=>{
+  const view=await page({query:'q=First',events:[event('first',{name:'First'}),event('second',{name:'Second'})]});
+  assert.deepEqual(view.ids(),['first']);
+  assert.match(view.html,/>2<\/span> accepting registrations/);
+  await view.search('Second');
+  assert.deepEqual(view.ids(),['second']);
+  assert.match(view.html,/>2<\/span> accepting registrations/);
 });

@@ -355,7 +355,9 @@ function HackathonsContent({ access }: { access: Extract<BrowsingAccess, { kind:
   const filtered = discoverEvents(hackathons, settings, userSkills, savedIds, now);
   const topics = [...new Map(hackathons.flatMap(h => eventTopics(h)).map(tag => [tag.toLowerCase(), tag])).entries()]
     .sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0);
-  const openCount = discoverEvents(hackathons, { ...settings, tab: "open" }, userSkills, savedIds, now).length;
+  // The headline describes the full currently verified catalog, not just the search results.
+  const openCount = discoverEvents(hackathons,
+    { ...readDiscoverySettings(new URLSearchParams()), tab: "open" }, userSkills, savedIds, now).length;
   // Visibility is based on the entire trusted catalog, never on the current search/filters.
   // This avoids an unhelpful zero tab while keeping ongoing detection and deep links intact.
   const ongoingCatalogCount = discoverEvents(hackathons,
@@ -379,7 +381,7 @@ function HackathonsContent({ access }: { access: Extract<BrowsingAccess, { kind:
     ...(ongoingCatalogCount > 0 || activeTab === "ongoing"
       ? [{ value: "ongoing" as Tab, label: "Happening now", count: ongoingCatalogCount || undefined }]
       : []),
-    { value: "all", label: "All listings", count: hackathons.length },
+    { value: "all", label: "Explore all" },
     { value: "saved", label: "Saved", count: savedIds.size || undefined },
   ];
 
@@ -393,8 +395,7 @@ function HackathonsContent({ access }: { access: Extract<BrowsingAccess, { kind:
           "Events unavailable"
         ) : (
           <>
-            <span className="font-medium text-ink tabular-nums">{openCount.toLocaleString("en-IN")}</span> accepting registrations ·{" "}
-            <span className="tabular-nums">{hackathons.length.toLocaleString("en-IN")}</span> total listings
+            <span className="font-medium text-ink tabular-nums">{openCount.toLocaleString("en-IN")}</span> accepting registrations
           </>
         )
       }
@@ -499,7 +500,7 @@ function HackathonsContent({ access }: { access: Extract<BrowsingAccess, { kind:
     : activeTab === "ongoing" ? "We can’t currently confirm an event is happening right now. Some organizers haven’t published verifiable event dates yet; try Available now for open registrations."
     : activeTab === "upcoming" ? "No currently verified upcoming hackathons match this view."
     : activeTab === "all" ? "No public listings match this view."
-    : "No currently verified opportunities match this view. Try All listings to explore more events.";
+    : "No currently verified opportunities match this view. Try Explore all to review other listings.";
 
   return (
     <Page>
@@ -546,7 +547,8 @@ function HackathonsContent({ access }: { access: Extract<BrowsingAccess, { kind:
 
       {activeTab === "all" && (
         <p className="mt-3 text-[12.5px] text-ink-3">
-          Includes historical and unverified listings. Check the organizer’s page before applying.
+          Full directory: {hackathons.length.toLocaleString("en-IN")} listings, including older and unverified events.
+          Not all are accepting registrations; check the official organizer page.
         </p>
       )}
       {activeTab === "ongoing" && (
@@ -557,7 +559,7 @@ function HackathonsContent({ access }: { access: Extract<BrowsingAccess, { kind:
       )}
       {["past", "upcoming", "recommended"].includes(activeTab) && (
         <p className="mt-3 text-[12.5px] text-ink-3">
-          Viewing a saved link to an older discovery view. Switch to Available now or All listings to browse.
+          Viewing a saved link to an older discovery view. Switch to Available now or Explore all to browse.
         </p>
       )}
       <button type="button" className="mt-2 text-left text-[12px] text-ink-3 underline underline-offset-4 hover:text-ink-2"
@@ -568,7 +570,7 @@ function HackathonsContent({ access }: { access: Extract<BrowsingAccess, { kind:
         <p role="note" className="mt-2 max-w-3xl text-[12.5px] leading-relaxed text-ink-2">
           Available now means registration is confirmed open or the event itself is verified as running.
           Happening now requires current evidence for both event dates; registration can already be closed.
-          Source checks expire after 26 hours. We retain other historical and uncertain listings in All listings,
+          Source checks expire after 26 hours. We retain other historical and uncertain listings in Explore all,
           and official registration always happens on the provider’s website.
         </p>
       )}
