@@ -27,7 +27,7 @@ function rotate(records, slot, limit) {
 }
 /** Cache age orders rechecks; cached status never constitutes source authority. */
 function refreshPlan(records, limit=REFRESH_LIMIT) {
-  return records.filter(x=>x.source_metadata?.evidence_only === true)
+  return records.filter(x=>x.source_metadata != null)
     .sort((a,b)=>Date.parse(a.source_metadata?.checked_at||0)-Date.parse(b.source_metadata?.checked_at||0)
       || String(a.id).localeCompare(String(b.id))).slice(0,limit);
 }
