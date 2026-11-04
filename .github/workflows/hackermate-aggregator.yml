@@ -1,0 +1,83 @@
+name: HackerMate Unattended Source Refresh
+
+# This workflow never deploys the site. Scheduled writes are disabled until the
+# repository variable and dedicated production database secret are configured.
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'scripts/aggregator-worker-policy.cjs'
+      - 'scripts/run-hackermate-aggregator.cjs'
+      - 'scripts/test-unattended-aggregator.cjs'
+      - '.github/workflows/hackermate-aggregator.yml'
+  schedule:
+    # Every eight hours, offset from the top of the hour; verified evidence lasts <=26h.
+    - cron: '23 1,9,17 * * *'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Run mode. Dry run makes no database writes.'
+        required: true
+        type: choice
+        default: dry-run
+        options: [dry-run, apply]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hackermate-source-refresh-existing-production
+  cancel-in-progress: false
+
+jobs:
+  offline-qualification:
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Validate worker guards and scheduling policies (no secrets, no network)
+        run: node --test scripts/test-unattended-aggregator.cjs
+
+  source-refresh:
+    if: github.event_name != 'pull_request' && vars.HACKERMATE_AGGREGATOR_ENABLED == 'true' && github.repository == 'yashshah1211/HackerMate_Backup'
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    env:
+      HACKERMATE_AGGREGATOR_ENABLED: \${{ vars.HACKERMATE_AGGREGATOR_ENABLED }}
+      NEXT_PUBLIC_SUPABASE_URL: https://rhryjrbebfrrfhtyyzbs.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: \${{ secrets.HACKERMATE_AGGREGATOR_SERVICE_ROLE_KEY }}
+    steps:
+      - name: Verify exact repository, branch and service secret
+        shell: bash
+        run: |
+          test "$GITHUB_REPOSITORY" = "yashshah1211/HackerMate_Backup"
+          test "$GITHUB_REF" = "refs/heads/main"
+          test -n "$SUPABASE_SERVICE_ROLE_KEY" || { echo 'Dedicated aggregator secret missing'; exit 1; }
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Recheck offline worker guardrails
+        run: node --test scripts/test-unattended-aggregator.cjs
+      - name: Run bounded source refresh
+        shell: bash
+        env:
+          EVENT_MODE: \${{ inputs.mode }}
+        run: |
+          mode="--dry-run"
+          if [ "$GITHUB_EVENT_NAME" = "schedule" ] || [ "$EVENT_MODE" = "apply" ]; then
+            mode="--apply"
+          fi
+          node scripts/run-hackermate-aggregator.cjs "$mode"
