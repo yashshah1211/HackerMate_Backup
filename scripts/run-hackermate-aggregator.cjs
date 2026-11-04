@@ -186,12 +186,15 @@ async function main(mode=process.argv[2]) {
       observations.push({source_metadata:observation,website_url:identity.canonical_url});
       const validated=validateSourceObservation(observation,identity);
       if(!admission(validated,observation,Date.now(),source,true))throw new Error("unverified new source");
-      const patch=sourcePatch(observation,identity);
+      // Feed buckets are sampling hints, never part of the trusted SQL identity.
+      const trustedIdentity=validated.identity;
+      if(!trustedIdentity)throw new Error("unverified new identity");
+      const patch=sourcePatch(observation,trustedIdentity);
       if(!patch.website_url || patch.website_url!==identity.canonical_url
         || typeof patch.name!=="string" || !patch.name.trim())throw new Error("incomplete source patch");
       if(!dryRun){
         const applied=await client.rpc("apply_hackathon_source_check",{
-          p_id:null,p_identity:identity,p_observation:observation,p_patch:patch,
+          p_id:null,p_identity:trustedIdentity,p_observation:observation,p_patch:patch,
           p_expected:null,p_attempt:randomUUID(),p_failure:null,p_adopt_fields:null});
         if(applied.error)console.error("New source writer failed:",applied.error);
         if(applied.error || applied.data?.status!=="created")throw new Error("new source writer held record");

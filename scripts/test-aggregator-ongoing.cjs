@@ -132,10 +132,11 @@ for(const apply of [false,true])test('unattended worker '+(apply?'apply fixture'
  const fs=require('node:fs'),vm=require('node:vm'),workerModule={exports:{}},rows=[],writes=[];
  class Clock extends Date {constructor(...args){super(...(args.length?args:[now]))}static now(){return now}}
  const good=observe(),bad=observe(c=>{c.rounds=[];c.details='A hackathon.'});
- const identities=[1234,5678].map(n=>p.identifySource('https://unstop.com/hackathons/synthetic-'+n));
+ const identities=[1234,5678].map(n=>({...p.identifySource('https://unstop.com/hackathons/synthetic-'+n),feed_bucket:n===1234?'closed':'open'}));
  const observations=[good,{...bad,provider_id:'5678',canonical_url:identities[1].canonical_url,facts:{...bad.facts,website_url:identities[1].canonical_url}}];
  const fakeClient={from(table){assert.equal(table,'hackathons');let single=false,cursor=false;const q={select(){return q},order(){return q},limit(){return q},gt(){cursor=true;return q},eq(){return q},single(){single=true;return q},then(resolve){return Promise.resolve({data:single?rows[0]:cursor?[]:rows,error:null}).then(resolve)}};return q},async rpc(name,args){
   writes.push({name,args});assert.equal(name,'apply_hackathon_source_check');assert.equal(args.p_id,null);assert.equal(args.p_patch.registration_status,'closed');
+  assert.equal(Object.hasOwn(args.p_identity,'feed_bucket'),false,'Untrusted feed hints must never enter the SQL identity');
   rows.push({id:'00000000-0000-4000-8000-000000009104',type:'external',status:'approved',archived:false,website_url:args.p_identity.canonical_url,source_metadata:args.p_observation});return {data:{status:'created',id:rows[0].id},error:null};
  }};
  const real=harness({}, {Date:Clock,URLSearchParams}),env={NEXT_PUBLIC_SUPABASE_URL:'https://rhryjrbebfrrfhtyyzbs.supabase.co',SUPABASE_SERVICE_ROLE_KEY:'synthetic',HACKERMATE_AGGREGATOR_ENABLED:'true',GITHUB_ACTIONS:'true',GITHUB_REPOSITORY:'yashshah1211/HackerMate_Backup',GITHUB_REF:'refs/heads/main',GITHUB_EVENT_NAME:'schedule'};
