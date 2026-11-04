@@ -83,7 +83,9 @@ async function main(mode=process.argv[2]) {
     refresh_held:0,legacy_held:0,discovery_held:0,checked:{refresh:0,legacy:0,new:0},
     providers_unavailable:[],remaining_refresh:0,phase_errors:[],accepted_closed_registration_ongoing:0,
     source_failures:{},discovery_failure_details:[],
-    discovered_candidates:0,discovery_attempts_by_feed:{},discovery_admissions_by_feed:{}};
+    discovered_candidates:0,discovery_attempts_by_feed:{},discovery_admissions_by_feed:{},
+    // Read-only preview of the exact source targets and source-owned field names; no values or tokens.
+    write_preview:dryRun?{refresh:[],adoption:[],create:[]}:undefined};
   const failure=(provider,error)=>{
     const reason=String(error?.message||'unknown_source_failure');
     const key=provider+':'+reason;result.source_failures[key]=(result.source_failures[key]||0)+1;
@@ -119,6 +121,8 @@ async function main(mode=process.argv[2]) {
       observations.push({source_metadata:observation,website_url:row.website_url});
       const validated=validateSourceObservation(observation,row.website_url);
       if(!admission(validated,observation,Date.now(),source))throw new Error("invalid refresh evidence");
+      if(dryRun)result.write_preview.refresh.push({id:row.id,provider:identity.provider,
+        evidence_only:evidenceOnly,patch_fields:evidenceOnly?[]:Object.keys(sourcePatch(observation,row.website_url)).sort()});
       if(!dryRun){
         const apply=await client.rpc(evidenceOnly?"store_hackathon_source_evidence":"apply_hackathon_source_check",
           evidenceOnly?{
@@ -164,6 +168,7 @@ async function main(mode=process.argv[2]) {
       observations.push({source_metadata:observation,website_url:row.website_url});
       const validated=validateSourceObservation(observation,row.website_url);
       if(!admission(validated,observation,Date.now(),source))throw new Error("unverified legacy evidence");
+      if(dryRun)result.write_preview.adoption.push({id:row.id,provider:identity.provider,evidence_only:true});
       if(!dryRun){
         const approval={record_id:row.id,provider_id:observation.provider_id,
           source_hash:observation.source_hash,checked_at:observation.checked_at,
@@ -200,6 +205,9 @@ async function main(mode=process.argv[2]) {
       const patch=sourcePatch(observation,trustedIdentity);
       if(!patch.website_url || patch.website_url!==identity.canonical_url
         || typeof patch.name!=="string" || !patch.name.trim())throw new Error("incomplete source patch");
+      if(dryRun)result.write_preview.create.push({provider:trustedIdentity.provider,
+        provider_id:trustedIdentity.provider_id,canonical_url:trustedIdentity.canonical_url,
+        feed_bucket:identity.feed_bucket||"unknown",patch_fields:Object.keys(patch).sort()});
       if(!dryRun){
         const applied=await client.rpc("apply_hackathon_source_check",{
           p_id:null,p_identity:trustedIdentity,p_observation:observation,p_patch:patch,
