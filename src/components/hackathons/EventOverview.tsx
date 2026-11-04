@@ -42,7 +42,7 @@ export default function EventOverview({
     <section aria-label="Hackathon overview" className="relative isolate mt-5 overflow-hidden rounded-2xl border border-line-strong bg-raised md:mt-6">
       <div aria-hidden className="pointer-events-none absolute -right-24 -top-40 size-[360px] rounded-full bg-accent-soft blur-[90px]" />
       <div aria-hidden className="pointer-events-none absolute right-0 top-0 h-1 w-full bg-gradient-to-r from-accent/70 via-hack/30 to-transparent" />
-      <div className="relative grid min-w-0 gap-7 px-5 py-6 sm:px-7 sm:py-8 xl:grid-cols-[minmax(0,1fr)_290px] xl:gap-9">
+      <div className="relative grid min-w-0 gap-7 px-5 py-6 sm:px-7 sm:py-8 lg:grid-cols-[minmax(0,1fr)_280px] lg:gap-7">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <Tape tone={phase === "ongoing" ? "ok" : phase === "upcoming" ? "accent" : "neutral"} dot={phase === "ongoing"}>
