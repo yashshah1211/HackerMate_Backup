@@ -129,7 +129,7 @@ for(const width of [390,768,1440])test('guest/member discovery accuracy and pres
     assert(await page.getByText(n===9?'Event schedule unverified':'Upcoming',{exact:true}).isVisible());
     if(role==='guest')assert(await page.getByRole('link',{name:/View official event site/}).isVisible());
     else {
-     assert(await page.getByRole('button',{name:'View official event site',exact:true}).filter({visible:true}).isVisible());
+     assert(await page.getByRole('region',{name:'Hackathon overview'}).getByRole('button',{name:'View official event site',exact:true}).isVisible());
      assert(await page.getByRole('button',{name:'Join community',exact:true}).isVisible());
     }
     await fit();await page.screenshot({path:path.join(OUT,role+'-unverified-'+n+'-'+width+'.png'),fullPage:true});
@@ -140,7 +140,7 @@ for(const width of [390,768,1440])test('guest/member discovery accuracy and pres
    assert(await page.getByText('Registration closed',{exact:true}).isVisible());
    const official=page.getByRole('link',{name:/View official event site/});
    if(role==='guest')assert.equal(await official.getAttribute('href'),'https://example.invalid/official');
-   else assert(await page.getByRole('button',{name:'View official event site',exact:true}).filter({visible:true}).isVisible());
+   else assert(await page.getByRole('region',{name:'Hackathon overview'}).getByRole('button',{name:'View official event site',exact:true}).isVisible());
    assert.equal(await page.getByRole('button',{name:'Register on event site',exact:true}).count(),0);
    await fit();await page.screenshot({path:path.join(OUT,`${role}-closed-detail-${width}.png`),fullPage:true});
    assert.equal(await page.evaluate(()=>window.fixtureWrites.length),0);
