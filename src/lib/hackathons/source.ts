@@ -1,4 +1,5 @@
 import { object, text, integer, eventDate, validatedSourceIdentity, retainBuildInventory, reconciledBuildWindow, reconciledOrganizerWindow, windowState, type SourceIdentity } from "./sourceEvidence";
+import { isGeneratedProviderDescription, isUnverifiedZeroPrize } from "./contentQuality";
 export { object, text, array, integer } from "./sourceEvidence";
 /** Public source evidence. Only the service writer can set this column; never trust ai_feedback. */
 export type Provider = "unstop" | "devfolio" | "hack2skill";
@@ -139,11 +140,35 @@ export function sourceFresh(m: SourceMetadata | null, now: number, fields: reado
   return Number.isFinite(checked) && Number.isFinite(expires) && checked <= now + 60000 && checked <= expires
     && now < expires && now - checked < SOURCE_MAX_AGE_MS && expires - checked <= SOURCE_MAX_AGE_MS;
 }
+/**
+ * Legacy Devfolio snapshots were stamped with a synthetic description and could
+ * report a zero aggregate as "$0". Make all member/guest/directory reads truthful
+ * immediately, even when the protected database has not been source-refreshed yet.
+ * A positive organizer prize and native/partner editorial copy are untouched.
+ */
+export function presentDevfolioDetails<T extends { type?: string | null; website_url?: string | null }>(event: T): T {
+  if (event.type === "native") return event;
+  let isDevfolio = false;
+  try {
+    const u = new URL(event.website_url || "");
+    isDevfolio = u.protocol === "https:" && (u.hostname === "devfolio.co" || u.hostname.endsWith(".devfolio.co"));
+  } catch { /* Unknown source URLs are not changed. */ }
+  if (!isDevfolio) return event;
+  const row = event as T & { description?: string | null; prize_pool?: string | null; currency?: string | null };
+  const corrected: { description?: null; prize_pool?: null; currency?: null } = {};
+  if (isGeneratedProviderDescription(row.description)) corrected.description = null;
+  if (isUnverifiedZeroPrize(row.prize_pool)) {
+    corrected.prize_pool = null;
+    corrected.currency = null;
+  }
+  return Object.keys(corrected).length ? { ...event, ...corrected } : event;
+}
+
 /** One effective snapshot for directory and detail. Failed checks keep last-known facts without claiming freshness. */
 export function synchronizedEvent<T extends { type?: string | null; source_metadata?: unknown; website_url?: string | null }>(event: T): T {
   const validated = validateSourceObservation(event.source_metadata, event.website_url), m = validated.metadata;
   if (event.type === "native") return event;
-  if (!m) return event.source_metadata == null ? event : { ...event, start_date: null, end_date: null };
+  if (!m) return presentDevfolioDetails(event.source_metadata == null ? event : { ...event, start_date: null, end_date: null });
   const facts: Record<string, unknown> = {};
   for (const key of ["name", "description", "website_url", "college", "start_date", "end_date", "registration_start", "registration_end",
     "registration_status", "min_team_size", "max_team_size", "mode", "location", "prize_pool", "currency", "rounds_info"]) {
@@ -155,5 +180,5 @@ export function synchronizedEvent<T extends { type?: string | null; source_metad
     if (!m.protected_fields?.includes("end_date")) facts.end_date = null;
   }
   // Never overlay identity, approval, ownership, archival or community fields from JSON.
-  return { ...event, ...facts };
+  return presentDevfolioDetails({ ...event, ...facts });
 }
