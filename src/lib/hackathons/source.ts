@@ -1,4 +1,4 @@
-import { object, text, integer, eventDate, validatedSourceIdentity, retainBuildInventory, reconciledBuildWindow, windowState, type SourceIdentity } from "./sourceEvidence";
+import { object, text, integer, eventDate, validatedSourceIdentity, retainBuildInventory, reconciledBuildWindow, reconciledOrganizerWindow, windowState, type SourceIdentity } from "./sourceEvidence";
 export { object, text, array, integer } from "./sourceEvidence";
 /** Public source evidence. Only the service writer can set this column; never trust ai_feedback. */
 export type Provider = "unstop" | "devfolio" | "hack2skill";
@@ -27,6 +27,7 @@ export const REGISTRATION_FIELDS = ["registration_start", "registration_end", "r
 export const EVENT_FIELDS = ["start_date", "end_date"];
 export const SOURCE_MAX_AGE_MS = 26 * 60 * 60 * 1000;
 export const UNSTOP_EVENT_DATE_BASIS = "reconciled_hackathon_build_stages_v3";
+export const UNSTOP_ORGANIZER_DATE_BASIS = "reconciled_hackathon_organizer_instants_v4";
 export const sourceProvider = (v: unknown): Provider | null => v === "unstop" || v === "devfolio" || v === "hack2skill" ? v : null;
 
 /** Structural decoding is private: only validateSourceObservation grants usable authority. */
@@ -87,9 +88,11 @@ export function validateSourceObservation(value: unknown, expected?: unknown): V
   if (m.check_status === "ok" && m.issues.length) errors.push("successful_observation_has_unresolved_issues");
   let schedule: ValidatedSource["schedule"] = null;
   if (m.provider === "unstop") {
-    if (m.evidence.event_date_basis === UNSTOP_EVENT_DATE_BASIS) {
+    if ([UNSTOP_EVENT_DATE_BASIS, UNSTOP_ORGANIZER_DATE_BASIS].some(basis => m.evidence.event_date_basis === basis)) {
       const inventory = retainBuildInventory(m.evidence.build_inventory), stageIssues: string[] = [];
-      const window = inventory && reconciledBuildWindow(inventory, stageIssues, checked ?? undefined);
+      const window = inventory && (m.evidence.event_date_basis === UNSTOP_ORGANIZER_DATE_BASIS
+        ? reconciledOrganizerWindow(inventory, m.evidence.organizer_text, stageIssues, checked ?? undefined)
+        : reconciledBuildWindow(inventory, stageIssues, checked ?? undefined));
       if (!window || stageIssues.length || start !== window.from || end !== window.until) errors.push("unsupported_build_schedule");
       else schedule = { start: f.start_date!, end: f.end_date! };
     }

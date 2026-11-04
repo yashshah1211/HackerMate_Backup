@@ -94,28 +94,37 @@ export class SourceTransport {
   }
 }
 
-export async function discoverSources(transport: SourceTransport): Promise<{ identities: SourceIdentity[]; failures: string[] }> {
-  const identities: SourceIdentity[] = [], failures: string[] = [];
-  try {
-    for (const status of ["open", "upcoming"]) for (let page = 1; page <= 3; page++) {
+export async function discoverSources(transport: SourceTransport): Promise<{ identities: SourceIdentity[]; failures: string[]; failureDetails: { provider: string; feed: string; reason: string }[] }> {
+  const identities: SourceIdentity[] = [], failures: string[] = [], failureDetails: { provider: string; feed: string; reason: string }[] = [];
+  const failed = (provider: string, feed: string, error: unknown) => {
+    console.error("Provider discovery unavailable:", provider, feed, error);
+    failures.push(provider);
+    failureDetails.push({ provider, feed, reason: text(object(error).message) || "unknown_source_failure" });
+  };
+  // Closed is a candidate feed, never evidence of ongoing. Keep open/upcoming
+  // coverage and isolate feed failures so a refusal does not discard other work.
+  for (const status of ["open", "upcoming", "closed"]) try {
+    for (let page = 1; page <= 3; page++) {
       const r = await transport.get(`https://unstop.com/api/public/opportunity/search-result?opportunity=hackathons&per_page=30&page=${page}&oppstatus=${status}`), j = object(JSON.parse(r.body)), data = object(j.data);
       if (!Array.isArray(data.data)) throw new SourceUnavailable("Unstop listing shape changed");
       if (!data.data.length) break;
       for (const item of data.data) { const v = object(item), path = text(v.public_url); if (!path) continue;
         const id = identifySource(path.startsWith("https://") ? path : "https://unstop.com/" + path);
-        if (id && String(v.id) === id.provider_id) identities.push(id); }
+        if (id?.provider === "unstop" && String(v.id) === id.provider_id) identities.push(id); }
     }
-  } catch (e) { console.error("Unstop discovery unavailable:", e); failures.push("unstop"); }
+  } catch (e) { failed("unstop", status, e); }
   try {
     const r = await transport.get("https://devfolio.co/hackathons"), pp = object(object(nextData(r.body).props).pageProps), state = object(pp.dehydratedState);
     const q = array(state.queries).map(object).find(q => q.queryKey === "fetchAllHackathonTypes");
     const data = object(object(q?.state).data);
     if (!Array.isArray(data.open_hackathons)) throw new SourceUnavailable("Devfolio listing shape changed");
-    for (const item of [...array(data.open_hackathons), ...array(data.upcoming_hackathons)]) {
+    // The public past bucket is finite and sometimes contains closed applications.
+    // Recheck detail starts_at/ends_at before admission; do not reinterpret its label.
+    for (const item of [...array(data.open_hackathons).slice(0, 90), ...array(data.upcoming_hackathons).slice(0, 90), ...array(data.past_hackathons).slice(0, 30)]) {
       const v = object(item), slug = text(v.slug), uuid = text(v.uuid); if (!slug || !uuid) continue;
       const id = identifySource(`https://${slug}.devfolio.co`); if (id) identities.push({ ...id, provider_id: uuid });
     }
-  } catch (e) { console.error("Devfolio discovery unavailable:", e); failures.push("devfolio"); }
+  } catch (e) { failed("devfolio", "public_directory", e); }
   try {
     const r = await transport.get("https://hack2skill.com/api/v1/innovator/public/event/list?page=1&records=100"), data = object(object(JSON.parse(r.body)).data);
     if (!Array.isArray(data.flagshipEvents) || !Array.isArray(data.communityEvents)) throw new SourceUnavailable("Hack2Skill listing shape changed");
@@ -123,6 +132,15 @@ export async function discoverSources(transport: SourceTransport): Promise<{ ide
       const v = object(item), slug = text(v.eventUrl), uid = text(v._id); if (!slug || !uid) continue;
       const id = identifySource(`https://hack2skill.com/event/${slug}`); if (id) identities.push({ ...id, provider_id: uid });
     }
-  } catch (e) { console.error("Hack2Skill discovery unavailable:", e); failures.push("hack2skill"); }
-  return { identities: [...new Map(identities.map(i => [i.provider + ":" + i.provider_id, i])).values()], failures };
+  } catch (e) { failed("hack2skill", "public_list", e); }
+  const byId = new Map<string, SourceIdentity>(), byUrl = new Map<string, string>(), conflicts = new Set<string>();
+  for (const identity of identities) {
+    const key = identity.provider + ":" + identity.provider_id, previous = byId.get(key), urlKey = byUrl.get(identity.canonical_url);
+    if (previous && previous.canonical_url !== identity.canonical_url || urlKey && urlKey !== key) {
+      conflicts.add(key); if (urlKey) conflicts.add(urlKey);
+      failureDetails.push({ provider: identity.provider, feed: "identity", reason: "provider_identity_collision" });
+    }
+    byId.set(key, identity); byUrl.set(identity.canonical_url, key);
+  }
+  return { identities: [...byId].filter(([key]) => !conflicts.has(key)).map(([, identity]) => identity), failures: [...new Set(failures)], failureDetails };
 }

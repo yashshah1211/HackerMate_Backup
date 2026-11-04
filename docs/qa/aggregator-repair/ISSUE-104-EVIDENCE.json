@@ -1,0 +1,364 @@
+{
+  "mode": "READ_ONLY_PUBLIC_EVIDENCE_NOT_A_ROLLOUT",
+  "catalog_checked_at": "2026-11-04T10:03:29.377Z",
+  "publicListings": 420,
+  "counts": {
+    "other": {
+      "total": 1,
+      "fresh": 0,
+      "verifiedSchedules": 0,
+      "ongoing": 0
+    },
+    "unstop": {
+      "total": 408,
+      "fresh": 51,
+      "verifiedSchedules": 1,
+      "ongoing": 0
+    },
+    "hack2skill": {
+      "total": 2,
+      "fresh": 0,
+      "verifiedSchedules": 0,
+      "ongoing": 0
+    },
+    "devfolio": {
+      "total": 9,
+      "fresh": 4,
+      "verifiedSchedules": 4,
+      "ongoing": 0
+    }
+  },
+  "sampledExisting": [
+    {
+      "name": "CodeNexus India 2026 - National Hackathon",
+      "url": "https://unstop.com/hackathons/codenexus-india-2026-national-hackathon-wecodecoders-1764747",
+      "checked_at": "2026-11-04T10:03:30.791Z",
+      "source_hash": "c64769e1756eee41b7f9f228dc45dc74fd0c320ea7a51200e6596f744669dd73",
+      "before": {
+        "event_status": "unknown",
+        "start": null,
+        "end": null
+      },
+      "after": {
+        "event_status": "unknown",
+        "start": null,
+        "end": null,
+        "schedule_reasons": [
+          "mixed_or_unsupported_build_stages"
+        ],
+        "issues": []
+      }
+    },
+    {
+      "name": "CodeNova India 2026 - National Hackathon",
+      "url": "https://unstop.com/hackathons/codenova-india-2026-national-hackathon-wecodecoders-1783775",
+      "checked_at": "2026-11-04T10:03:31.796Z",
+      "source_hash": "a07394a8450ff29c728fc9bb84d175c6a03836ac41cb4e403a780a0b36b03c28",
+      "before": {
+        "event_status": "unknown",
+        "start": null,
+        "end": null
+      },
+      "after": {
+        "event_status": "unknown",
+        "start": null,
+        "end": null,
+        "schedule_reasons": [
+          "mixed_or_unsupported_build_stages"
+        ],
+        "issues": []
+      }
+    },
+    {
+      "name": "Aegython 2026",
+      "url": "https://unstop.com/hackathons/aegython-2026-aeglysai-1777958",
+      "checked_at": "2026-11-04T10:03:32.711Z",
+      "source_hash": "f0d1cc529a31de1e58f0892142cf4cd38624a5b459ad5867206f8c6c0a0e7227",
+      "before": {
+        "event_status": "unknown",
+        "start": null,
+        "end": null
+      },
+      "after": {
+        "event_status": "unknown",
+        "start": null,
+        "end": null,
+        "schedule_reasons": [
+          "missing_build_stages"
+        ],
+        "issues": []
+      }
+    },
+    {
+      "name": "Hack-a-Sol 5.0",
+      "url": "https://unstop.com/hackathons/hack-a-sol-50-international-institute-of-information-technology-iiit-naya-raipur-1786809",
+      "checked_at": "2026-11-04T10:03:33.505Z",
+      "source_hash": "bec8da98dfc05d3f0940892d04bf952f127a243fe16a54dd110ecba51acca7ac",
+      "before": {
+        "event_status": "unknown",
+        "start": null,
+        "end": null
+      },
+      "after": {
+        "event_status": "unknown",
+        "start": null,
+        "end": null,
+        "schedule_reasons": [
+          "mixed_or_unsupported_build_stages"
+        ],
+        "issues": []
+      }
+    }
+  ],
+  "sampledDiscovery": [
+    {
+      "url": "https://unstop.com/hackathons/prodverse-tech-unbound-vivekananda-institute-of-professional-studies-vips-delhi-1783719",
+      "provider": "unstop",
+      "checked_at": "2026-11-04T10:17:36.208Z",
+      "hash": "b506628092394fdc6ceb18ac7b830e35b7b196ee5ba057f40624c984c86028eb",
+      "name": "ProdVerse ~ Tech Unbound",
+      "category": "hackathon",
+      "start": null,
+      "end": null,
+      "registration": "closed",
+      "event": "unknown",
+      "status": "ok",
+      "reasons": [
+        "mixed_or_unsupported_build_stages"
+      ],
+      "issues": []
+    },
+    {
+      "url": "https://unstop.com/hackathons/project-lastmile-analytics-case-challenge-xavier-school-of-management-xlri-1789982",
+      "provider": "unstop",
+      "checked_at": "2026-11-04T10:17:37.450Z",
+      "hash": "b9b28a6ff41bcbbddce5d88709d3d6054242b9043b1030c12e3bdefa65d2763f",
+      "name": "Project Last Mile: Analytics Case Challenge",
+      "category": "unknown",
+      "start": null,
+      "end": null,
+      "registration": "closed",
+      "event": "unknown",
+      "status": "ok",
+      "reasons": [
+        "mixed_or_unsupported_build_stages"
+      ],
+      "issues": []
+    },
+    {
+      "url": "https://unstop.com/hackathons/fetch-a-thon-30-masters-union-school-of-business-1778044",
+      "provider": "unstop",
+      "checked_at": "2026-11-04T10:17:38.448Z",
+      "hash": "8d95ae19caf887ad4719f3b3585bdd35b0a40be8f4ef1ffc4d24060b341b0e86",
+      "name": "Fetch-A-Thon 3.0",
+      "category": "hackathon",
+      "start": null,
+      "end": null,
+      "registration": "closed",
+      "event": "unknown",
+      "status": "ok",
+      "reasons": [
+        "mixed_or_unsupported_build_stages"
+      ],
+      "issues": []
+    },
+    {
+      "url": "https://unstop.com/hackathons/hackcelestia-international-hackathon-banasthali-vidyapith-bu-jaipur-1775961",
+      "provider": "unstop",
+      "checked_at": "2026-11-04T10:17:39.370Z",
+      "hash": "dabe4402e4cab16c2bda3a4c69d842eec081a29c4c8ac0270353a2e1588def43",
+      "name": "HackCelestia — International Hackathon",
+      "category": "hackathon",
+      "start": null,
+      "end": null,
+      "registration": "closed",
+      "event": "unknown",
+      "status": "ok",
+      "reasons": [
+        "mixed_or_unsupported_build_stages"
+      ],
+      "issues": []
+    },
+    {
+      "url": "https://unstop.com/hackathons/robo-race-iit-kanpur-techkriti27-techkriti-1764304",
+      "provider": "unstop",
+      "checked_at": "2026-11-04T10:17:40.599Z",
+      "hash": "834238888484a5f54799efe712a6cee61717977612ad4f42d4a7a44bf31a3408",
+      "name": "Robo Race",
+      "category": "unknown",
+      "start": null,
+      "end": null,
+      "registration": "closed",
+      "event": "unknown",
+      "status": "ok",
+      "reasons": [
+        "missing_build_stages"
+      ],
+      "issues": []
+    },
+    {
+      "url": "https://unstop.com/hackathons/drone-soccer-iit-kanpur-techkriti27-techkriti-1764282",
+      "provider": "unstop",
+      "checked_at": "2026-11-04T10:17:41.125Z",
+      "hash": "f2e4f73e0c3a60eaa7e0c5adce5ce2c1b4b3e90483dd70d2bdd865f25e4f10aa",
+      "name": "Drone Soccer",
+      "category": "unknown",
+      "start": null,
+      "end": null,
+      "registration": "closed",
+      "event": "unknown",
+      "status": "ok",
+      "reasons": [
+        "missing_build_stages"
+      ],
+      "issues": []
+    },
+    {
+      "url": "https://unstop.com/hackathons/beat-the-market-iit-kanpur-techkriti27-techkriti-1764203",
+      "provider": "unstop",
+      "checked_at": "2026-11-04T10:17:42.465Z",
+      "hash": "2302bf15126edd272ea122917cb2540c825e3575d4e3a5294d35391ecf5f9bcf",
+      "name": "Beat The Market",
+      "category": "unknown",
+      "start": null,
+      "end": null,
+      "registration": "closed",
+      "event": "unknown",
+      "status": "ok",
+      "reasons": [
+        "missing_build_stages"
+      ],
+      "issues": []
+    },
+    {
+      "url": "https://unstop.com/hackathons/trade-quest-iit-kanpur-techkriti27-techkriti-1764198",
+      "provider": "unstop",
+      "checked_at": "2026-11-04T10:17:43.342Z",
+      "hash": "5137f0ca7b1a3ee78d93f71359cf681f865953b5faef389ce98a55daf9540a95",
+      "name": "TRADE QUEST | IIT KANPUR",
+      "category": "unknown",
+      "start": null,
+      "end": null,
+      "registration": "closed",
+      "event": "unknown",
+      "status": "ok",
+      "reasons": [
+        "missing_build_stages"
+      ],
+      "issues": []
+    },
+    {
+      "url": "https://hackonhills8.devfolio.co",
+      "provider": "devfolio",
+      "checked_at": "2026-11-04T10:17:44.613Z",
+      "hash": "5489126ab3a13cd5838a49def097e17c2ef639b5e4b01cbdfd3f26608ff69b64",
+      "name": "Hack On Hills 8.0",
+      "category": "hackathon",
+      "start": "2026-10-31T06:30:00+00:00",
+      "end": "2026-11-01T20:00:00+00:00",
+      "registration": "closed",
+      "event": "ended",
+      "status": "ok",
+      "issues": []
+    },
+    {
+      "url": "https://surat-hack-2026.devfolio.co",
+      "provider": "devfolio",
+      "checked_at": "2026-11-04T10:17:45.848Z",
+      "hash": "f601a36075c694f3ea475621bf38cdad0a213857fe6a713802c226c5d66d9cf5",
+      "name": "Surat Hack 2026",
+      "category": "hackathon",
+      "start": "2026-11-01T00:30:00+00:00",
+      "end": "2026-11-01T18:30:00+00:00",
+      "registration": "closed",
+      "event": "ended",
+      "status": "ok",
+      "issues": []
+    },
+    {
+      "url": "https://biosv2.devfolio.co",
+      "provider": "devfolio",
+      "checked_at": "2026-11-04T10:17:47.069Z",
+      "hash": "621a3772a31c1a1c092607a89795202251a685823f5601669b993f09e3e6a318",
+      "name": "BIOS V2",
+      "category": "hackathon",
+      "start": "2026-10-30T06:30:00+00:00",
+      "end": "2026-11-01T06:30:00+00:00",
+      "registration": "closed",
+      "event": "ended",
+      "status": "ok",
+      "issues": []
+    },
+    {
+      "url": "https://version-beta-9.devfolio.co",
+      "provider": "devfolio",
+      "checked_at": "2026-11-04T10:17:48.289Z",
+      "hash": "abe37423d08aa86801c934a730da95c43ad292b48778d56461d22eb459aeb030",
+      "name": "Version Beta 9.0",
+      "category": "hackathon",
+      "start": "2026-10-30T14:30:00+00:00",
+      "end": "2026-11-01T02:30:00+00:00",
+      "registration": "closed",
+      "event": "ended",
+      "status": "ok",
+      "issues": []
+    },
+    {
+      "url": "https://hack2skill.com/event/startupbuildathon2026",
+      "provider": "hack2skill",
+      "checked_at": "2026-11-04T10:17:49.424Z",
+      "hash": "a4ade61e699c949e43ec922a396cb8cbfcf45a41cff0840801cf850557ad3c67",
+      "name": "Startup Buildathon India 2026",
+      "category": "hackathon",
+      "start": null,
+      "end": null,
+      "registration": "open",
+      "event": "unknown",
+      "status": "ok",
+      "issues": []
+    },
+    {
+      "url": "https://hack2skill.com/event/watchfacedesignchallenge2026",
+      "provider": "hack2skill",
+      "checked_at": "2026-11-04T10:17:50.480Z",
+      "hash": "b6422087ab987f5afffa3f75cfba3fffc6f9c35fd163e5b4a0dd308e81ea0649",
+      "name": "Watch Face Design Challenge 2026",
+      "category": "hackathon",
+      "start": null,
+      "end": null,
+      "registration": "open",
+      "event": "unknown",
+      "status": "ok",
+      "issues": []
+    },
+    {
+      "url": "https://hack2skill.com/event/codeverse2025",
+      "provider": "hack2skill",
+      "checked_at": "2026-11-04T10:17:51.477Z",
+      "hash": "2528ad27d9d33e361829cef663da3cc485377d926829e218f86c4df47cbd80ae",
+      "name": "Codeverse2025",
+      "category": "hackathon",
+      "start": null,
+      "end": null,
+      "registration": "closed",
+      "event": "unknown",
+      "status": "ok",
+      "issues": []
+    },
+    {
+      "url": "https://hack2skill.com/event/fit_fest-hackathon-2026",
+      "provider": "hack2skill",
+      "checked_at": "2026-11-04T10:17:52.663Z",
+      "hash": "5e5ea00b38e64d3180c22b2307eba4b74ab689eeaf8a73e76389f82670e3592f",
+      "name": "FIT-FEST 2026 HACKATHON",
+      "category": "hackathon",
+      "start": null,
+      "end": null,
+      "registration": "closed",
+      "event": "unknown",
+      "status": "ok",
+      "issues": []
+    }
+  ],
+  "productionWrites": 0
+}

@@ -124,17 +124,17 @@ test('a typed stage mentioning a hackathon is insufficient, and unreconciled pro
  const reversed=observe({rounds:[fixture.buildStage('2026-11-08','2026-11-07')]});assert.equal(reversed.facts.start_date,null);assert.equal(reversed.facts.end_date,null);assert(reversed.issues.includes('event_window_contradiction'));assert(!Object.hasOwn(sync.sourcePatch(reversed),'start_date'));
 });
 
-test('actual build dates include the full India final calendar day and preserve explicit timezone instants',()=>{
- const m=observe({rounds:[fixture.buildStage('2026-11-02','2026-11-02')]});
+test('explicit build instants cross India calendar days without inferring date-only times',()=>{
+ const m=observe({rounds:[fixture.buildStage('2026-11-02T00:00:00+05:30','2026-11-03T00:00:00+05:30')]});
  m.checked_at='2026-11-01T23:59:00+05:30';m.event_status='upcoming';m.expires_at='2026-11-03T01:59:00+05:30';
  for(const [time,state]of [['2026-11-01T23:59:59.999+05:30','upcoming'],['2026-11-02T00:00:00+05:30','ongoing'],['2026-11-02T23:59:59.999+05:30','ongoing'],['2026-11-03T00:00:00+05:30','ended']])assert.equal(life.eventState(event(m),Date.parse(time)),state);
  const offset=observe({rounds:[fixture.buildStage('2026-11-02T18:30:00Z','2026-11-03T01:00:00+05:30')]});assert.equal(life.eventState(event(offset),Date.parse('2026-11-03T00:00:00+05:30')),'ongoing');
 });
 
 test('Devfolio and Hack2Skill retain genuine event windows, independently of closed registration',()=>{
- const dev=clone(fixture.devfolio);dev.props.pageProps.hackathon.starts_at='2026-11-01';dev.props.pageProps.hackathon.ends_at='2026-11-03';dev.props.pageProps.hackathon.settings.registration_status='CLOSED';
+ const dev=clone(fixture.devfolio);dev.props.pageProps.hackathon.starts_at='2026-11-01T09:00:00+05:30';dev.props.pageProps.hackathon.ends_at='2026-11-03T18:00:00+05:30';dev.props.pageProps.hackathon.settings.registration_status='CLOSED';
  const m=p.parseDevfolio(p.identifySource('https://synthetic-build.devfolio.co'),html(dev),now,hash);assert.equal(life.eventState(event(m),now),'ongoing');assert.equal(life.registrationState(event(m),now),'closed');assert.equal(life.activeOpportunity(event(m),now),true);
- const h=clone(fixture.bootcamps);Object.assign(h.data,{type:'HACKATHON',startDate:'2026-11-01',endDate:'2026-11-03',registrationStatus:'CLOSED'});
+ const h=clone(fixture.bootcamps);Object.assign(h.data,{type:'HACKATHON',startDate:'2026-11-01T09:00:00+05:30',endDate:'2026-11-03T18:00:00+05:30',registrationStatus:'CLOSED'});
  const hm=p.parseHack2skill({...p.identifySource('https://hack2skill.com/event/synthetic'),provider_id:'a'.repeat(24)},h,now,hash);assert.equal(life.eventState(event(hm),now),'ongoing');assert.equal(life.activeOpportunity(event(hm),now),true);
 });
 
@@ -216,7 +216,7 @@ const supportedStages=[
 ];
 for(const [title,display_text]of supportedStages)for(const window of ['upcoming','ongoing','ended'])test('explicit build activity retains '+window+' lifecycle: '+title,()=>{
  const start=window==='upcoming'?'2026-11-03':'2026-11-01',end=window==='ended'?'2026-11-01':'2026-11-04';
- const stage=fixture.buildStage(start,end);Object.assign(stage.details[0],{title,display_text});
+ const stage=fixture.buildStage(start+'T09:00:00+05:30',end+'T18:00:00+05:30');Object.assign(stage.details[0],{title,display_text});
  const m=observe({rounds:[stage],regnRequirements:{...fixture.unstop.data.competition.regnRequirements,reg_status:'CLOSED'}}),row=event(m);
  assert.equal(m.check_status,'ok');assert.equal(s.hasEventScheduleEvidence(m),true);assert.equal(life.eventState(row,now),window);assert.equal(life.registrationState(row,now),'closed');
  assert.equal(life.activeOpportunity(row,now),window==='ongoing');assert.equal(list([row],'tab=ongoing').length,window==='ongoing'?1:0);

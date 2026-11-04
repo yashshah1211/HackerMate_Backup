@@ -3,7 +3,7 @@ const {test}=require('node:test'),assert=require('node:assert/strict'),fs=requir
 const {harness}=require('./ppt-vision-harness.cjs'),h=harness({}, {URLSearchParams});
 const p=h.load('src/lib/hackathons/providers.ts'),s=h.load('src/lib/hackathons/source.ts'),life=h.load('src/lib/hackathons/lifecycle.ts'),sync=h.load('src/lib/hackathons/synchronize.ts');
 const fx=require('../qa/fixtures/aggregator/provider-facts.cjs'),now=Date.parse('2026-11-03T12:00:00+05:30'),hash='c'.repeat(64);
-function payload(){const raw=structuredClone(fx.unstop);Object.assign(raw.data.competition,{rounds:[fx.buildStage('2026-11-02','2026-11-04')],regnRequirements:{reg_status:'CLOSED'}});return raw;}
+function payload(){const raw=structuredClone(fx.unstop);Object.assign(raw.data.competition,{rounds:[fx.buildStage('2026-11-02T09:00:00+05:30','2026-11-04T18:00:00+05:30')],regnRequirements:{reg_status:'CLOSED'}});return raw;}
 function observation(){return p.parseUnstop(p.identifySource('https://unstop.com/hackathons/synthetic-1234'),payload(),now,hash);}
 const row=(m,id='fake')=>({id,name:'Fake',type:'external',status:'approved',archived:false,website_url:m.canonical_url,source_metadata:m});
 const corrupt={
@@ -58,7 +58,7 @@ test('supported Unstop aliases bind the same stable identity; unrelated record i
 test('Devfolio UUID/slug and Hack2Skill listing identity remain supported',()=>{
  const dev=p.parseDevfolio(p.identifySource('https://synthetic-build.devfolio.co/'),'<script id="__NEXT_DATA__">'+JSON.stringify(fx.devfolio)+'</script>',now,hash);
  assert.equal(s.sourceMetadata(dev).provider_id,'synthetic-devfolio-uuid');assert(life.activeOpportunity(row(dev),now));
- const hack=p.parseHack2skill({...p.identifySource('https://hack2skill.com/event/synthetic'),provider_id:'a'.repeat(24)},{success:true,data:{title:'Fake',type:'HACKATHON',startDate:'2026-11-02',endDate:'2026-11-04',registrationStatus:'CLOSED',tags:{}}},now,hash);
+ const hack=p.parseHack2skill({...p.identifySource('https://hack2skill.com/event/synthetic'),provider_id:'a'.repeat(24)},{success:true,data:{title:'Fake',type:'HACKATHON',startDate:'2026-11-02T09:00:00+05:30',endDate:'2026-11-04T18:00:00+05:30',registrationStatus:'CLOSED',tags:{}}},now,hash);
  assert.equal(life.eventState(row(hack),now),'ongoing');assert(life.activeOpportunity(row(hack),now));
 });
 test('fresh provider status contradicting published future dates cannot authorize patches',()=>{
@@ -68,7 +68,7 @@ test('fresh provider status contradicting published future dates cannot authoriz
 });
 test('observation-time consistency allows the clock to advance across an India calendar boundary',()=>{
  const m=observation();assert(s.hasEventScheduleEvidence(m));assert.equal(life.eventState(row(m),now),'ongoing');
- const raw=structuredClone(fx.unstop);raw.data.competition.rounds=[fx.buildStage('2026-11-03','2026-11-03')];raw.data.competition.regnRequirements={reg_status:'CLOSED'};
+ const raw=structuredClone(fx.unstop);raw.data.competition.rounds=[fx.buildStage('2026-11-03T00:00:00+05:30','2026-11-04T00:00:00+05:30')];raw.data.competition.regnRequirements={reg_status:'CLOSED'};
  const checked=Date.parse('2026-11-03T23:59:00+05:30'),one=p.parseUnstop(p.identifySource('https://unstop.com/o/1234'),raw,checked,hash);
  assert.equal(life.eventState(row(one),Date.parse('2026-11-03T23:59:59.999+05:30')),'ongoing');assert.equal(life.eventState(row(one),Date.parse('2026-11-04T00:00:00+05:30')),'ended');
  assert.equal(life.eventDate('2026-11-03T12:00:00+05:30'),life.eventDate('2026-11-03T06:30:00Z'));

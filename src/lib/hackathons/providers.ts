@@ -1,11 +1,11 @@
-import { eventDate, reconciledBuildWindow, retainBuildInventory } from "./sourceEvidence";
+import { eventDate, reconciledOrganizerWindow, retainBuildInventory } from "./sourceEvidence";
 import type { SourceIdentity } from "./sourceEvidence";
 export { identifySource } from "./sourceEvidence";
 export type { SourceIdentity } from "./sourceEvidence";
-import { array, integer, object, text, validateSourceObservation, SOURCE_MAX_AGE_MS, UNSTOP_EVENT_DATE_BASIS, type SourceFacts, type SourceMetadata } from "./source";
+import { array, integer, object, text, validateSourceObservation, SOURCE_MAX_AGE_MS, UNSTOP_ORGANIZER_DATE_BASIS, type SourceFacts, type SourceMetadata } from "./source";
 
 export type Observation = SourceMetadata;
-export const PARSER_VERSION = "aggregator-9";
+export const PARSER_VERSION = "aggregator-10";
 const plain = (v: unknown, limit = 1000) => (text(v) || "").replace(/<[^>]*>/g, " ").replace(/&nbsp;/gi, " ").replace(/\s+/g, " ").trim().slice(0, limit);
 const timestamp = (v: unknown): string | null => { const s = text(v); return s && eventDate(s) !== null ? s : null; };
 
@@ -37,6 +37,7 @@ function finish(identity: SourceIdentity, f: SourceFacts, category: Observation[
   const publishedStatus = String(rawStatus || "").toUpperCase();
   if (publishedStatus && !["UPCOMING", "ONGOING", "LIVE", "STARTED", "ENDED", "COMPLETED", "FINISHED"].includes(publishedStatus)) issues.push("unrecognized_or_cancelled_event_status");
   const start = eventDate(f.start_date), end = eventDate(f.end_date, true);
+  if (f.start_date?.length === 10 || f.end_date?.length === 10) issues.push("date_only_event_window");
   if (start !== null && end !== null && end <= start) issues.push("event_window_contradiction");
   const rs = eventDate(f.registration_start), re = eventDate(f.registration_end, true);
   if (rs !== null && re !== null && rs >= re) issues.push("registration_window_contradiction");
@@ -63,10 +64,9 @@ export function parseUnstop(identity: SourceIdentity, payload: unknown, now: num
   f.name = plain(c.title, 200); f.college = plain(object(c.organisation).name, 200) || null;
   // The provider's competition window can span registration/assessments, not the actual build.
   const inventory = retainBuildInventory(c.rounds);
-  const window = reconciledBuildWindow(inventory, issues, now);
-  if (!inventory) issues.push("build_inventory_unavailable_or_oversized");
-  if (window && /\bEvent Dates?\s*:/i.test(plain(c.details, 20000))) issues.push("event_schedule_requires_reconciliation");
-  else if (window) { f.start_date = window.start; f.end_date = window.end; }
+  const organizer = typeof c.details === "string" && c.details.length <= 20000 ? c.details : null;
+  const window = reconciledOrganizerWindow(inventory, organizer, issues, now);
+  if (window) { f.start_date = window.start; f.end_date = window.end; }
   f.registration_start = timestamp(reg.start_regn_dt); f.registration_end = timestamp(reg.end_regn_dt);
   f.min_team_size = integer(reg.min_team_size); f.max_team_size = integer(reg.max_team_size);
   f.mode = ["online", "offline", "hybrid"].includes(String(c.region)) ? c.region === "offline" ? "in-person" : String(c.region) : null;
@@ -95,7 +95,9 @@ export function parseUnstop(identity: SourceIdentity, payload: unknown, now: num
   registration(f, reg.reg_status, now);
   return finish(identity, f, category, null, now, hash, {
     event_dates: f.start_date && f.end_date ? "complete reconciled public build-stage inventory; explicit activity and stage-bound statements; competition window ignored" : "actual event dates unverified; competition window ignored; unresolved stage relationships held",
-    event_date_basis: f.start_date && f.end_date ? UNSTOP_EVENT_DATE_BASIS : "unverified",
+    event_date_basis: f.start_date && f.end_date ? UNSTOP_ORGANIZER_DATE_BASIS : "unverified",
+    organizer_text: organizer,
+    schedule_reasons: window ? [] : issues.length ? [...new Set(issues)] : inventory?.length ? ["mixed_or_unsupported_build_stages"] : ["missing_build_stages"],
     build_inventory: inventory,
     competition_window: "not an actual event schedule; never used for lifecycle",
     registration: "competition.regnRequirements", publication_status: String(c.status || "not published"),
@@ -122,6 +124,7 @@ export function parseDevfolio(identity: SourceIdentity, html: string, now: numbe
 export function parseHack2skill(identity: SourceIdentity, payload: unknown, now: number, hash: string): Observation {
   const root = object(payload), h = object(root.data), tags = object(h.tags), f = base(identity);
   if (root.success !== true || !text(h.title)) throw new Error("Invalid public event detail response");
+  if (h._id !== undefined && h._id !== identity.provider_id) throw new Error("Provider identity mismatch");
   f.registration_url = action(h.customEventUrl);
   f.name = plain(h.title, 200); f.registration_start = timestamp(h.registrationStart); f.registration_end = timestamp(h.registrationEnd);
   // submissionStart/End and registrationStart/End are NOT event timestamps.

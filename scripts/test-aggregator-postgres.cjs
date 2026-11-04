@@ -206,13 +206,18 @@ test('PG17.6 real source authority, refresh/adoption, editorial conflict, rollba
  }
  pass('eight incomplete/contradictory multi-stage inventories cannot patch dates or authorize lifecycle/suppression through real PG refresh');
  const {buildStage}=require('../qa/fixtures/aggregator/provider-facts.cjs');
- for(const variant of ['agreeing','linked']){
-  const start=new Date(Date.now()-2*86400000).toISOString(),middle=new Date(Date.now()-86400000).toISOString(),end=new Date(Date.now()+86400000).toISOString();
+ for(const variant of ['agreeing','linked','organizer-instants']){
+  const minute=Math.floor(Date.now()/60000)*60000;
+  const start=new Date(minute-2*86400000).toISOString(),middle=new Date(minute-86400000).toISOString(),end=new Date(minute+86400000).toISOString();
   if(variant==='agreeing')inventoryOverride=[buildStage(start,end),buildStage(start,end)];
+  else if(variant==='organizer-instants'){
+   const words=v=>new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Kolkata',day:'numeric',month:'short',year:'numeric',hour:'numeric',minute:'2-digit',hour12:true}).format(new Date(v))+' IST';
+   inventoryOverride=[buildStage(start,end)];inventoryOverride[0].details[0].display_text=`The actual hackathon build takes place from ${words(start)} to ${words(end)}.`;
+  }
   else {const parent={...buildStage(start,end),title:'Hackathon build',display_text:'The actual hackathon build takes place in this stage.',start_date:start,end_date:end};parent.details=[buildStage(start,middle).details[0],buildStage(middle,end).details[0]];inventoryOverride=[parent];}
   await verifyInventory(`valid multi-stage=${variant}`,{sync:'refreshed',sql:'refreshed',stored:'ok',classification:'ongoing_registration_closed',supported:true,errors:[]});
  }
- pass('valid agreeing and explicitly linked multi-stage schedules refresh with supported dates and intended ongoing selection');
+ pass('valid agreeing, linked and exact organizer-text schedules refresh with supported dates, closed registration and intended ongoing selection');
  // Date-shift the captured provider format to keep real SQL freshness checks meaningful
  // on later CI runs. These are synthetic observations, never a new live Rack check.
  const capture=require('../qa/fixtures/aggregator/rack-it-up-captured.json'),partnerId=uid(9000),partnerIdentity=capture.identity;

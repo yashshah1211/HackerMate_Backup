@@ -219,6 +219,62 @@ export function retainBuildInventory(value: unknown): unknown[] | null {
   return JSON.stringify(inventory).length <= 65536 ? inventory : null;
 }
 
+/** Exact, deliberately narrow organizer grammar. No year/timezone is inferred.
+ * This is a build assertion, not a generic Event Dates/competition envelope. */
+function organizerBuildWindow(value: unknown): StageWindow | null {
+  const body = stageText(value, 20000);
+  const claim = body?.match(/^(?:The actual hackathon build takes place from|Hackathon Build Dates:) (.+? IST) to (.+? IST)\.$/i);
+  if (!claim || claim.slice(1).some(part => !/\b\d{4}\b/.test(part))) return null;
+  const from = indiaStageInstant(claim[1], 0), until = indiaStageInstant(claim[2], 0);
+  return from !== null && until !== null && from < until
+    ? { start: new Date(from).toISOString(), end: new Date(until).toISOString(), from, until } : null;
+}
+
+/** Replayable v4 reconciliation. Retain the original inventory/text, never a
+ * normalized assertion alone: cached evidence must pass the same checks again. */
+export function reconciledOrganizerWindow(value: unknown, organizer: unknown, issues: string[], observedAt?: number): StageWindow | null {
+  const inventory = retainBuildInventory(value);
+  if (!inventory) { issues.push("build_inventory_unavailable_or_oversized"); return null; }
+  if (typeof organizer !== "string" || organizer.length > 20000) {
+    issues.push("organizer_text_unavailable_or_oversized"); return null;
+  }
+  // Strip markup for detecting a possible conflict only. Acceptance still uses
+  // stageText's restricted markup and full-string grammar, never this lossy text.
+  const dated = (v: unknown) => /\b(?:event|hackathon|build) dates?\s*:|\bbuild takes place from\b/i.test(
+    String(v || "").replace(/<[^>]*>/g, " ").replace(/&nbsp;/gi, " ").replace(/\s+/g, " "));
+  const prose = organizerBuildWindow(organizer);
+  // Any recognized date claim must be fully understood; never take a matching
+  // prefix while discarding a later negation, qualification or conflicting date.
+  const normalized: Record<string, unknown>[] = inventory.map(raw => {
+    const round = object(raw);
+    return { ...round, ...(Array.isArray(round.details) ? { details: round.details.map(rawStage => {
+      const stage = object(rawStage), assertion = organizerBuildWindow(stage.display_text), window = stageWindow(stage);
+      if (!dated(stage.display_text)) return stage;
+      if (!assertion || !window || assertion.from !== window.from || assertion.until !== window.until) {
+        issues.push("organizer_stage_date_conflict"); return stage;
+      }
+      return { ...stage, display_text: "The actual hackathon build takes place in this stage." };
+    }) } : {}) };
+  });
+  if (issues.length) return null;
+  const window = reconciledBuildWindow(normalized, issues, observedAt);
+  if (!window) return null;
+  if (dated(organizer) && !prose) { issues.push("event_schedule_requires_reconciliation"); return null; }
+  // Calendar-only boundaries cannot establish exact build start/end instants.
+  if (window.start.length === 10 || window.end.length === 10) { issues.push("date_only_event_window"); return null; }
+  if (prose && (prose.from !== window.from || prose.until !== window.until)) {
+    issues.push("organizer_stage_date_conflict"); return null;
+  }
+  if (observedAt !== undefined && normalized.some(round => array(round.details).some(raw => {
+      const stage = object(raw);
+      const timing = stageWindow(stage);
+      return explicitBuildStage(stage, round) && timing && (round.status === "FINISHED" && timing.until > observedAt
+        || ["UPCOMING", "NOT_STARTED"].includes(String(round.status)) && timing.from < observedAt
+        || round.status === "STARTED" && (timing.from > observedAt || timing.until <= observedAt));
+    }))) { issues.push("contradictory_stage_status"); return null; }
+  return window;
+}
+
 /** Requires URL evidence and a stable provider-specific ID; slugs are not UUIDs. */
 export function validatedSourceIdentity(value: unknown, expected?: unknown): SourceIdentity | null {
   const m = object(value), canonical = identifySource(m.canonical_url);

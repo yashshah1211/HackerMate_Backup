@@ -37,7 +37,12 @@ const source=(row,category='hackathon')=>{
  row.website_url=canonical;
  const raw={data:{competition:{id:providerId,title:row.name,type:'hackathons',status:'LIVE',details:'A hackathon.',region:row.mode,
   regnRequirements:{start_regn_dt:row.registration_start,end_regn_dt:row.registration_end,reg_status:['2026-11-01','2026-10-31'].includes(row.registration_end)?'CLOSED':undefined},
-  rounds:[providerFacts.buildStage(row.start_date,row.end_date)]}}};
+  rounds:[providerFacts.buildStage(row.start_date+'T09:00:00+05:30',row.end_date+'T18:00:00+05:30')]}}};
+ // The ongoing case exercises organizer-text reconciliation through the real parser.
+ if(row.name==='Ongoing event closed applications'){
+  const claim='The actual hackathon build takes place from 1 Nov 2026, 9:00 AM IST to 7 Nov 2026, 6:00 PM IST.';
+  raw.data.competition.details=claim;raw.data.competition.rounds[0].details[0].display_text=claim;
+ }
  const m=parseUnstop(identifySource(canonical),raw,Date.parse('2026-11-02T06:29:00Z'),'a'.repeat(64));
  m.category=category;m.facts.registration_url=official;return m;
 };

@@ -14,10 +14,10 @@ const preserved=['name','description','website_url','college','start_date','end_
 function evidenceMetadata(m=observation()){return {...plain(m),evidence_only:true,protected_fields:[...preserved]};}
 const approval=m=>({record_id:uid(1),provider_id:m.provider_id,source_hash:m.source_hash,checked_at:m.checked_at,approved_by:'synthetic reviewer',approved_at:new Date(now).toISOString()});
 
-test('exact captured provider stage and registration fields grant replayed v3 without changing their values',()=>{
+test('exact captured provider stage and registration fields grant replayed v4 without changing their values',()=>{
  assert.equal(crypto.createHash('sha256').update(JSON.stringify(capture.rounds)).digest('hex'),capture.provenance.inventory_sha256);
  const m=observation(),v=s.validateSourceObservation(m,capture.identity.canonical_url);
- assert.deepEqual(Array.from(v.errors),[]);assert.equal(m.check_status,'ok');assert.equal(m.evidence.event_date_basis,s.UNSTOP_EVENT_DATE_BASIS);
+ assert.deepEqual(Array.from(v.errors),[]);assert.equal(m.check_status,'ok');assert.equal(m.evidence.event_date_basis,s.UNSTOP_ORGANIZER_DATE_BASIS);
  assert.deepEqual(plain(m.evidence.build_inventory),capture.rounds);assert.equal(v.schedule.start,'2026-12-11T18:00:00+05:30');assert.equal(v.schedule.end,'2026-12-13T18:00:00+05:30');
  assert.equal(m.facts.registration_start,'2026-10-30T00:00:00+05:30');assert.equal(m.facts.registration_end,'2026-12-09T23:59:00+05:30');assert.equal(m.facts.registration_status,'open');
  assert.notEqual(m.source_hash,capture.provenance.original_response_sha256,'Projection fixture is not mislabeled as the complete raw response');

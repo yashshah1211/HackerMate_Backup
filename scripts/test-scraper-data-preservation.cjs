@@ -74,7 +74,7 @@ async function sustainedBacklog({detailMs=1200,failFirst=false,expiredFirst=fals
   const eligible=index>=82,id=uid(index+1),providerId=eligible?10000+index-82:9000+index;
   (eligible?eligibleIds:unresolvedIds).add(id);
   const raw=structuredClone(facts.unstop),c=raw.data.competition;c.id=providerId;c.title='Synthetic queued '+providerId;
-  c.start_date=eligible&&index-82===84?'2026-11-06':'2026-11-01';c.end_date='2026-11-07';c.rounds=[facts.buildStage(c.start_date,c.end_date)];
+  c.start_date=eligible&&index-82===84?'2026-11-06':'2026-11-01';c.end_date='2026-11-07';c.rounds=[facts.buildStage(c.start_date+'T09:00:00+05:30',c.end_date+'T18:00:00+05:30')];
   c.regnRequirements={start_regn_dt:'2026-10-01',end_regn_dt:'2026-11-03',reg_status:eligible&&index-82>=85?'FINISHED':'STARTED',min_team_size:1,max_team_size:2};
   const identity=parser.identifySource('https://unstop.com/hackathons/synthetic-'+providerId),m=JSON.parse(JSON.stringify(parser.parseUnstop(identity,raw,base,'a'.repeat(64))));
   if(!eligible){m.category=index<41?'unknown':index<61?'other':'hackathon';m.check_status=index>=61?'unresolved':'ok';}
@@ -85,7 +85,7 @@ async function sustainedBacklog({detailMs=1200,failFirst=false,expiredFirst=fals
   if(endedVariant==='reported')m.event_status='ended';
   else if(endedVariant==='dated')m.facts.end_date='2026-11-01';
   else {
-   const raw=structuredClone(facts.unstop);Object.assign(raw.data.competition,{id:9000,rounds:[facts.buildStage('2026-10-30','2026-10-31')],regnRequirements:{start_regn_dt:'2026-10-01',end_regn_dt:'2026-11-03',reg_status:'STARTED'}});
+   const raw=structuredClone(facts.unstop);Object.assign(raw.data.competition,{id:9000,rounds:[facts.buildStage('2026-10-30T09:00:00+05:30','2026-10-31T18:00:00+05:30')],regnRequirements:{start_regn_dt:'2026-10-01',end_regn_dt:'2026-11-03',reg_status:'STARTED'}});
    rows[0].source_metadata=parser.parseUnstop(parser.identifySource(rows[0].website_url),raw,Date.parse(m.checked_at),'a'.repeat(64));
   }
  }
@@ -122,7 +122,7 @@ async function sustainedBacklog({detailMs=1200,failFirst=false,expiredFirst=fals
   assert.match(u.pathname,/^\/api\/public\/competition\/\d+$/);const n=Number(u.pathname.split('/').at(-1));providerStarts.push(clock-base);clock+=detailMs;
   if(failFirst&&n===10000)return new Response('Synthetic provider failure',{status:503});
   const raw=structuredClone(facts.unstop),c=raw.data.competition;c.id=n;c.title='Synthetic queued '+n;
-  c.start_date=n>=100000||n===10084?'2026-11-06':'2026-11-01';c.end_date='2026-11-07';c.rounds=[facts.buildStage(c.start_date,c.end_date)];
+  c.start_date=n>=100000||n===10084?'2026-11-06':'2026-11-01';c.end_date='2026-11-07';c.rounds=[facts.buildStage(c.start_date+'T09:00:00+05:30',c.end_date+'T18:00:00+05:30')];
   c.regnRequirements={start_regn_dt:'2026-10-01',end_regn_dt:'2026-11-03',reg_status:n>=10085&&n<10116?'FINISHED':'STARTED',min_team_size:1,max_team_size:2};
   if(n<10000)c.details='Synthetic coding contest, not verified as a hackathon.';
   return Response.json(raw);
