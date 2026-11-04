@@ -108,7 +108,9 @@ export function buildFounderBrief(data: Pick<DatabaseActivityData, "timeWindow" 
     .every(n => n === 0);
   const missing = Object.entries(m).filter(([key, value]) => !key.startsWith("previous") && value === null).map(([key]) => key);
   const buildersKnown = m.builders !== null;
-  const headline = missing.length
+  const coreMissing = (["builders", "teams", "joins", "saves", "invites", "messages"] as const)
+    .some(key => m[key] === null);
+  const headline = coreMissing
     ? "Some activity signals need verification."
     : m.builders && quietParticipation
       ? countText(m.builders, "builder") + " joined; team and save activity stayed quiet."
@@ -118,7 +120,7 @@ export function buildFounderBrief(data: Pick<DatabaseActivityData, "timeWindow" 
           ? "Hackathon discovery moved forward in a quiet product window."
           : "A quiet window across the tracked HackerMate signals.";
   const subhead = missing.length
-    ? "Unavailable counts are not treated as zero. Review the data coverage note below."
+    ? "Some counts are unavailable, not zero. Use the notes below before drawing conclusions."
     : "An observation, not a verdict: short windows cannot explain why activity changed.";
 
   const sections: BriefSection[] = [
