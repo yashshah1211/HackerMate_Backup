@@ -1197,9 +1197,9 @@ function HackathonDetailContent({ initialTab }: { initialTab: EventDiscoveryTab 
         participationLabel={isRegistered ? (isNative ? "Registered" : "Community member") : null}
         actions={<>
           {primaryAction}
-          {canRegister && (
-            <ButtonLink href={createTeamHref} variant="secondary" icon={<Plus />}>Create a team</ButtonLink>
-          )}
+          <ButtonLink href={rackDiscovery ? "#rack-teammates" : "#community"} variant="secondary" icon={<Users />}>
+            Find teammates
+          </ButtonLink>
           <Button variant="secondary" icon={isSaved ? <BookmarkCheck /> : <Bookmark />}
             aria-pressed={isSaved} onClick={handleToggleSave}>
             {isSaved ? "Saved" : "Save"}
@@ -1336,7 +1336,7 @@ function HackathonDetailContent({ initialTab }: { initialTab: EventDiscoveryTab 
           </section>
 
           {/* ── People & resources tabs ─────────────────────────── */}
-          <section id={rackDiscovery ? "rack-teammates" : undefined} aria-label="Teams, builders and resources" className="min-w-0">
+          <section id={rackDiscovery ? "rack-teammates" : "community"} aria-label="Teams, builders and resources" className="min-w-0 scroll-mt-6">
             <InPageTabs
               label="Hackathon sections"
               value={activeTab}
