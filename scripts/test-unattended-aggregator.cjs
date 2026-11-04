@@ -28,11 +28,12 @@ test("source identity keys distinguish provider-specific identities",()=>{
   const counts=p.countIdentities([make(1),make(2),make(3)],r=>(r.id==="0003"?null:{provider:"unstop",provider_id:"same",canonical_url:"https://unstop.com/hackathons/a-same"}));
   assert.equal(counts.get("unstop:same"),2);
 });
-test("refresh selection prioritizes oldest verification and excludes metadata-null records",()=>{
+test("refresh selection includes both source-managed and evidence-only records",()=>{
   const a=make(1,{source_metadata:{evidence_only:true,checked_at:"2026-11-02T02:00:00Z"}});
   const b=make(2,{source_metadata:{evidence_only:true,checked_at:"2026-11-01T02:00:00Z"}});
   const c=make(3,{source_metadata:{evidence_only:false,checked_at:"2026-10-31T02:00:00Z"}});
-  assert.deepEqual(p.refreshPlan([a,b,c,make(4)],1).map(x=>x.id),["0002"]);
+  assert.deepEqual(p.refreshPlan([a,b,c,make(4)],1).map(x=>x.id),["0003"]);
+  assert.deepEqual(p.refreshPlan([a,b,c],3).map(x=>x.id),["0003","0002","0001"]);
 });
 test("legacy selection covers current candidates and rotates through the backlog",()=>{
   const rows=Array.from({length:54},(_,i)=>make(i+1,{
