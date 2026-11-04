@@ -204,8 +204,8 @@ export function founderBriefEmailHtml(brief: FounderBrief): string {
     '<p style="font:14px/1.65 Arial,sans-serif;color:#475260;margin:7px 0 0">' + e(item.detail) + '</p></td></tr>';
   const bullets = (items: string[]) => items.map(item =>
     '<tr><td style="padding:7px 0;font:14px/1.6 Arial,sans-serif;color:#283442">' +
-    '<span style="color:#488e3e;font-weight:bold;padding-right:9px">•</span>' + e(item) + '</td></tr>').join("");
-  return '<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1">' +
+    '<span style="color:#488e3e;font-weight:bold;padding-right:9px">&bull;</span>' + e(item) + '</td></tr>').join("");
+  return '<!doctype html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
     '<title>HackerMate Daily Founder Brief</title></head>' +
     '<body style="background:#eef0ef;margin:0;padding:24px 10px;color:#18231d">' +
     '<table role="presentation" cellpadding="0" cellspacing="0" style="max-width:640px;width:100%;margin:auto;background:#fff;border-collapse:separate;border-spacing:0;border-radius:16px;overflow:hidden">' +
