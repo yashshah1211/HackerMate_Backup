@@ -43,8 +43,9 @@ export default function EventOverview({
       <div aria-hidden className="pointer-events-none absolute -right-24 -top-40 size-[360px] rounded-full bg-accent-soft blur-[90px]" />
       <div aria-hidden className="pointer-events-none absolute right-0 top-0 h-1 w-full bg-gradient-to-r from-accent/70 via-hack/30 to-transparent" />
       <div className="relative grid min-w-0 gap-7 px-5 py-6 sm:px-7 sm:py-8 lg:grid-cols-[minmax(0,1fr)_280px] lg:gap-7">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
+        <div className="contents lg:block">
+          <div className="order-1 min-w-0 lg:order-none">
+            <div className="flex flex-wrap items-center gap-2">
             <Tape tone={phase === "ongoing" ? "ok" : phase === "upcoming" ? "accent" : "neutral"} dot={phase === "ongoing"}>
               {eventStateLabel(event, now)}
             </Tape>
@@ -62,8 +63,11 @@ export default function EventOverview({
               <span className="mt-0.5 text-ink-4">By</span><span className="min-w-0 break-words">{organizer}</span>
             </p>
           )}
+          </div>
 
-          <dl className="mt-7 grid gap-3 sm:grid-cols-2">
+          <div className="order-3 flex flex-wrap items-center gap-2.5 lg:order-none lg:mt-6">{actions}</div>
+
+          <dl className="order-4 grid gap-3 sm:grid-cols-2 lg:order-none lg:mt-7">
             <div className="flex min-w-0 items-start gap-3 rounded-xl border border-line bg-canvas/55 px-3.5 py-3.5">
               <CalendarDays className="mt-0.5 size-4 shrink-0 text-accent-ink" aria-hidden />
               <div className="min-w-0">
@@ -97,11 +101,9 @@ export default function EventOverview({
               </div>
             </div>
           </dl>
-
-          <div className="mt-6 flex flex-wrap items-center gap-2.5">{actions}</div>
         </div>
 
-        <div className="flex min-w-0 flex-col justify-start">
+        <div className="order-2 flex min-w-0 flex-col justify-start lg:order-none">
           <div className="rounded-xl border border-line-strong bg-canvas/85 p-5 sm:p-6">
             <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.13em] text-ink-3">
               <span className={`size-2 rounded-full ${registration === "open" ? "bg-ok" : registration === "unknown" ? "bg-warn" : "bg-ink-4"}`} aria-hidden />
