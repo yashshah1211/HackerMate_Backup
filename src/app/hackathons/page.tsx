@@ -512,7 +512,7 @@ function HackathonsContent({ access }: { access: Extract<BrowsingAccess, { kind:
               className={cn(
                 "inline-flex min-h-10 items-center gap-1.5 rounded-full border px-4 py-2 text-[13.5px] font-medium transition-colors",
                 activeTab === opt.value || (activeTab === "open" && opt.value === "active")
-                  ? "border-ink bg-ink text-page" : "border-line bg-sunken text-ink-2 hover:border-line-strong hover:text-ink"
+                  ? "border-accent bg-accent text-on-accent" : "border-line bg-sunken text-ink-2 hover:border-line-strong hover:text-ink"
               )}
             >
               {opt.label}
