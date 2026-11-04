@@ -1,0 +1,47 @@
+name: HackerMate Organizer Prospect Preview
+
+# Public catalog candidate preview only. No email, contact harvesting, or CRM writes.
+on:
+  schedule:
+    # Daily 09:45 IST after morning catalog refresh.
+    - cron: '15 4 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hackermate-organizer-prospect-readonly
+  cancel-in-progress: false
+
+jobs:
+  preview:
+    if: github.repository == 'yashshah1211/HackerMate_Backup' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://rhryjrbebfrrfhtyyzbs.supabase.co
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      LEAD_CANDIDATE_OUTPUT: artifacts/organizer-lead-candidates.json
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Verify candidate selection rules
+        run: node --test scripts/test-organizer-candidate-discovery.cjs
+      - name: Generate public prospect candidates without writing or sending
+        run: |
+          test -n "$SUPABASE_SERVICE_ROLE_KEY" || { echo "::error::Service secret missing"; exit 1; }
+          node scripts/discover-organizer-candidates.cjs
+      - name: Upload for manual review
+        uses: actions/upload-artifact@v4
+        with:
+          name: organizer-prospect-preview-${{ github.run_id }}
+          path: artifacts/organizer-lead-candidates.json
+          retention-days: 7
+          if-no-files-found: error
