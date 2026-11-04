@@ -80,7 +80,7 @@ export default function PublicHackathonDetail({ onboard = false }: { onboard?: b
       now={now}
       organizer={event.college}
       teamSize={teamSize}
-      prize={Number(event.prize_pool) > 0 ? prizeLabel(event) : null}
+      prize={event.prize_pool && !/^(?:[A-Z]{3}\s*)?0+(?:\.0+)?$/i.test(event.prize_pool.trim()) ? prizeLabel(event) : null}
       showLocation={event.mode?.toLowerCase() !== "online" || Boolean(event.location && !event.location.toLowerCase().includes("online"))}
       actions={<>
         {website && (
@@ -150,6 +150,7 @@ export default function PublicHackathonDetail({ onboard = false }: { onboard?: b
               : "Sign in to save the event, discover builders, and link your team. Official event registration is a separate step."}
           </p>
           <ButtonLink href={href} className="mt-5 w-full">{actionLabel}</ButtonLink>
+          <ButtonLink href={href} variant="secondary" className="mt-2 w-full">{onboard ? "Complete profile to save" : "Sign in to save"}</ButtonLink>
           <p className="mt-3 text-[12px] leading-5 text-ink-3">
             Signing in or joining the community does not register you for the event.
           </p>
