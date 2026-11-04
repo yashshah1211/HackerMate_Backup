@@ -150,4 +150,14 @@ for(const apply of [false,true])test('unattended worker '+(apply?'apply fixture'
  }});
  const out=await workerModule.exports.main(apply?'--apply':'--dry-run');assert.equal(out.created,1);assert.equal(out.discovery_held,1);assert.equal(out.accepted_closed_registration_ongoing,1);assert.equal(out.observed_evidence.verified_ongoing,1);
  assert.equal(out.catalog_evidence.verified_ongoing,apply?1:0);assert.equal(writes.length,apply?1:0);assert.equal(out.registration_open,0);
+ if(apply)assert.equal(out.write_preview,undefined,'No source preview should appear in apply logs');
+ else {
+   assert.equal(out.write_preview.create.length,1);
+   assert.equal(out.write_preview.create[0].provider,'unstop');
+   assert.equal(out.write_preview.create[0].provider_id,'1234');
+   assert.equal(out.write_preview.create[0].feed_bucket,'closed');
+   assert(out.write_preview.create[0].patch_fields.includes('registration_status'));
+   assert.equal(out.write_preview.adoption.length,0);
+   assert.equal(out.write_preview.refresh.length,0);
+ }
 });
