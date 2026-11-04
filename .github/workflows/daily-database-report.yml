@@ -1,12 +1,24 @@
 name: Daily Database Activity PDF Digest
 
 on:
-  workflow_dispatch: # Allows manual trigger from the GitHub Actions tab
+  schedule:
+    # Daily 09:00 IST, while legacy Vercel Cron stays disabled.
+    - cron: '30 3 * * *'
+  workflow_dispatch: # Manual run remains available but report endpoint is single-send guarded
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hackermate-database-activity-report
+  cancel-in-progress: false
 
 jobs:
   send-database-activity-digest:
     name: Send Database Activity PDF Report
+    if: github.repository == 'yashshah1211/HackerMate_Backup' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Trigger Database Activity Endpoint
         env:
@@ -14,10 +26,15 @@ jobs:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           TARGET_URL="${SITE_URL:-https://www.hackermate.in}"
+          test -n "$CRON_SECRET" || { echo "::error::Missing CRON_SECRET; no dispatch."; exit 1; }
+          case "$TARGET_URL" in
+            https://hackermate.in|https://www.hackermate.in) ;;
+            *) echo "::error::Non-production destination refused."; exit 1 ;;
+          esac
           RESPONSE_FILE=$(mktemp)
           trap 'rm -f "$RESPONSE_FILE"' EXIT
 
-          if ! HTTP_STATUS=$(curl -s -L -o "$RESPONSE_FILE" -w "%{http_code}" -X POST \
+          if ! HTTP_STATUS=$(curl -s -L --retry 0 --connect-timeout 15 --max-time 240 -o "$RESPONSE_FILE" -w "%{http_code}" -X POST \
             -H "Authorization: Bearer ${CRON_SECRET}" \
             -H "Content-Type: application/json" \
             "${TARGET_URL}/api/cron/database-activity-report"); then
