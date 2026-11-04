@@ -6,7 +6,7 @@ import { Button, Input } from "@/components/system";
 import { useNotification } from "@/context/NotificationContext";
 import { publicDiscoveryLink } from "@/lib/hackathons/shareDiscovery";
 
-export function CopyDiscoveryLink({ searchParams }: { searchParams: Pick<URLSearchParams, "getAll"> }) {
+export function CopyDiscoveryLink({ searchParams, compact = false }: { searchParams: Pick<URLSearchParams, "getAll">; compact?: boolean }) {
   const shared = publicDiscoveryLink(searchParams);
   const descriptionId = useId();
   const { showToast } = useNotification();
@@ -34,13 +34,13 @@ export function CopyDiscoveryLink({ searchParams }: { searchParams: Pick<URLSear
   }
 
   return (
-    <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2">
+    <div className={compact ? "mb-3 flex flex-wrap items-center gap-x-3 gap-y-2" : "mb-4 flex flex-wrap items-center gap-x-3 gap-y-2"}>
       <Button size="sm" variant="secondary" className="h-11 sm:h-8" icon={<Link2 aria-hidden />}
         aria-label="Copy link to filtered hackathons" aria-describedby={descriptionId}
         disabled={!shared.url} loading={copying} onClick={copyLink}>
         Copy link
       </Button>
-      <p id={descriptionId} className="max-w-prose text-[12px] text-ink-3">{shared.explanation}</p>
+      <p id={descriptionId} className={compact ? "sr-only" : "max-w-prose text-[12px] text-ink-3"}>{shared.explanation}</p>
       {manualUrl && manualUrl === shared.url && (
         <label className="w-full min-w-0 text-[12px] text-ink-3">
           Select and copy this link manually
