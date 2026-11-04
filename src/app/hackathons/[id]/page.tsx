@@ -60,7 +60,7 @@ import {
 import { cn } from "@/lib/utils";
 import EventOverview from "@/components/hackathons/EventOverview";
 import { synchronizedEvent, registrationDestination } from "@/lib/hackathons/source";
-import { eventState, registrationState, registrationLabel, dateLabel, eventStateLabel, scheduleIsUnverified } from "@/lib/hackathons/lifecycle";
+import { eventState, registrationState } from "@/lib/hackathons/lifecycle";
 import { getTeamCategoryInfo } from "@/lib/teamCategory";
 
 type RoundInfo = {
@@ -134,19 +134,6 @@ type HackathonStage = {
   sort_order: number;
   created_at: string;
 };
-
-function formatDateRange(start: string | null, end: string | null) {
-  if (!start) return "Date TBA";
-  const opts: Intl.DateTimeFormatOptions = {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  };
-  const startStr = new Date(start).toLocaleDateString("en-US", opts);
-  if (!end || end === start) return startStr;
-  const endStr = new Date(end).toLocaleDateString("en-US", opts);
-  return `${startStr} – ${endStr}`;
-}
 
 function htmlToPlainText(html: string) {
   return html
@@ -1061,8 +1048,6 @@ function HackathonDetailContent({ initialTab }: { initialTab: EventDiscoveryTab 
   // ── Presentational derivations ────────────────────────────────────────
   const state = eventState(hackathon, now);
   const registration = registrationState(hackathon, now);
-  const stateLabel = eventStateLabel(hackathon, now);
-  const stateTone = state === "ongoing" ? "ok" : state === "upcoming" ? "accent" : "neutral";
   const eventTone = "hack";
 
   const showLocation = !(
@@ -1074,7 +1059,6 @@ function HackathonDetailContent({ initialTab }: { initialTab: EventDiscoveryTab 
   const collegeLower = hackathon.college?.toLowerCase() || "";
   const isCommunityOrg =
     collegeLower.includes("alpha forge") || collegeLower.includes("together we solve") || collegeLower.includes("tws");
-  const organizerLabel = isCommunityOrg ? "Organizers" : "College";
   const organizerName = hackathon.college ? (isCommunityOrg ? "Alpha Forge & TWS (Together We Solve)" : hackathon.college) : null;
   const teamSizeLabel =
     hackathon.min_team_size === 1 && hackathon.max_team_size === 1
