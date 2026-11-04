@@ -44,17 +44,28 @@ function legacyPlan(records, now, slot, limit=LEGACY_LIMIT) {
   return [...first,...second,...fill];
 }
 function discoveryPlan(identities, existingKeys, slot, limit=DISCOVERY_LIMIT) {
+  const reserved=Math.ceil(limit/PROVIDERS.length);
   const queues=PROVIDERS.map(provider=>{
-    const list=identities.filter(i=>i.provider===provider && !existingKeys.has(sourceKey(i)));
-    const unique=[...new Map(list.map(i=>[sourceKey(i),i])).values()];
-    return rotate(unique.map(i=>({...i,id:sourceKey(i)})),slot,Math.min(Math.ceil(limit/PROVIDERS.length),unique.length));
+    const candidates=identities.filter(i=>i.provider===provider && !existingKeys.has(sourceKey(i)));
+    const unique=[...new Map(candidates.map(i=>[sourceKey(i),i])).values()]
+      .map(i=>({...i,id:sourceKey(i)}))
+      .sort((a,b)=>String(a.id).localeCompare(String(b.id)));
+    if (!unique.length) return [];
+    // Rotate by the reserved quota, even when this provider can fill more slots.
+    const start=((slot*reserved)%unique.length+unique.length)%unique.length;
+    return [...unique.slice(start),...unique.slice(0,start)];
   });
   const result=[],seen=new Set();
-  for(let i=0;result.length<limit && queues.some(q=>q.length);i++){
-    const q=queues[i%queues.length];const next=q.shift();
-    if(next && !seen.has(sourceKey(next))){seen.add(sourceKey(next));result.push(next)}
-    if(i>10000)break;
-  }
+  const add=queue=>{
+    const next=queue.shift(),key=sourceKey(next);
+    if(next && key && !seen.has(key)){seen.add(key);result.push(next);}
+  };
+  // First reserve a fair share for each provider with actual candidates.
+  for(let round=0;round<reserved && result.length<limit;round++)
+    for(const queue of queues) if(result.length<limit)add(queue);
+  // Unused shares are work-conserving, not wasted: fill from any remaining provider.
+  for(let i=0;result.length<limit && queues.some(q=>q.length);i++)
+    add(queues[i%queues.length]);
   return result;
 }
 function eligibleObservation(validated, observation, now) {
