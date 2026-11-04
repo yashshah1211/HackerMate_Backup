@@ -203,6 +203,11 @@ async function main(mode=process.argv[2]) {
   result.fresh_open=result.registration_open;
   result.finished_at=new Date(now).toISOString();
   writeSummary(result);
+  if(result.providers_unavailable.length)console.warn("::warning::Provider discovery unavailable: "+result.providers_unavailable.join(","));
+  if(allRefresh.length>=10 && result.refreshed===0)
+    throw new Error("All previously verified source refreshes failed; source authority may expire");
+  if(result.remaining_refresh>policy.REFRESH_LIMIT*2)
+    throw new Error("Refresh backlog exceeds two additional scheduled runs");
   if(result.providers_unavailable.length===3)throw new Error("All three providers unavailable; unattended discovery requires intervention");
   if(result.phase_errors.length)throw new Error("Source failure receipts unavailable");
   return result;
