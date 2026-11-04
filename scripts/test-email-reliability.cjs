@@ -75,7 +75,7 @@ function setup(options = {}) {
       requireAdmin: async () => ({ user: { id: 'fixture-admin' }, supabaseAdmin: db }),
       requireVerifiedProfile: async () => ({ user: { id: 'fixture-admin' }, supabaseUserClient: db, isAdmin: true }),
     },
-    '@/lib/admin/databaseActivityReport': { fetchDatabaseActivity: async () => ({ summary: { totalNewItems: 0, newBuilders: 0, newTeams: 0, newInvites: 0, newRequests: 0 }, timeWindow: { until: '2026-10-15T00:00:00Z' }, team_hackathons: [], messages_count_24h: 0 }), generateDatabaseActivityPdf: () => Buffer.from('synthetic-pdf') },
+    '@/lib/admin/databaseActivityReport': { fetchDatabaseActivity: async () => ({ summary: { totalNewItems: 0, newBuilders: 0, newTeams: 0, newInvites: 0, newRequests: 0 }, timeWindow: { since: '2026-10-14T00:00:00Z', until: '2026-10-15T00:00:00Z', isFallback24h: false }, hackathons: [], team_hackathons: [], messages_count_24h: 0 }), generateDatabaseActivityPdf: () => Buffer.from('synthetic-pdf') },
     '@/lib/admin/requireOutreachAdmin': { requireOutreachAdmin: async () => ({ supabaseAdmin: db }) },
     // Signatures remain verified; crypto correctness belongs to Svix, not this persistence test.
     svix: { Webhook: class { verify() { if (options.badSignature) throw new Error('Fixture signature'); return { type: 'email.delivered', data: { email_id: 'fixture-receipt', to: [profile.email] } }; } } },
