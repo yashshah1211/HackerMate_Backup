@@ -6,11 +6,11 @@ import { createClient } from "@supabase/supabase-js";
 import { timingSafeEqual } from "node:crypto";
 import {
   fetchDatabaseActivity,
-  generateDatabaseActivityPdf,
-  DatabaseActivityData,
 } from "@/lib/admin/databaseActivityReport";
 import { requireAdmin } from "@/lib/admin/requireAdmin";
 import { pruneExpiredRateLimits, type RateLimitCleanupResult } from "@/lib/evaluator/rateLimitRetention";
+import { fetchFounderMetrics, buildFounderBrief, founderBriefEmailHtml } from "@/lib/admin/founderBrief";
+import { generateFounderBriefPdf } from "@/lib/admin/founderBriefPdf";
 
 function getSupabaseAdmin() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -23,96 +23,6 @@ function getSupabaseAdmin() {
   });
 }
 
-function generateEmailHtml(data: DatabaseActivityData, dateStr: string): string {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://hackermate.in";
-  const adminLink = `${baseUrl}/admin`;
-
-  return `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>HackerMate Daily Database Activity Digest</title>
-</head>
-<body style="background-color: #09090b; color: #f4f4f5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 24px; margin: 0;">
-  <div style="max-width: 600px; margin: 0 auto; background-color: #18181b; border: 1px solid #27272a; border-radius: 12px; padding: 28px;">
-    
-    <div style="border-bottom: 1px solid #27272a; padding-bottom: 16px; margin-bottom: 20px;">
-      <span style="color: #B4F461; font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; font-family: monospace;">SYSTEM DATABASE AUDIT</span>
-      <h1 style="color: #ffffff; font-size: 22px; margin: 6px 0 4px 0;">HackerMate Database Activity Log</h1>
-      <p style="color: #a1a1aa; font-size: 12px; margin: 0;">Date: ${dateStr} • Window: Past 24 Hours • Total New Records: <strong>${data.summary.totalNewItems}</strong></p>
-    </div>
-
-    <table width="100%" cellpadding="0" cellspacing="6" style="margin-bottom: 20px;">
-      <tr>
-        <td width="50%" style="background-color: #09090b; border: 1px solid #27272a; border-radius: 8px; padding: 12px;">
-          <div style="font-size: 10px; font-weight: 700; color: #a1a1aa; text-transform: uppercase;">New Builders</div>
-          <div style="font-size: 22px; font-weight: 900; color: #ffffff; margin-top: 2px;">+${data.summary.newBuilders}</div>
-        </td>
-        <td width="50%" style="background-color: #09090b; border: 1px solid #27272a; border-radius: 8px; padding: 12px;">
-          <div style="font-size: 10px; font-weight: 700; color: #a1a1aa; text-transform: uppercase;">New Teams Formed</div>
-          <div style="font-size: 22px; font-weight: 900; color: #B4F461; margin-top: 2px;">+${data.summary.newTeams}</div>
-        </td>
-      </tr>
-      <tr>
-        <td width="50%" style="background-color: #09090b; border: 1px solid #27272a; border-radius: 8px; padding: 12px;">
-          <div style="font-size: 10px; font-weight: 700; color: #a1a1aa; text-transform: uppercase;">Team Members Added</div>
-          <div style="font-size: 22px; font-weight: 900; color: #a5b4fc; margin-top: 2px;">+${data.summary.newMembers}</div>
-        </td>
-        <td width="50%" style="background-color: #09090b; border: 1px solid #27272a; border-radius: 8px; padding: 12px;">
-          <div style="font-size: 10px; font-weight: 700; color: #a1a1aa; text-transform: uppercase;">Invites & Connections</div>
-          <div style="font-size: 22px; font-weight: 900; color: #fbbf24; margin-top: 2px;">+${data.summary.newInvites + data.summary.newRequests}</div>
-        </td>
-      </tr>
-    </table>
-
-    <div style="background-color: #09090b; border: 1px solid #27272a; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
-      <h3 style="color: #ffffff; font-size: 13px; margin: 0 0 10px 0; text-transform: uppercase;">Detailed Record Breakdown</h3>
-      <div style="display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #1f242d; font-size: 12px;">
-        <span style="color: #d4d4d8;">New Builders (profiles):</span>
-        <span style="color: #B4F461; font-weight: bold;">${data.summary.newBuilders}</span>
-      </div>
-      <div style="display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #1f242d; font-size: 12px;">
-        <span style="color: #d4d4d8;">New Teams (teams):</span>
-        <span style="color: #B4F461; font-weight: bold;">${data.summary.newTeams}</span>
-      </div>
-      <div style="display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #1f242d; font-size: 12px;">
-        <span style="color: #d4d4d8;">Team Member Additions (team_members):</span>
-        <span style="color: #a5b4fc; font-weight: bold;">${data.summary.newMembers}</span>
-      </div>
-      <div style="display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #1f242d; font-size: 12px;">
-        <span style="color: #d4d4d8;">Hackathon Registrations (team_hackathons):</span>
-        <span style="color: #a5b4fc; font-weight: bold;">${data.team_hackathons.length}</span>
-      </div>
-      <div style="display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #1f242d; font-size: 12px;">
-        <span style="color: #d4d4d8;">Team Invites Sent (team_invites):</span>
-        <span style="color: #fbbf24; font-weight: bold;">${data.summary.newInvites}</span>
-      </div>
-      <div style="display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #1f242d; font-size: 12px;">
-        <span style="color: #d4d4d8;">Connection Requests (friend_requests):</span>
-        <span style="color: #fbbf24; font-weight: bold;">${data.summary.newRequests}</span>
-      </div>
-      <div style="display: flex; justify-content: space-between; padding: 5px 0; font-size: 12px;">
-        <span style="color: #d4d4d8;">Chat Messages Volume (messages):</span>
-        <span style="color: #38bdf8; font-weight: bold;">${data.messages_count_24h}</span>
-      </div>
-    </div>
-
-    <div style="text-align: center; margin: 20px 0;">
-      <a href="${adminLink}" style="display: inline-block; background-color: #B4F461; color: #09090b; font-weight: 800; font-size: 12px; padding: 10px 20px; border-radius: 6px; text-decoration: none; text-transform: uppercase;">Open Admin Dashboard →</a>
-    </div>
-
-    <div style="border-top: 1px solid #27272a; padding-top: 14px; font-size: 11px; color: #71717a; text-align: center;">
-      📎 <b>Attached Document:</b> <code>HackerMate_Database_Activity_Report_${dateStr.replace(/\s+/g, "_")}.pdf</code>
-      <br><br>
-      Automated daily system report generated by HackerMate Operating System.
-    </div>
-  </div>
-</body>
-</html>
-  `;
-}
-
 async function handleDatabaseActivityReport(req: NextRequest) {
   let rateLimitCleanup: RateLimitCleanupResult | undefined;
   try {
@@ -120,7 +30,6 @@ async function handleDatabaseActivityReport(req: NextRequest) {
     const authHeader = req.headers.get("authorization") || "";
     const { searchParams } = new URL(req.url);
     const format = searchParams.get("format");
-    const forceAll = searchParams.get("force") === "true";
 
     // Machine credentials authorize scheduled reporting only. PDF downloads
     // are interactive disclosures and always require human admin authorization.
@@ -178,13 +87,12 @@ async function handleDatabaseActivityReport(req: NextRequest) {
     }
 
     // 1. Fetch incremental activity data
-    const activityData = await fetchDatabaseActivity(
-      supabaseAdmin,
-      forceAll ? undefined : undefined
-    );
+    const activityData = await fetchDatabaseActivity(supabaseAdmin);
+    const founderMetrics = await fetchFounderMetrics(supabaseAdmin, activityData.timeWindow);
+    const founderBrief = buildFounderBrief(activityData, founderMetrics);
 
-    // 2. Generate PDF Report Buffer
-    const pdfBuffer = generateDatabaseActivityPdf(activityData);
+    // 2. Generate a privacy-conscious, narrative-first founder report.
+    const pdfBuffer = generateFounderBriefPdf(founderBrief);
 
     const todayStr = new Date().toLocaleDateString("en-IN", {
       day: "numeric",
@@ -193,7 +101,7 @@ async function handleDatabaseActivityReport(req: NextRequest) {
       timeZone: "Asia/Kolkata",
     });
 
-    const filename = `HackerMate_Database_Activity_Report_${todayStr.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`;
+    const filename = `HackerMate_Daily_Founder_Brief_${todayStr.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`;
 
     // 3. If format=pdf requested, stream directly
     if (format === "pdf") {
@@ -212,8 +120,8 @@ async function handleDatabaseActivityReport(req: NextRequest) {
       process.env.RESEND_SANDBOX_RECIPIENT ||
       "yashshah7117@gmail.com";
 
-    const subject = `📊 HackerMate Daily Database Activity Report — ${todayStr} (+${activityData.summary.totalNewItems} new records)`;
-    const htmlBody = generateEmailHtml(activityData, todayStr);
+    const subject = `HackerMate Daily Founder Brief — ${todayStr}`;
+    const htmlBody = founderBriefEmailHtml(founderBrief);
 
     const dispatch = await dispatchEmail({ from: process.env.RESEND_FROM_EMAIL || "", to: targetRecipient, subject: subject, html: htmlBody,
       attachments: [{ filename: filename, content: pdfBuffer.toString("base64") }] });
@@ -230,7 +138,7 @@ async function handleDatabaseActivityReport(req: NextRequest) {
     }
     return NextResponse.json({ ...dispatchResponse(dispatch), accounting, bookkeeping, pdfGenerated: true,
       ...(rateLimitCleanup ? { rateLimitCleanup } : {}),
-      metricsEvidence: "Partial business-record evidence; historical provider acceptance and delivery are unverified." }, { status: dispatchHttpStatus(dispatch) });
+      metricsEvidence: "Founder insights are based on bounded database counts; incomplete metrics remain unavailable. Email acceptance is not delivery." }, { status: dispatchHttpStatus(dispatch) });
 
   } catch (err: unknown) {
     console.error("[Database Activity Report Cron Exception]:", err);
