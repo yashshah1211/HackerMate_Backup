@@ -57,6 +57,8 @@ test("provider-discovery round robin prevents one provider dominating and rotate
     two.filter(x=>x.provider==="unstop").map(x=>x.provider_id));
   const skip=new Set([p.sourceKey(all[0]),p.sourceKey(all[33])]);
   assert.ok(p.discoveryPlan(all,skip,0,48).every(x=>!skip.has(p.sourceKey(x))));
+  const longer=p.discoveryPlan(all,new Set(),2,18),later=p.discoveryPlan(all,new Set(),3,18);
+  assert.notDeepEqual(longer.filter(x=>x.provider==="devfolio").map(x=>x.provider_id),later.filter(x=>x.provider==="devfolio").map(x=>x.provider_id));
 });
 test("evidence requires precise, current and contradiction-free registration proof",()=>{
   const at=Date.parse("2026-11-04T10:00:00Z");
