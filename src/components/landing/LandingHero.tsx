@@ -31,10 +31,12 @@ function modeLabel(mode: string | null) {
 export function LandingHero({
   builderCount,
   teamCount,
+  hackathonCount,
   upcoming: candidates,
 }: {
   builderCount: number;
   teamCount: number;
+  hackathonCount: number;
   upcoming: UpcomingHackathon[];
 }) {
   const [now, setNow] = useState(() => Date.now());
@@ -46,6 +48,8 @@ export function LandingHero({
   const totals = [
     { value: builderCount, label: builderCount === 1 ? "registered builder" : "registered builders" },
     { value: teamCount, label: teamCount === 1 ? "team created" : "teams created" },
+    // Listings are not a claim that registration is currently open or verified.
+    { value: hackathonCount, label: hackathonCount === 1 ? "hackathon listed" : "hackathons listed" },
   ].filter((t) => t.value > 0);
   return (
     <section aria-labelledby="hero-title" className="relative border-b border-line">

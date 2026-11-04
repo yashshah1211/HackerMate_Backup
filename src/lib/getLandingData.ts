@@ -27,6 +27,8 @@ export type LandingData = {
   builderCount: number;
   /** Teams created on HackerMate (every team the /teams directory lists). */
   teamCount: number;
+  /** Approved, non-archived public hackathon listings, including events with unverified availability. */
+  hackathonCount: number;
   upcoming: UpcomingHackathon[];
 };
 
@@ -50,6 +52,9 @@ export async function getLandingData(): Promise<LandingData> {
     return {
       builderCount: builders.count ?? 0,
       teamCount: teams.count ?? 0,
+      // Reuse the complete approved public catalog before filtering to active opportunities.
+      // A failed catalog load returns [] and the hero omits zero rather than inventing a total.
+      hackathonCount: upcoming.length,
       upcoming: upcoming.filter(event => activeOpportunity(event, Date.now())).sort((a,b) => (eventDate(a.start_date) ?? Infinity) - (eventDate(b.start_date) ?? Infinity) || a.name.localeCompare(b.name)).slice(0, 8).map(event => ({
         id: event.id, name: event.name, mode: event.mode, type: event.type,
         start_date: event.start_date, end_date: event.end_date,
@@ -59,6 +64,6 @@ export async function getLandingData(): Promise<LandingData> {
     };
   } catch (err) {
     console.error("Error fetching landing data on server:", err);
-    return { builderCount: 0, teamCount: 0, upcoming: [] };
+    return { builderCount: 0, teamCount: 0, hackathonCount: 0, upcoming: [] };
   }
 }
