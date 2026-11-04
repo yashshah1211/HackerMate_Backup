@@ -76,6 +76,8 @@ test('legacy Devfolio zero and synthetic description disappear from directory an
  assert.equal(s.presentDevfolioDetails(row).description,null);
  assert.equal(s.presentDevfolioDetails({...row,type:'native'}).description,placeholder);
  assert.equal(s.presentDevfolioDetails({...row,type:'native'}).prize_pool,'0');
+ assert.equal(s.presentDevfolioDetails({...row,type:'official'}).description,placeholder);
+ assert.equal(s.presentDevfolioDetails({...row,type:'official'}).prize_pool,'0');
  assert.equal(s.presentDevfolioDetails({...row,website_url:'https://devfolio.co.evil.invalid'}).description,placeholder);
  assert.equal(s.presentDevfolioDetails({...row,description:'Explicit organizer details',prize_pool:'1620'}).description,'Explicit organizer details');
  assert.equal(s.presentDevfolioDetails({...row,description:'Explicit organizer details',prize_pool:'1620'}).prize_pool,'1620');
