@@ -20,6 +20,21 @@ test("deployment target and main-branch authority are mandatory before writes",(
   }
   assert.throws(()=>worker.assertEnvironment("--unexpected",good));
 });
+test("PR live-source review uses only a public, read-only key",()=>{
+  const safe={NEXT_PUBLIC_SUPABASE_URL:"https://rhryjrbebfrrfhtyyzbs.supabase.co",
+    HACKERMATE_AGGREGATOR_READONLY_PUBLISHABLE_KEY:"sb_publishable_synthetic_only"};
+  assert.doesNotThrow(()=>worker.assertEnvironment("--dry-run",safe));
+  assert.throws(()=>worker.assertEnvironment("--apply",safe),{name:"Error"});
+  assert.throws(()=>worker.assertEnvironment("--dry-run",{
+    ...safe,HACKERMATE_AGGREGATOR_READONLY_PUBLISHABLE_KEY:"sb_secret_not_allowed"}),{name:"Error"});
+  assert.throws(()=>worker.assertEnvironment("--dry-run",{
+    NEXT_PUBLIC_SUPABASE_URL:safe.NEXT_PUBLIC_SUPABASE_URL}),{name:"Error"});
+  assert.throws(()=>worker.assertEnvironment("--apply",{
+    ...safe,SUPABASE_SERVICE_ROLE_KEY:"synthetic-only",GITHUB_ACTIONS:"true",
+    HACKERMATE_AGGREGATOR_ENABLED:"true",GITHUB_REPOSITORY:"yashshah1211/HackerMate_Backup",
+    GITHUB_REF:"refs/heads/main",GITHUB_EVENT_NAME:"schedule"}),{name:"Error"});
+});
+
 test("source identity keys distinguish provider-specific identities",()=>{
   assert.equal(p.sourceKey({provider:"unstop",provider_id:"1777639",canonical_url:"https://unstop.com/hackathons/a-1777639"}),"unstop:1777639");
   assert.equal(p.sourceKey({provider:"devfolio",provider_id:"uuid-1",canonical_url:"https://hack.devfolio.co/"}),"devfolio:https://hack.devfolio.co");
