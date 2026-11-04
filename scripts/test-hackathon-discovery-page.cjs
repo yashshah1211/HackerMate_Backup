@@ -152,3 +152,35 @@ test('the existing display timer removes a newly closed registration without ano
  await view.navigate('tab=all&registration=closed');assert.deepEqual(view.ids(),['deadline']);
  assert.match(view.html,/Registration closed/);
 });
+
+// A zero-count “Happening now” tab is hidden in normal browsing, but a shared
+// deep link still explains the absent verified evidence.
+test('zero verified ongoing hides the navigation tab but preserves ongoing deep links',async()=>{
+  const view=await page({events:[event('future'),event('unknown',{start_date:'invalid',end_date:null})]});
+  assert.doesNotMatch(view.html,/Happening now/);
+  assert.match(view.html,/Available now/);
+  assert.match(view.html,/All listings/);
+  await view.navigate('tab=ongoing');
+  assert.match(view.html,/Happening now/);
+  assert.match(view.html,/can’t currently confirm/);
+  assert.deepEqual(view.ids(),[]);
+});
+test('ongoing navigation visibility uses the full catalog rather than selected search filters',async()=>{
+  const view=await page({query:'q=Future',events:[
+    event('future',{name:'Future Search Result'}),
+    event('verified',{name:'Unrelated Live Event',start_date:'2026-10-14T11:00:00Z',end_date:'2026-10-14T15:00:00Z'})
+  ]});
+  assert.deepEqual(view.ids(),['future']);
+  assert.match(view.html,/Happening now/);
+  await view.search('Nothing matches');
+  assert.deepEqual(view.ids(),[]);
+  assert.match(view.html,/Happening now/);
+});
+test('ongoing navigation automatically appears as a verified event begins without a backend refetch',async()=>{
+  const view=await page({events:[event('later',{start_date:'2026-10-14T13:00:00Z',end_date:'2026-10-14T15:00:00Z'})]});
+  assert.doesNotMatch(view.html,/Happening now/);
+  const reads=view.reads.length;
+  await view.advance(Date.parse('2026-10-14T13:01:00Z'));
+  assert.match(view.html,/Happening now/);
+  assert.equal(view.reads.length,reads);
+});
