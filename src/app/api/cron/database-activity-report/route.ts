@@ -1,4 +1,5 @@
 import { recordEmailBookkeeping, dispatchEmail, dispatchHttpStatus, dispatchResponse } from "@/lib/emailDispatch";
+import { claimScheduledDatabaseReport, recordScheduledDatabaseReportOutcome } from "@/lib/admin/dailyReportClaim";
 import { recordEmailSendSuccess } from "@/lib/admin/emailBudgetGuard";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
@@ -140,6 +141,23 @@ async function handleDatabaseActivityReport(req: NextRequest) {
     }
 
     const supabaseAdmin = getSupabaseAdmin();
+    // Reserve IST day before any scheduled email dispatch; an uncertain outcome
+    // retains the claim for human review instead of allowing automatic retries.
+    let scheduledClaimKey: string | null = null;
+    if (isAuthorizedCron && format !== "pdf") {
+      const claim = await claimScheduledDatabaseReport(supabaseAdmin);
+      if (claim.status !== "reserved") {
+        console.warn("[Database Activity Report] Scheduled email blocked:", claim.status);
+        return NextResponse.json({
+          success: false,
+          error: claim.status === "duplicate"
+            ? "This IST day's scheduled report has already been claimed. Review provider outcome before retrying."
+            : "Could not reserve the scheduled report. No email was dispatched.",
+        }, { status: claim.status === "duplicate" ? 409 : 503 });
+      }
+      scheduledClaimKey = claim.key;
+    }
+
 
     // The existing daily Vercel invocation is GET + machine credentials. Human
     // report/PDF requests and POST requests never perform this expiry cleanup.
@@ -199,6 +217,10 @@ async function handleDatabaseActivityReport(req: NextRequest) {
 
     const dispatch = await dispatchEmail({ from: process.env.RESEND_FROM_EMAIL || "", to: targetRecipient, subject: subject, html: htmlBody,
       attachments: [{ filename: filename, content: pdfBuffer.toString("base64") }] });
+    if (scheduledClaimKey) {
+      const recorded = await recordScheduledDatabaseReportOutcome(supabaseAdmin, scheduledClaimKey, dispatch.status);
+      if (!recorded) console.error("[Database Activity Report] Claim outcome update failed; no automatic resend is safe.");
+    }
     const accounting = dispatch.status === "accepted" ? await recordEmailSendSuccess(supabaseAdmin, "admin_reports", 1) : { status: "not_required" };
 
     let bookkeeping = "not_required";

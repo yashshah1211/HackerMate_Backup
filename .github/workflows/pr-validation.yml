@@ -38,6 +38,7 @@ jobs:
       - name: Run offline regression selection
         run: |
           node --test --test-concurrency=1 \
+            scripts/test-daily-report-claim.cjs \
             scripts/test-auth-return-paths.cjs \
             scripts/test-evaluator-generation-admission.cjs \
             scripts/test-feature-retirement.cjs \
