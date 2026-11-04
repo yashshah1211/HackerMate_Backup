@@ -92,6 +92,8 @@ async function main(mode=process.argv[2]) {
     throw new Error("Complete partner protection snapshot unavailable; source worker fails closed");
   const partners=partnerReply.data;
   const counts=policy.countIdentities(catalog,r=>identityForRow(r,source)),known=new Set(counts.keys());
+  const approvedRow=r=>(r.status==="approved" && r.archived===false
+    && ["external","official"].includes(String(r.type)));
   const result={mode:dryRun?"dry-run":"apply",dry_run_no_writes:dryRun,project_ref:PROJECT_REF,started_at:new Date(started).toISOString(),
     catalog_before:catalog.length,refreshed:0,adopted:0,created:0,
     refresh_held:0,legacy_held:0,discovery_held:0,checked:{refresh:0,legacy:0,new:0},
@@ -106,8 +108,6 @@ async function main(mode=process.argv[2]) {
     const key=provider+':'+reason;result.source_failures[key]=(result.source_failures[key]||0)+1;
     console.error('Aggregator source held:',provider,error);
   };
-  const approvedRow=r=>(r.status==="approved" && r.archived===false
-    && ["external","official"].includes(String(r.type)));
   // Existing trusted records are refreshed first, even if their evidence has expired.
   const allRefresh=catalog.filter(approvedRow).filter(r=>r.source_metadata != null && !protectedByPartner(r,partners));
   const refresh=policy.refreshPlan(allRefresh);
