@@ -1197,9 +1197,12 @@ function HackathonDetailContent({ initialTab }: { initialTab: EventDiscoveryTab 
         participationLabel={isRegistered ? (isNative ? "Registered" : "Community member") : null}
         actions={<>
           {primaryAction}
-          <ButtonLink href={rackDiscovery ? "#rack-teammates" : "#community"} variant="secondary" icon={<Users />}>
+          <Button variant="secondary" icon={<Users />} onClick={() => {
+            document.getElementById(rackDiscovery ? "rack-teammates" : "community")?.scrollIntoView({ behavior: "smooth", block: "start" });
+            setActiveTab("looking_for_teams");
+          }}>
             Find teammates
-          </ButtonLink>
+          </Button>
           <Button variant="secondary" icon={isSaved ? <BookmarkCheck /> : <Bookmark />}
             aria-pressed={isSaved} onClick={handleToggleSave}>
             {isSaved ? "Saved" : "Save"}
