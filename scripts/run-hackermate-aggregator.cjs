@@ -114,7 +114,7 @@ async function main(mode=process.argv[2]) {
           throw new Error("refresh apply rejected");
       }
       result.refreshed++;
-    }catch(e){
+    }catch{
       result.refresh_held++;
       if(leased && !dryRun){
         const failed=await client.rpc(evidenceOnly?"store_hackathon_source_evidence":"apply_hackathon_source_check",
@@ -151,7 +151,7 @@ async function main(mode=process.argv[2]) {
         if(applied.status!=="evidence_refreshed")throw new Error("legacy policy writer held record");
       }
       result.adopted++;known.add(key);
-    }catch(e){result.legacy_held++}
+    }catch{result.legacy_held++}
   }
   // Discover from all supported providers. Source transport enforces origin allowlists,
   // robots rules, redirect denial, per-origin pacing, response caps and request timeouts.
@@ -185,7 +185,7 @@ async function main(mode=process.argv[2]) {
           throw new Error("new source postcondition failed");
       }
       known.add(key);result.created++;
-    }catch(e){result.discovery_held++}
+    }catch{result.discovery_held++}
   }
   const finalRows=dryRun?catalog:await readCatalog(client);
   const now=Date.now();
