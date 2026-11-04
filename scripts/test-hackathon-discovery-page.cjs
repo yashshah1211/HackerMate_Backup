@@ -188,7 +188,7 @@ test('ongoing navigation automatically appears as a verified event begins withou
 // The mixed historical catalog must not compete visually with the actionable count.
 test('primary discovery header promotes verified registration availability, not the mixed catalog total',async()=>{
   const view=await page({events:[event('open'),event('archived',{registration_status:'closed',start_date:'2026-01-01',end_date:'2026-01-02'})]});
-  assert.match(view.html,/source-verified registrations open/);
+  assert.match(view.html,/accepting registrations/);
   assert.doesNotMatch(view.html,/total listings/);
   assert.match(view.html,/Explore all/);
   await view.click('Explore all');
@@ -203,4 +203,15 @@ test('old all-listings deep links remain functional and the archive warning stay
   assert.deepEqual(view.ids(),['closed']);
   assert.match(view.html,/Full directory:/);
   assert.match(view.html,/Not all are accepting registrations/);
+});
+
+// The top-line number must remain the catalog-wide actionable count, not a
+// surprising search-dependent fraction of that count.
+test('headline count remains catalog-wide while filtering within current results',async()=>{
+  const view=await page({query:'q=First',events:[event('first',{name:'First'}),event('second',{name:'Second'})]});
+  assert.deepEqual(view.ids(),['first']);
+  assert.match(view.html,/>2<\/span> accepting registrations/);
+  await view.search('Second');
+  assert.deepEqual(view.ids(),['second']);
+  assert.match(view.html,/>2<\/span> accepting registrations/);
 });

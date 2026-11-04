@@ -355,7 +355,9 @@ function HackathonsContent({ access }: { access: Extract<BrowsingAccess, { kind:
   const filtered = discoverEvents(hackathons, settings, userSkills, savedIds, now);
   const topics = [...new Map(hackathons.flatMap(h => eventTopics(h)).map(tag => [tag.toLowerCase(), tag])).entries()]
     .sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0);
-  const openCount = discoverEvents(hackathons, { ...settings, tab: "open" }, userSkills, savedIds, now).length;
+  // The headline describes the full currently verified catalog, not just the search results.
+  const openCount = discoverEvents(hackathons,
+    { ...readDiscoverySettings(new URLSearchParams()), tab: "open" }, userSkills, savedIds, now).length;
   // Visibility is based on the entire trusted catalog, never on the current search/filters.
   // This avoids an unhelpful zero tab while keeping ongoing detection and deep links intact.
   const ongoingCatalogCount = discoverEvents(hackathons,
@@ -393,7 +395,7 @@ function HackathonsContent({ access }: { access: Extract<BrowsingAccess, { kind:
           "Events unavailable"
         ) : (
           <>
-            <span className="font-medium text-ink tabular-nums">{openCount.toLocaleString("en-IN")}</span> source-verified registrations open
+            <span className="font-medium text-ink tabular-nums">{openCount.toLocaleString("en-IN")}</span> accepting registrations
           </>
         )
       }
