@@ -1,7 +1,7 @@
 name: HackerMate Unattended Source Refresh
 
 # This workflow never deploys the site. Scheduled writes are disabled until the
-# repository variable and dedicated production database secret are configured.
+# repository enable variable and existing service-role secret are configured.
 on:
   pull_request:
     branches: [main]
@@ -47,20 +47,20 @@ jobs:
         run: node --test scripts/test-unattended-aggregator.cjs
 
   source-refresh:
-    if: github.event_name != 'pull_request' && vars.HACKERMATE_AGGREGATOR_ENABLED == 'true' && github.repository == 'yashshah1211/HackerMate_Backup'
+    if: github.event_name != 'pull_request' && github.repository == 'yashshah1211/HackerMate_Backup' && (vars.HACKERMATE_AGGREGATOR_ENABLED == 'true' || (github.event_name == 'workflow_dispatch' && inputs.mode == 'dry-run'))
     runs-on: ubuntu-latest
     timeout-minutes: 18
     env:
       HACKERMATE_AGGREGATOR_ENABLED: ${{ vars.HACKERMATE_AGGREGATOR_ENABLED }}
       NEXT_PUBLIC_SUPABASE_URL: https://rhryjrbebfrrfhtyyzbs.supabase.co
-      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.HACKERMATE_AGGREGATOR_SERVICE_ROLE_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
     steps:
       - name: Verify exact repository, branch and service secret
         shell: bash
         run: |
           test "$GITHUB_REPOSITORY" = "yashshah1211/HackerMate_Backup"
           test "$GITHUB_REF" = "refs/heads/main"
-          test -n "$SUPABASE_SERVICE_ROLE_KEY" || { echo 'Dedicated aggregator secret missing'; exit 1; }
+          test -n "$SUPABASE_SERVICE_ROLE_KEY" || { echo 'Existing SUPABASE_SERVICE_ROLE_KEY repository secret missing'; exit 1; }
       - uses: actions/checkout@v4
         with:
           persist-credentials: false

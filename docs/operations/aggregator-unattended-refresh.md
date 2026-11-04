@@ -15,22 +15,21 @@ partner settings are protected by the existing guarded PostgreSQL functions.
 
 ## One-time operator setup
 
-1. Merge the separately reviewed Draft PR. Do not promote a Vercel build as
-   part of this workflow change.
-2. In the EXISTING GitHub repository yashshah1211/HackerMate_Backup open:
-   Settings > Secrets and variables > Actions > Secrets > New repository secret.
-   Set the name HACKERMATE_AGGREGATOR_SERVICE_ROLE_KEY and use the EXISTING
-   Supabase project service_role/secret key for rhryjrbebfrrfhtyyzbs.
-   Never paste the key into chat, an issue, a PR, a commit, or a screenshot.
-3. Under Settings > Secrets and variables > Actions > Variables add
-   HACKERMATE_AGGREGATOR_ENABLED with the value true only when ready for a
-   controlled run. When absent or false, the scheduled write job is skipped.
-4. In Actions > HackerMate Unattended Source Refresh > Run workflow, choose
-   branch main and mode dry-run first. Verify the offline qualification and
-   JSON summary. Dry-run reads sources but makes no production writes.
-5. When dry-run passes, run apply once, verify the preserved relationship
-   counts and accurate directory classification, then leave enabled for
-   future scheduled jobs.
+1. Merge the separately reviewed workflow update. Do not promote any
+   Vercel build as part of this workflow change.
+2. In the existing GitHub repository yashshah1211/HackerMate_Backup, the
+   repository Actions secret SUPABASE_SERVICE_ROLE_KEY already exists.
+   The worker uses this existing secret; do not copy or create another key.
+   Never paste the secret into chat, an issue, a PR, or a commit.
+3. Run a manual read-only qualification first at Actions > HackerMate
+   Unattended Source Refresh > Run workflow, select main and dry-run.
+   The dry-run is permitted when HACKERMATE_AGGREGATOR_ENABLED is unset;
+   its code never executes SQL writer RPCs.
+4. After verifying the dry-run, open Settings > Secrets and variables >
+   Actions > Variables and set HACKERMATE_AGGREGATOR_ENABLED to true.
+   When absent or false, scheduled writes and manual apply are skipped.
+5. Run workflow_dispatch apply once on main, verify the exact source counts
+   and preservation checks, then leave enabled for the recurring schedule.
 
 Do NOT enable the existing Vercel /api/cron/auto-scrape-leads route or change
 its firewall policy. The GitHub job is independent of the old public site.
