@@ -58,7 +58,7 @@ import {
   type MenuItem,
 } from "@/components/system";
 import { cn } from "@/lib/utils";
-import SourceInformation from "@/components/hackathons/SourceInformation";
+import EventOverview from "@/components/hackathons/EventOverview";
 import { synchronizedEvent, registrationDestination } from "@/lib/hackathons/source";
 import { eventState, registrationState, registrationLabel, dateLabel, eventStateLabel, scheduleIsUnverified } from "@/lib/hackathons/lifecycle";
 import { getTeamCategoryInfo } from "@/lib/teamCategory";
@@ -1130,7 +1130,6 @@ function HackathonDetailContent({ initialTab }: { initialTab: EventDiscoveryTab 
     ? [{ label: "Create a team", icon: <Plus />, onSelect: () => router.push(createTeamHref) }, ...menuItems]
     : menuItems;
 
-  const metaParts = [organizerName, hackathon.mode, showLocation ? hackathon.location || "Location TBA" : null].filter(Boolean) as string[];
 
   const renderSkills = (skills: string[] | null | undefined, max: number, isMatched: (s: string) => boolean) =>
     skills?.length ? (
@@ -1204,94 +1203,47 @@ function HackathonDetailContent({ initialTab }: { initialTab: EventDiscoveryTab 
         />
       )}
 
-      {/* ── Identity ─────────────────────────────────────────────── */}
-      <header className="pt-5 md:pt-6">
-        <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-1.5">
-              <Tape tone={stateTone} dot={state === "ongoing"}>
-                {stateLabel}
-              </Tape>
-              <Tape tone={eventTone}>Hackathon</Tape>
-              <Tape>{isNative ? "Hosted on HackerMate" : "External event"}</Tape>
-              {isRegistered && (
-                <Tape tone="ok" icon={<CheckCircle2 />}>
-                  {isNative ? "Registered" : "Community member"}
-                </Tape>
-              )}
-            </div>
-            <h1
-              data-v2-heading
-              className="mt-3 break-words font-display text-[26px] font-semibold leading-[1.1] tracking-[-0.025em] text-ink [font-variation-settings:'wdth'_92] [overflow-wrap:anywhere] md:text-[32px]"
-            >
-              {hackathon.name}
-            </h1>
-            {metaParts.length > 0 && (
-              <p className="mt-2 break-words text-[13.5px] text-ink-3">
-                {metaParts.map((part, i) => (
-                  <span key={i} className={part === hackathon.mode ? "capitalize" : undefined}>
-                    {i > 0 && <span className="mx-1.5 text-ink-4">·</span>}
-                    {part}
-                  </span>
-                ))}
-              </p>
-            )}
-            <p className="mt-1 font-mono text-[12.5px] text-ink-3 tabular">
-              {scheduleIsUnverified(hackathon, now) && "Listed dates, unverified: "}{formatDateRange(hackathon.start_date, hackathon.end_date)}
+      <EventOverview
+        event={hackathon}
+        now={now}
+        teamSize={teamSizeLabel}
+        organizer={organizerName}
+        prize={hackathon.prize_pool ? formatPrizeDisplay(hackathon.prize_pool, hackathon.currency) : null}
+        showLocation={showLocation}
+        participationLabel={isRegistered ? (isNative ? "Registered" : "Community member") : null}
+        actions={<>
+          {primaryAction}
+          {canRegister && (
+            <ButtonLink href={createTeamHref} variant="secondary" icon={<Plus />}>Create a team</ButtonLink>
+          )}
+          <Button variant="secondary" icon={isSaved ? <BookmarkCheck /> : <Bookmark />}
+            aria-pressed={isSaved} onClick={handleToggleSave}>
+            {isSaved ? "Saved" : "Save"}
+          </Button>
+          <OverflowMenu items={menuItems} />
+        </>}
+      />
+      {rackDiscovery && <p className="mt-4 rounded-xl border border-line bg-raised px-4 py-3 text-[13.5px] leading-relaxed text-ink-2">
+        Ready to find teammates? <a href="#rack-teammates" className="font-medium text-ink underline underline-offset-4">Browse builders or list your profile</a>.
+        {" "}You choose whether to be listed. Register separately on Unstop.
+      </p>}
 
-            </p>
-            <p className="mt-2 text-sm font-medium text-ink-2">{registrationLabel(hackathon, now)}</p>
-            <SourceInformation event={hackathon} now={now} />
-            <p className="mt-1 text-sm text-ink-3">Registration starts: {dateLabel(hackathon.registration_start)}</p>
-            <p className="mt-1 text-sm text-ink-3">Registration deadline: {dateLabel(hackathon.registration_end)}</p>
-            <p className="mt-1 max-w-prose text-sm leading-relaxed text-ink-2">{isNative
-              ? registration === "unknown" ? "Availability could not be verified. Review the event details before proceeding; successful registration is not guaranteed." : "Registration availability is separate from the event schedule."
-              : "Check the official site for current registration availability. A listed link does not guarantee registration; HackerMate community membership is separate."}</p>
-          </div>
-          <div className="hidden shrink-0 flex-wrap items-center justify-end gap-2 md:flex">
-            {primaryAction}
-            {canRegister && (
-              <ButtonLink href={createTeamHref} variant="secondary" icon={<Plus />}>
-                Create a team
-              </ButtonLink>
-            )}
-            <Button variant="secondary" icon={isSaved ? <BookmarkCheck /> : <Bookmark />} aria-pressed={isSaved} onClick={handleToggleSave}>
-              {isSaved ? "Saved" : "Save"}
-            </Button>
-            <OverflowMenu items={menuItems} />
-          </div>
-        </div>
-
-        <div className="mt-6 grid grid-cols-2 gap-x-6 gap-y-5 border-y border-line py-5 sm:grid-cols-4">
-          <Stat label="Teams" value={teams.length} />
-          <Stat label={isNative ? "Registered" : "Community participants"} value={registrationCounts?.registration_count ?? (countsError ? "Unavailable" : "Loading")} />
-          <Stat label="Discoverable builders" value={discovery?.total ?? (discoveryError ? "Unavailable" : "Loading")} />
-          <Stat label="Recruiting" value={recruitingTeams.length} />
-        </div>
-        {rackDiscovery && <p className="mt-4 text-[13.5px] text-ink-2">
-          Ready to find teammates? <a href="#rack-teammates" className="font-medium text-ink underline underline-offset-4">Browse builders or list your profile</a>.
-          {" "}You choose whether to be listed. Register for the event separately on Unstop.
-        </p>}
-      </header>
-
-      <div className="mt-8 grid grid-cols-1 gap-10 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-12">
+      <div className="mt-8 grid min-w-0 grid-cols-1 items-start gap-7 lg:grid-cols-[minmax(0,1fr)_320px]">
         {/* ── Main column ───────────────────────────────────────── */}
-        <div className="min-w-0 space-y-10">
-          <Section title="About">
-            <StructuredHackathonDescription description={hackathon.description} />
-          </Section>
-
-          <Section title="Tags" count={hackathon.tags?.length || 0}>
-            {hackathon.tags?.length ? (
-              <div className="flex flex-wrap gap-1.5">
-                {hackathon.tags.map((tag) => (
-                  <Chip key={tag}>{tag}</Chip>
-                ))}
+        <div className="min-w-0 space-y-8">
+          <section aria-labelledby="about-event" className="min-w-0 rounded-2xl border border-line bg-raised p-5 sm:p-7">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.17em] text-accent-ink">The event</p>
+            <h2 id="about-event" className="mt-1.5 font-display text-[22px] font-semibold tracking-tight text-ink">About this hackathon</h2>
+            <div className="mt-5 min-w-0 text-ink-2">
+              <StructuredHackathonDescription description={hackathon.description} />
+            </div>
+            {!!hackathon.tags?.length && (
+              <div className="mt-6 border-t border-line pt-4">
+                <p className="mb-2 text-[11px] font-medium uppercase tracking-wider text-ink-3">Topics & tags</p>
+                <div className="flex flex-wrap gap-1.5">{hackathon.tags.map(tag => <Chip key={tag}>{tag}</Chip>)}</div>
               </div>
-            ) : (
-              <p className="text-[13px] text-ink-3">No tags listed.</p>
             )}
-          </Section>
+          </section>
 
           {/* Rounds */}
           {hackathon.rounds_info && Array.isArray(hackathon.rounds_info) && hackathon.rounds_info.length > 0 && (
@@ -1382,6 +1334,22 @@ function HackathonDetailContent({ initialTab }: { initialTab: EventDiscoveryTab 
               </ol>
             </Section>
           )}
+
+          <section aria-labelledby="community-activity" className="min-w-0 rounded-2xl border border-line bg-raised p-5 sm:p-6">
+            <div className="flex flex-wrap items-end justify-between gap-2">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-accent-ink">Find your people</p>
+                <h2 id="community-activity" className="mt-1 font-display text-[21px] font-semibold text-ink">HackerMate community</h2>
+              </div>
+              <p className="max-w-[280px] text-[12px] leading-5 text-ink-3">Find a team or meet builders here. Official event registration is separate.</p>
+            </div>
+            <div className="mt-5 grid grid-cols-2 gap-4 border-t border-line pt-5 sm:grid-cols-4">
+              <Stat label="Teams" value={teams.length} />
+              <Stat label={isNative ? "Registered" : "Community members"} value={registrationCounts?.registration_count ?? (countsError ? "Unavailable" : "Loading")} />
+              <Stat label="Builders" value={discovery?.total ?? (discoveryError ? "Unavailable" : "Loading")} />
+              <Stat label="Recruiting" value={recruitingTeams.length} />
+            </div>
+          </section>
 
           {/* ── People & resources tabs ─────────────────────────── */}
           <section id={rackDiscovery ? "rack-teammates" : undefined} aria-label="Teams, builders and resources" className="min-w-0">
@@ -1678,28 +1646,8 @@ function HackathonDetailContent({ initialTab }: { initialTab: EventDiscoveryTab 
         </div>
 
         {/* ── Aside ─────────────────────────────────────────────── */}
-        <aside className="min-w-0 space-y-9">
-          <Section title="At a glance">
-            <dl className="divide-y divide-line rounded-lg border border-line">
-              <Fact label={scheduleIsUnverified(hackathon, now) ? "Listed dates (unverified)" : "Dates"} value={<span className="font-mono tabular">{formatDateRange(hackathon.start_date, hackathon.end_date)}</span>} stacked />
-              {hackathon.mode && <Fact label="Mode" value={<span className="capitalize">{hackathon.mode}</span>} />}
-              {showLocation && <Fact label="Location" value={hackathon.location || "TBA"} stacked />}
-              {organizerName && <Fact label={organizerLabel} value={organizerName} stacked />}
-              {hackathon.prize_pool && (
-                <Fact label="Prize pool" value={<span className="whitespace-pre-wrap">{formatPrizeDisplay(hackathon.prize_pool, hackathon.currency)}</span>} stacked />
-              )}
-              <Fact label={scheduleIsUnverified(hackathon, now) ? "Listed team size (unverified)" : "Team size"} value={teamSizeLabel} />
-              {!!hackathon.rounds_count && hackathon.rounds_count > 0 && (
-                <Fact label="Rounds" value={<span className="font-mono tabular">{hackathon.rounds_count}</span>} />
-              )}
-              <Fact
-                label={isNative ? "Builders joined" : "Teams joined"}
-                value={<span className="font-mono tabular">{isNative ? registrationCounts?.registration_count ?? (countsError ? "Unavailable" : "Loading") : teams.length}</span>}
-              />
-            </dl>
-          </Section>
-
-          <Section title="Your participation">
+        <aside className="min-w-0 space-y-5">
+          <Section title="Your participation" className="rounded-2xl border border-line-strong bg-raised p-5">
             <div className="space-y-3">
               <div className="flex items-center justify-between gap-3 rounded-lg border border-line px-3.5 py-3">
                 {isRegistered ? (
@@ -1750,6 +1698,7 @@ function HackathonDetailContent({ initialTab }: { initialTab: EventDiscoveryTab 
 
           <Section
             title="Recruiting for this event"
+            className="rounded-2xl border border-line bg-raised p-5"
             count={recruitingTeams.length}
             action={
               recruitingTeams.length > 3 ? (
@@ -1778,7 +1727,7 @@ function HackathonDetailContent({ initialTab }: { initialTab: EventDiscoveryTab 
             )}
           </Section>
 
-          <Section title="Share">
+          <Section title="Share" className="rounded-2xl border border-line bg-raised p-5">
             <div className="grid gap-1.5">
               <Button variant="secondary" icon={<Link2 />} className="w-full justify-start" onClick={handleCopyLink}>
                 Copy link
