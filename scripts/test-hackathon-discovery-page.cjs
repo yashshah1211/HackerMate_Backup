@@ -159,7 +159,7 @@ test('zero verified ongoing hides the navigation tab but preserves ongoing deep 
   const view=await page({events:[event('future'),event('unknown',{start_date:'invalid',end_date:null})]});
   assert.doesNotMatch(view.html,/Happening now/);
   assert.match(view.html,/Available now/);
-  assert.match(view.html,/All listings/);
+  assert.match(view.html,/Explore all/);
   await view.navigate('tab=ongoing');
   assert.match(view.html,/Happening now/);
   assert.match(view.html,/can’t currently confirm/);
@@ -192,7 +192,7 @@ test('primary discovery header promotes verified registration availability, not 
   assert.doesNotMatch(view.html,/total listings/);
   assert.match(view.html,/Explore all/);
   await view.click('Explore all');
-  assert.deepEqual(view.ids(),['archived','open']);
+  assert.deepEqual(view.ids(),['open','archived']);
   assert.match(view.html,/Full directory:/);
   assert.match(view.html,/older and unverified events/);
   assert.match(view.html,/Not all are accepting registrations/);
