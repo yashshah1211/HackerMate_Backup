@@ -61,7 +61,7 @@ test('exact AlgoRush public direct lookup remains visible with the unchanged app
  assert.equal((await api.loadPublicEvent(client,record.id)).id,record.id);
  assert.deepEqual(reads[0],[['id',record.id],['status','approved'],['archived',false]]);
 });
-test('hero removes event total and numeric footer but keeps builders, teams and neutral browsing even with no opportunity cards',()=>{
+test('hero labels all public listings without implying active or verified opportunities',()=>{
  const React=require('react'),{renderToStaticMarkup}=require('react-dom/server');
  const Hero=harness({'next/link':({href,children})=>React.createElement('a',{href},children),
   '@/components/system':{ButtonLink:({href,children})=>React.createElement('a',{href},children)},
@@ -69,7 +69,8 @@ test('hero removes event total and numeric footer but keeps builders, teams and 
  }).load('src/components/landing/LandingHero.tsx').LandingHero;
  const html=renderToStaticMarkup(React.createElement(Hero,{builderCount:321,teamCount:17,hackathonCount:410,upcoming:[]}));
  assert.match(html,/registered builders/);assert.match(html,/teams created/);assert.match(html,/321/);assert.match(html,/>17</);
- assert(!/hackathons? listed|All 410 listed|410/.test(html));assert.match(html,/href="\/hackathons"[^>]*>Browse hackathons/);
+ assert.match(html,/hackathons listed/); assert.match(html,/>410<\/dd>/);
+ assert(!/410 active|410 registration open|All 410 verified/.test(html));assert.match(html,/href="\/hackathons"[^>]*>Browse hackathons/);
 });
 
 
