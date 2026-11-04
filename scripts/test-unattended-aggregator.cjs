@@ -28,6 +28,15 @@ test("source identity keys distinguish provider-specific identities",()=>{
   const counts=p.countIdentities([make(1),make(2),make(3)],r=>(r.id==="0003"?null:{provider:"unstop",provider_id:"same",canonical_url:"https://unstop.com/hackathons/a-same"}));
   assert.equal(counts.get("unstop:same"),2);
 });
+test("live catalog identity counting uses identity objects, not precomputed key strings",()=>{
+  const source={identifySource:r=>r?{provider:"unstop",provider_id:r.split("-").at(-1),canonical_url:r}:null,
+    validateSourceObservation:()=>({identity:null,metadata:null})};
+  const rows=[make(42),make(43)];
+  const counts=p.countIdentities(rows,r=>worker.identityForRow(r,source));
+  assert.equal(counts.get("unstop:42"),1);
+  assert.equal(counts.get("unstop:43"),1);
+  assert.equal(counts.size,2);
+});
 test("refresh selection includes both source-managed and evidence-only records",()=>{
   const a=make(1,{source_metadata:{evidence_only:true,checked_at:"2026-11-02T02:00:00Z"}});
   const b=make(2,{source_metadata:{evidence_only:true,checked_at:"2026-11-01T02:00:00Z"}});
