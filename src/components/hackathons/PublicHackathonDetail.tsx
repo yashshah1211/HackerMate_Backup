@@ -3,14 +3,15 @@
 import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { ArrowLeft, ExternalLink } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { browsingActionHref, loadPublicEvent, type PublicEvent } from "@/lib/hackathons/publicBrowsing";
 import { listedTags, prizeLabel } from "@/lib/hackathons/discovery";
-import SourceInformation from "./SourceInformation";
-import { registrationDestination, sourceMetadata } from "@/lib/hackathons/source";
-import { dateLabel, registrationLabel, eventStateLabel, scheduleIsUnverified } from "@/lib/hackathons/lifecycle";
+import EventOverview from "./EventOverview";
+import { registrationDestination } from "@/lib/hackathons/source";
+import { dateLabel } from "@/lib/hackathons/lifecycle";
 import StructuredHackathonDescription from "@/components/StructuredHackathonDescription";
-import { ButtonLink, EmptyState, ErrorNotice, Page, PageHeader, PageLoader, Section } from "@/components/system";
+import { ButtonLink, Chip, EmptyState, ErrorNotice, Page, PageLoader, Section } from "@/components/system";
 import { isRackItUpEvent } from "@/lib/partners/rackItUp2026";
 import { eventDiscoveryTab } from "@/lib/hackathons/discoveryNavigation";
 import RackPublicDiscovery from "@/components/partners/RackPublicDiscovery";
@@ -57,38 +58,114 @@ export default function PublicHackathonDetail({ onboard = false }: { onboard?: b
   const actionLabel = rackDiscovery
     ? onboard ? "Complete profile for teammate matching" : "Sign in for teammate matching"
     : onboard ? "Complete onboarding" : "Sign in to participate";
-  return <Page>
-    <Link href="/hackathons" className="text-sm text-ink-3 hover:text-ink">← Hackathons</Link>
-    <PageHeader title={event.name} meta={`${event.mode || "Format not listed"} · ${event.location || "Location not listed"}`} actions={<ButtonLink href={href}>{actionLabel}</ButtonLink>} />
-    <div className="mt-6 grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
-      <div className="min-w-0 space-y-6">
+  const teamSize = event.min_team_size === 1 && event.max_team_size === 1
+    ? "Solo"
+    : event.min_team_size && event.max_team_size
+      ? `${event.min_team_size}–${event.max_team_size} members`
+      : event.max_team_size
+        ? `Up to ${event.max_team_size} members`
+        : "Not listed";
+
+  return <Page className="pb-28 md:pb-16">
+    <nav aria-label="Breadcrumb" className="flex items-center gap-2 pt-5 text-[12.5px] text-ink-3 md:pt-6">
+      <Link href="/hackathons" className="inline-flex items-center gap-1.5 hover:text-ink">
+        <ArrowLeft className="size-3.5" aria-hidden /> Hackathons
+      </Link>
+      <span aria-hidden className="text-ink-4">/</span>
+      <span className="min-w-0 truncate text-ink-2">{event.name}</span>
+    </nav>
+
+    <EventOverview
+      event={event}
+      now={now}
+      organizer={event.college}
+      teamSize={teamSize}
+      prize={event.prize_pool && !/^(?:[A-Z]{3}\s*)?0+(?:\.0+)?$/i.test(event.prize_pool.trim()) ? prizeLabel(event) : null}
+      showLocation={event.mode?.toLowerCase() !== "online" || Boolean(event.location && !event.location.toLowerCase().includes("online"))}
+      actions={<>
+        {website && (
+          <ButtonLink href={website} target="_blank" rel="noopener noreferrer" variant="primary" icon={<ExternalLink />}>
+            View official event site
+          </ButtonLink>
+        )}
+        <ButtonLink href={href} variant={website ? "secondary" : "primary"}>
+          {actionLabel}
+        </ButtonLink>
+      </>}
+    />
+
+    <div className="mt-8 grid min-w-0 items-start gap-7 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="min-w-0 space-y-7">
         {rackDiscovery && <RackPublicDiscovery key={event.id} eventId={event.id} signInHref={href} onboard={onboard} />}
-        <Section title="About this hackathon"><StructuredHackathonDescription description={event.description} />
-          <div className="mt-3 flex flex-wrap gap-2">{listedTags(event.tags).map(tag => <span key={tag} className="rounded-md bg-sunken px-2 py-1 text-xs text-ink-2">{tag}</span>)}</div>
-        </Section>
-        {!!rounds.length && <Section title="Rounds">{rounds.map((round, index) => <div key={index} className="border-b border-line py-3">
-          <h3 className="font-medium">{round.name}</h3><p className="text-sm text-ink-3">{dateLabel(round.start_date)} – {dateLabel(round.end_date)}</p>
-          {typeof round.description === "string" && <StructuredHackathonDescription description={round.description} />}
-        </div>)}</Section>}
-        <Section title="Participate on HackerMate">
-          <p className="mb-3 text-sm text-ink-2">{rack ? <>{onboard ? "Complete your profile" : "Sign in free"} to list your profile, save this event or build a team. Official event registration stays on Unstop. Returning here will not perform an action automatically.</> : <>{onboard ? "Complete your profile" : "Sign in"} to save this event, discover builders or link your team. Registration availability must be checked separately. Returning here will not register or save anything automatically.</>}</p>
-          <div className="flex flex-wrap gap-2"><ButtonLink href={href}>{actionLabel}</ButtonLink><ButtonLink href={href} variant="secondary">{onboard ? "Complete profile to save" : "Sign in to save"}</ButtonLink></div>
-        </Section>
+
+        <section aria-labelledby="public-event-about" className="min-w-0 rounded-2xl border border-line bg-raised p-5 sm:p-7">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.17em] text-accent-ink">The event</p>
+          <h2 id="public-event-about" className="mt-1.5 font-display text-[22px] font-semibold tracking-tight text-ink">
+            About this hackathon
+          </h2>
+          <div className="mt-5 min-w-0 text-ink-2">
+            <StructuredHackathonDescription description={event.description} />
+          </div>
+          {listedTags(event.tags).length > 0 && (
+            <div className="mt-6 border-t border-line pt-4">
+              <p className="mb-2 text-[11px] font-medium uppercase tracking-wider text-ink-3">Topics & tags</p>
+              <div className="flex flex-wrap gap-1.5">
+                {listedTags(event.tags).map(tag => <Chip key={tag}>{tag}</Chip>)}
+              </div>
+            </div>
+          )}
+        </section>
+
+        {!!rounds.length && <Section title="Event rounds" className="rounded-2xl border border-line bg-raised p-5 sm:p-7">
+          <ol className="divide-y divide-line">
+            {rounds.map((round, index) => (
+              <li key={index} className="py-4 first:pt-2 last:pb-0">
+                <div className="flex items-start gap-3">
+                  <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-selected font-mono text-xs text-ink-2">{index + 1}</span>
+                  <div className="min-w-0">
+                    <h3 className="break-words text-[14px] font-semibold text-ink">{round.name}</h3>
+                    {(round.start_date || round.end_date) && (
+                      <p className="mt-1 text-[12px] text-ink-3">{dateLabel(round.start_date)} – {dateLabel(round.end_date)}</p>
+                    )}
+                    {typeof round.description === "string" && (
+                      <div className="mt-2 text-[13.5px] text-ink-2"><StructuredHackathonDescription description={round.description} /></div>
+                    )}
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </Section>}
       </div>
-      <aside className="min-w-0 space-y-4">
-        <SourceInformation event={event} now={now} />
-        <Section title="Event details"><dl className="space-y-3 text-sm">
-          <div><dt className="text-ink-3">{scheduleIsUnverified(event, now) ? "Listed dates (unverified)" : "Dates"}</dt><dd>{dateLabel(event.start_date)} – {dateLabel(event.end_date)}</dd></div>
-          <div><dt className="text-ink-3">Status</dt><dd>{eventStateLabel(event, now)}</dd></div>
-          <div><dt className="text-ink-3">Registration availability</dt><dd>{registrationLabel(event, now)}</dd></div>
-          <div><dt className="text-ink-3">Registration starts</dt><dd>{dateLabel(event.registration_start)}</dd></div>
-          <div><dt className="text-ink-3">Registration deadline</dt><dd>{dateLabel(event.registration_end)}</dd></div>
-          <div><dt className="text-ink-3">Prizes</dt><dd>{prizeLabel(event)}</dd></div>
-          <div><dt className="text-ink-3">{scheduleIsUnverified(event, now) ? "Listed team size (unverified)" : "Team size"}</dt><dd>{event.min_team_size != null && event.max_team_size != null ? `${event.min_team_size}–${event.max_team_size}` : "Not listed"}</dd></div>
-          {event.college && <div><dt className="text-ink-3">{sourceMetadata(event.source_metadata) ? "Organizer" : "College"}</dt><dd>{event.college}</dd></div>}
-        </dl></Section>
-        <p className="text-sm leading-relaxed text-ink-2">Official registration is separate from the HackerMate community. Check the organizer’s site for current availability; a listed link does not guarantee registration.</p>
-        {website && <a href={website} target="_blank" rel="noopener noreferrer" className="inline-flex text-sm font-medium text-ink underline">View event website ↗</a>}
+
+      <aside className="min-w-0 space-y-5">
+        <section aria-labelledby="guest-community" className="rounded-2xl border border-line-strong bg-raised p-5">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-accent-ink">Your next step</p>
+          <h2 id="guest-community" className="mt-2 font-display text-[20px] font-semibold text-ink">
+            Find your team on HackerMate
+          </h2>
+          <p className="mt-2.5 text-[13px] leading-6 text-ink-2">
+            {rack
+              ? "Sign in to discover teammates, share your builder profile, or create a team. Official registration stays on Unstop."
+              : "Sign in to save the event, discover builders, and link your team. Official event registration is a separate step."}
+          </p>
+          <ButtonLink href={href} className="mt-5 w-full">{actionLabel}</ButtonLink>
+          <ButtonLink href={href} variant="secondary" className="mt-2 w-full">{onboard ? "Complete profile to save" : "Sign in to save"}</ButtonLink>
+          <p className="mt-3 text-[12px] leading-5 text-ink-3">
+            Signing in or joining the community does not register you for the event.
+          </p>
+        </section>
+        <section aria-labelledby="guest-before-joining" className="rounded-2xl border border-line bg-canvas p-5">
+          <h2 id="guest-before-joining" className="text-[13.5px] font-semibold text-ink">Before you register</h2>
+          <p className="mt-2 text-[12.5px] leading-6 text-ink-2">
+            Confirm eligibility, deadlines, and final availability on the organizer&apos;s official page.
+            Source information and dates may change after the latest check.
+          </p>
+          {website && <a href={website} target="_blank" rel="noopener noreferrer"
+            className="mt-3 inline-flex items-center gap-1.5 text-[13px] font-medium text-accent-ink hover:underline">
+            Open official event page <ExternalLink className="size-3.5" aria-hidden />
+          </a>}
+        </section>
       </aside>
     </div>
   </Page>;
