@@ -115,7 +115,9 @@ function discoveryTransport({closedFailure=false,collision=false}={}){
 test('bounded discovery includes closed/past candidates, dedupes and requires individual verification',async()=>{
  const t=discoveryTransport(),out=await transportModule.discoverSources(t);assert.equal(out.identities.length,3);
  assert.equal(t.calls.filter(url=>url.includes('oppstatus=closed')).length,3);assert(t.calls.length<=11);
- const closed=out.identities.find(i=>i.provider_id==='1234');assert(closed);assert(!Object.hasOwn(closed,'event_status'));
+ const closed=out.identities.find(i=>i.provider_id==='1234');assert(closed);assert.equal(closed.feed_bucket,'closed');assert(!Object.hasOwn(closed,'event_status'));
+ const opened=out.identities.find(i=>i.provider_id==='5678');assert.equal(opened?.feed_bucket,'open');
+ assert.equal(out.identities.find(i=>i.provider==='devfolio')?.feed_bucket,'closed');
  const m=observe();assert(worker.admission(s.validateSourceObservation(m,closed),m,now,{windowState:l.load('src/lib/hackathons/sourceEvidence.ts').windowState},true));
  const unverified=observe(c=>{c.rounds=[];c.details='A hackathon.'});assert.equal(worker.admission(s.validateSourceObservation(unverified),unverified,now,{windowState:l.load('src/lib/hackathons/sourceEvidence.ts').windowState},true),false);
 });
@@ -130,10 +132,11 @@ for(const apply of [false,true])test('unattended worker '+(apply?'apply fixture'
  const fs=require('node:fs'),vm=require('node:vm'),workerModule={exports:{}},rows=[],writes=[];
  class Clock extends Date {constructor(...args){super(...(args.length?args:[now]))}static now(){return now}}
  const good=observe(),bad=observe(c=>{c.rounds=[];c.details='A hackathon.'});
- const identities=[1234,5678].map(n=>p.identifySource('https://unstop.com/hackathons/synthetic-'+n));
+ const identities=[1234,5678].map(n=>({...p.identifySource('https://unstop.com/hackathons/synthetic-'+n),feed_bucket:n===1234?'closed':'open'}));
  const observations=[good,{...bad,provider_id:'5678',canonical_url:identities[1].canonical_url,facts:{...bad.facts,website_url:identities[1].canonical_url}}];
- const fakeClient={from(table){assert.equal(table,'hackathons');let single=false,cursor=false;const q={select(){return q},order(){return q},limit(){return q},gt(){cursor=true;return q},eq(){return q},single(){single=true;return q},then(resolve){return Promise.resolve({data:single?rows[0]:cursor?[]:rows,error:null}).then(resolve)}};return q},async rpc(name,args){
+ const fakeClient={from(table){if(table==='partner_configs')return {select(){return {limit(){return Promise.resolve({data:[],error:null})}}}};assert.equal(table,'hackathons');let single=false,cursor=false;const q={select(){return q},order(){return q},limit(){return q},gt(){cursor=true;return q},eq(){return q},single(){single=true;return q},then(resolve){return Promise.resolve({data:single?rows[0]:cursor?[]:rows,error:null}).then(resolve)}};return q},async rpc(name,args){
   writes.push({name,args});assert.equal(name,'apply_hackathon_source_check');assert.equal(args.p_id,null);assert.equal(args.p_patch.registration_status,'closed');
+  assert.equal(Object.hasOwn(args.p_identity,'feed_bucket'),false,'Untrusted feed hints must never enter the SQL identity');
   rows.push({id:'00000000-0000-4000-8000-000000009104',type:'external',status:'approved',archived:false,website_url:args.p_identity.canonical_url,source_metadata:args.p_observation});return {data:{status:'created',id:rows[0].id},error:null};
  }};
  const real=harness({}, {Date:Clock,URLSearchParams}),env={NEXT_PUBLIC_SUPABASE_URL:'https://rhryjrbebfrrfhtyyzbs.supabase.co',SUPABASE_SERVICE_ROLE_KEY:'synthetic',HACKERMATE_AGGREGATOR_ENABLED:'true',GITHUB_ACTIONS:'true',GITHUB_REPOSITORY:'yashshah1211/HackerMate_Backup',GITHUB_REF:'refs/heads/main',GITHUB_EVENT_NAME:'schedule'};
@@ -147,4 +150,14 @@ for(const apply of [false,true])test('unattended worker '+(apply?'apply fixture'
  }});
  const out=await workerModule.exports.main(apply?'--apply':'--dry-run');assert.equal(out.created,1);assert.equal(out.discovery_held,1);assert.equal(out.accepted_closed_registration_ongoing,1);assert.equal(out.observed_evidence.verified_ongoing,1);
  assert.equal(out.catalog_evidence.verified_ongoing,apply?1:0);assert.equal(writes.length,apply?1:0);assert.equal(out.registration_open,0);
+ if(apply)assert.equal(out.write_preview,undefined,'No source preview should appear in apply logs');
+ else {
+   assert.equal(out.write_preview.create.length,1);
+   assert.equal(out.write_preview.create[0].provider,'unstop');
+   assert.equal(out.write_preview.create[0].provider_id,'1234');
+   assert.equal(out.write_preview.create[0].feed_bucket,'closed');
+   assert(out.write_preview.create[0].patch_fields.includes('registration_status'));
+   assert.equal(out.write_preview.adoption.length,0);
+   assert.equal(out.write_preview.refresh.length,0);
+ }
 });

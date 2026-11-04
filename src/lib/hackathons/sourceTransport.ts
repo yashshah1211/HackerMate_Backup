@@ -5,6 +5,9 @@ import { validatedSourceIdentity } from "./sourceEvidence";
 import { array, object, text } from "./source";
 
 export type SourceResponse = { body: string; hash: string; checkedAt: number };
+/** Provider feed buckets are prioritization hints only, NEVER evidence for registration or event lifecycle. */
+export type DiscoveryBucket = "open" | "upcoming" | "closed" | "unknown";
+export type SourceCandidate = SourceIdentity & { feed_bucket?: DiscoveryBucket };
 type Rule = { allow: boolean; pattern: string };
 export class SourceUnavailable extends Error {}
 
@@ -94,8 +97,8 @@ export class SourceTransport {
   }
 }
 
-export async function discoverSources(transport: SourceTransport): Promise<{ identities: SourceIdentity[]; failures: string[]; failureDetails: { provider: string; feed: string; reason: string }[] }> {
-  const identities: SourceIdentity[] = [], failures: string[] = [], failureDetails: { provider: string; feed: string; reason: string }[] = [];
+export async function discoverSources(transport: SourceTransport): Promise<{ identities: SourceCandidate[]; failures: string[]; failureDetails: { provider: string; feed: string; reason: string }[] }> {
+  const identities: SourceCandidate[] = [], failures: string[] = [], failureDetails: { provider: string; feed: string; reason: string }[] = [];
   const failed = (provider: string, feed: string, error: unknown) => {
     console.error("Provider discovery unavailable:", provider, feed, error);
     failures.push(provider);
@@ -110,7 +113,7 @@ export async function discoverSources(transport: SourceTransport): Promise<{ ide
       if (!data.data.length) break;
       for (const item of data.data) { const v = object(item), path = text(v.public_url); if (!path) continue;
         const id = identifySource(path.startsWith("https://") ? path : "https://unstop.com/" + path);
-        if (id?.provider === "unstop" && String(v.id) === id.provider_id) identities.push(id); }
+        if (id?.provider === "unstop" && String(v.id) === id.provider_id) identities.push({ ...id, feed_bucket: status as DiscoveryBucket }); }
     }
   } catch (e) { failed("unstop", status, e); }
   try {
@@ -120,9 +123,15 @@ export async function discoverSources(transport: SourceTransport): Promise<{ ide
     if (!Array.isArray(data.open_hackathons)) throw new SourceUnavailable("Devfolio listing shape changed");
     // The public past bucket is finite and sometimes contains closed applications.
     // Recheck detail starts_at/ends_at before admission; do not reinterpret its label.
-    for (const item of [...array(data.open_hackathons).slice(0, 90), ...array(data.upcoming_hackathons).slice(0, 90), ...array(data.past_hackathons).slice(0, 30)]) {
+    const buckets: { feed: string; max: number; bucket: DiscoveryBucket }[] = [
+      { feed: "open_hackathons", max: 90, bucket: "open" },
+      { feed: "upcoming_hackathons", max: 90, bucket: "upcoming" },
+      { feed: "past_hackathons", max: 30, bucket: "closed" },
+    ];
+    for (const { feed, max, bucket } of buckets) for (const item of array(data[feed]).slice(0, max)) {
       const v = object(item), slug = text(v.slug), uuid = text(v.uuid); if (!slug || !uuid) continue;
-      const id = identifySource(`https://${slug}.devfolio.co`); if (id) identities.push({ ...id, provider_id: uuid });
+      const id = identifySource(`https://${slug}.devfolio.co`);
+      if (id) identities.push({ ...id, provider_id: uuid, feed_bucket: bucket });
     }
   } catch (e) { failed("devfolio", "public_directory", e); }
   try {
@@ -130,17 +139,22 @@ export async function discoverSources(transport: SourceTransport): Promise<{ ide
     if (!Array.isArray(data.flagshipEvents) || !Array.isArray(data.communityEvents)) throw new SourceUnavailable("Hack2Skill listing shape changed");
     for (const item of [...data.flagshipEvents, ...data.communityEvents]) {
       const v = object(item), slug = text(v.eventUrl), uid = text(v._id); if (!slug || !uid) continue;
-      const id = identifySource(`https://hack2skill.com/event/${slug}`); if (id) identities.push({ ...id, provider_id: uid });
+      const id = identifySource(`https://hack2skill.com/event/${slug}`); if (id) identities.push({ ...id, provider_id: uid, feed_bucket: "unknown" });
     }
   } catch (e) { failed("hack2skill", "public_list", e); }
-  const byId = new Map<string, SourceIdentity>(), byUrl = new Map<string, string>(), conflicts = new Set<string>();
+  const byId = new Map<string, SourceCandidate>(), byUrl = new Map<string, string>(), conflicts = new Set<string>();
+  const feedPriority = { open: 0, upcoming: 1, closed: 2, unknown: 3 };
   for (const identity of identities) {
     const key = identity.provider + ":" + identity.provider_id, previous = byId.get(key), urlKey = byUrl.get(identity.canonical_url);
     if (previous && previous.canonical_url !== identity.canonical_url || urlKey && urlKey !== key) {
       conflicts.add(key); if (urlKey) conflicts.add(urlKey);
       failureDetails.push({ provider: identity.provider, feed: "identity", reason: "provider_identity_collision" });
     }
-    byId.set(key, identity); byUrl.set(identity.canonical_url, key);
+    // The same identity can appear in several discovery buckets. Prefer an
+    // open candidate for sampling, but ONLY its detail page can prove it is open.
+    if (!previous || feedPriority[identity.feed_bucket ?? "unknown"] < feedPriority[previous.feed_bucket ?? "unknown"])
+      byId.set(key, identity);
+    byUrl.set(identity.canonical_url, key);
   }
   return { identities: [...byId].filter(([key]) => !conflicts.has(key)).map(([, identity]) => identity), failures: [...new Set(failures)], failureDetails };
 }

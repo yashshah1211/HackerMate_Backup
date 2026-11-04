@@ -1,0 +1,71 @@
+name: Discovery public read-only source qualification
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'scripts/aggregator-worker-policy.cjs'
+      - 'scripts/run-hackermate-aggregator.cjs'
+      - 'scripts/test-unattended-aggregator.cjs'
+      - 'src/lib/hackathons/sourceTransport.ts'
+      - '.github/workflows/discovery-live-readonly-qualification.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: discovery-readonly-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  live-readonly-dry-run:
+    # This is *only* a review of the intended PR. No credentials from the secret store.
+    if: github.event.pull_request.number == 108 && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Offline guardrail regressions
+        run: node --test scripts/test-unattended-aggregator.cjs
+      - name: Inspect live public source data with anonymous SELECT rights ONLY
+        timeout-minutes: 15
+        shell: bash
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://rhryjrbebfrrfhtyyzbs.supabase.co
+          # Publishable and intentionally non-privileged; NEVER inject service_role or secrets here.
+          HACKERMATE_AGGREGATOR_READONLY_PUBLISHABLE_KEY: 'sb_publishable_WaU7uJFzRSE91BHN0yMyaw_FCpmU_ot'
+          HACKERMATE_AGGREGATOR_ENABLED: 'false'
+        run: |
+          set -euo pipefail
+          test "$GITHUB_EVENT_NAME" = "pull_request"
+          test -z "${SUPABASE_SERVICE_ROLE_KEY:-}"
+          [[ "$HACKERMATE_AGGREGATOR_READONLY_PUBLISHABLE_KEY" == sb_publishable_* ]]
+          mkdir -p scratch
+          node scripts/run-hackermate-aggregator.cjs --dry-run | tee scratch/discovery-live-readonly-result.log
+          node - <<'NODE'
+          const fs=require('node:fs');
+          const line=fs.readFileSync('scratch/discovery-live-readonly-result.log','utf8')
+            .split(/\r?\n/).find(x=>x.startsWith('AGGREGATOR_RESULT '));
+          if(!line)throw new Error('Dry-run summary unavailable');
+          const report=JSON.parse(line.slice('AGGREGATOR_RESULT '.length));
+          if(report.mode!=='dry-run'||report.dry_run_no_writes!==true||
+             report.project_ref!=='rhryjrbebfrrfhtyyzbs'||report.catalog_after!==report.catalog_before)
+            throw new Error('Read-only invariants failed');
+          console.log('READ_ONLY_QUALIFICATION '+JSON.stringify({
+            catalog:report.catalog_before,attempted:report.checked,qualified:{
+              refresh:report.refreshed,adoption:report.adopted,creation:report.created
+            },provider_failures:report.providers_unavailable,
+            discovery_candidates:report.discovered_candidates,
+            discovery_attempts_by_feed:report.discovery_attempts_by_feed,
+            discovery_admissions_by_feed:report.discovery_admissions_by_feed,
+            held:{refresh:report.refresh_held,legacy:report.legacy_held,new:report.discovery_held},
+            no_writes:true
+          }));
+          NODE

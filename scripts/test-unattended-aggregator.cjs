@@ -20,6 +20,29 @@ test("deployment target and main-branch authority are mandatory before writes",(
   }
   assert.throws(()=>worker.assertEnvironment("--unexpected",good));
 });
+test("PR live-source review uses only a public, read-only key",()=>{
+  const safe={NEXT_PUBLIC_SUPABASE_URL:"https://rhryjrbebfrrfhtyyzbs.supabase.co",
+    HACKERMATE_AGGREGATOR_READONLY_PUBLISHABLE_KEY:"sb_publishable_synthetic_only"};
+  assert.doesNotThrow(()=>worker.assertEnvironment("--dry-run",safe));
+  assert.throws(()=>worker.assertEnvironment("--apply",safe),{name:"Error"});
+  assert.throws(()=>worker.assertEnvironment("--dry-run",{
+    ...safe,HACKERMATE_AGGREGATOR_READONLY_PUBLISHABLE_KEY:"sb_secret_not_allowed"}),{name:"Error"});
+  assert.throws(()=>worker.assertEnvironment("--dry-run",{
+    NEXT_PUBLIC_SUPABASE_URL:safe.NEXT_PUBLIC_SUPABASE_URL}),{name:"Error"});
+  assert.throws(()=>worker.assertEnvironment("--apply",{
+    ...safe,SUPABASE_SERVICE_ROLE_KEY:"synthetic-only",GITHUB_ACTIONS:"true",
+    HACKERMATE_AGGREGATOR_ENABLED:"true",GITHUB_REPOSITORY:"yashshah1211/HackerMate_Backup",
+    GITHUB_REF:"refs/heads/main",GITHUB_EVENT_NAME:"schedule"}),{name:"Error"});
+});
+
+test("partner-linked source rows are excluded by ID or canonical organizer link",()=>{
+  const partners=[{hackathon_id:"rack-event-id",features:{website_url:"https://unstop.com/hackathons/rack-1777639/"}}];
+  assert.equal(worker.protectedByPartner({id:"rack-event-id",website_url:"https://different.example"},partners),true);
+  assert.equal(worker.protectedByPartner({id:"other-event",website_url:"https://unstop.com/hackathons/rack-1777639"},partners),true);
+  assert.equal(worker.protectedByPartner({id:"other-event",website_url:"https://unstop.com/hackathons/unrelated"},partners),false);
+  assert.equal(worker.protectedByPartner({id:"other-event",website_url:""},[{hackathon_id:null,features:{}}]),false);
+});
+
 test("source identity keys distinguish provider-specific identities",()=>{
   assert.equal(p.sourceKey({provider:"unstop",provider_id:"1777639",canonical_url:"https://unstop.com/hackathons/a-1777639"}),"unstop:1777639");
   assert.equal(p.sourceKey({provider:"devfolio",provider_id:"uuid-1",canonical_url:"https://hack.devfolio.co/"}),"devfolio:https://hack.devfolio.co");
@@ -100,4 +123,45 @@ test("new discovery rejects an ended event even with a historic open-registratio
   assert.equal(worker.admission(v,{facts:{registration_status:"open"}},at,source,true),false);
   assert.equal(worker.admission(v,{facts:{registration_status:"open"}},at,source,false),true);
   assert.equal(worker.admission({...v,schedule:null},{facts:{registration_status:"unknown"}},at,source,true),false);
+});
+
+test("default discovery budget prioritizes promising feeds while reserving closed and diverse providers",()=>{
+  assert.equal(p.DISCOVERY_LIMIT,24);
+  const unstop=["open","upcoming","closed"].flatMap((bucket,i)=>Array.from({length:45},(_,n)=>({
+    provider:"unstop",provider_id:String(1000+i*100+n),canonical_url:"https://unstop.com/hackathons/synthetic-"+(1000+i*100+n),feed_bucket:bucket})));
+  const devfolio=["open","upcoming","closed"].flatMap((bucket,i)=>Array.from({length:12},(_,n)=>({
+    provider:"devfolio",provider_id:"uuid-"+i+"-"+n,canonical_url:"https://event-"+i+"-"+n+".devfolio.co",feed_bucket:bucket})));
+  const hack2skill=Array.from({length:24},(_,n)=>({
+    provider:"hack2skill",provider_id:String(n).padStart(24,"0"),canonical_url:"https://hack2skill.com/event/event"+n,feed_bucket:"unknown"}));
+  const plan=p.discoveryPlan([...unstop,...devfolio,...hack2skill],new Set(),5);
+  assert.equal(plan.length,24);
+  assert.equal(new Set(plan.map(p.sourceKey)).size,24);
+  for(const [provider,quantity] of [["unstop",12],["devfolio",9],["hack2skill",3]])
+    assert.equal(plan.filter(x=>x.provider===provider).length,quantity);
+  for(const provider of ["unstop","devfolio"]){
+    const chosen=plan.filter(x=>x.provider===provider);
+    assert(chosen.some(x=>x.feed_bucket==="closed"),"Do not starve closed-registration ongoing candidates");
+    assert(chosen.some(x=>x.feed_bucket==="upcoming"),"Do not starve upcoming candidates");
+    assert(chosen.filter(x=>x.feed_bucket==="open").length>=6,"Prioritize likely actionable candidates");
+  }
+  const later=p.discoveryPlan([...unstop,...devfolio,...hack2skill],new Set(),6);
+  assert.notDeepEqual(plan.filter(x=>x.provider==="unstop").map(p.sourceKey),later.filter(x=>x.provider==="unstop").map(p.sourceKey));
+});
+test("empty provider feeds cannot waste available bounded discovery slots",()=>{
+  const candidates=Array.from({length:40},(_,n)=>({provider:"unstop",provider_id:String(n+1),canonical_url:"https://unstop.com/hackathons/a-"+(n+1),feed_bucket:"open"}));
+  const plan=p.discoveryPlan(candidates,new Set(),3);
+  assert.equal(plan.length,24);
+  assert(new Set(plan.map(p.sourceKey)).size===24);
+  const skip=new Set(candidates.slice(0,5).map(p.sourceKey));
+  const after=p.discoveryPlan(candidates,skip,3);
+  assert.equal(after.length,24);
+  assert(after.every(x=>!skip.has(p.sourceKey(x))));
+});
+test("untrusted feed labels never bypass hackathon detail admission",()=>{
+  const now=Date.parse("2026-11-04T12:00:00Z");
+  const candidate={provider:"unstop",provider_id:"1234",canonical_url:"https://unstop.com/hackathons/a-1234",feed_bucket:"open"};
+  const plan=p.discoveryPlan([candidate],new Set(),0);
+  assert.equal(plan.length,1);
+  assert.equal(plan[0].feed_bucket,"open");
+  assert.equal(p.eligibleObservation({metadata:{check_status:"unresolved",category:"hackathon",issues:["contradiction"]},errors:[]},candidate,now),false);
 });

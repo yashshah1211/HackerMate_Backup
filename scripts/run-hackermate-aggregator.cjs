@@ -15,7 +15,15 @@ const MIN_BUDGET_MS=15000;
 function assertEnvironment(mode,env=process.env) {
   if (!["--dry-run","--apply"].includes(mode)) throw new Error("Specify --dry-run or --apply");
   if (env.NEXT_PUBLIC_SUPABASE_URL!==PROJECT_URL) throw new Error("Project URL does not match reviewed existing Supabase project");
-  if (!env.SUPABASE_SERVICE_ROLE_KEY) throw new Error("Aggregator service role secret is not configured");
+  // An explicitly public Supabase key is allowed for read-only review on a PR.
+  // It cannot use the metadata writer RPCs, and --apply still requires the main-branch secret.
+  const readonlyKey=env.HACKERMATE_AGGREGATOR_READONLY_PUBLISHABLE_KEY;
+  if (readonlyKey && !/^sb_publishable_[A-Za-z0-9_-]+$/.test(readonlyKey))
+    throw new Error("Review key must be a public Supabase publishable key");
+  if (mode==="--apply" && readonlyKey)
+    throw new Error("Production writes cannot use the review-only key");
+  if (!env.SUPABASE_SERVICE_ROLE_KEY && !(mode==="--dry-run" && readonlyKey))
+    throw new Error("Aggregator database credential is not configured");
   if (mode==="--apply" && (env.HACKERMATE_AGGREGATOR_ENABLED!=="true"
     || env.GITHUB_ACTIONS!=="true" || env.GITHUB_REPOSITORY!==REPO
     || env.GITHUB_REF!=="refs/heads/main"
@@ -37,6 +45,13 @@ function identityForRow(record,source) {
   if (validated.identity && (base.provider!==validated.identity.provider
     || base.canonical_url!==validated.identity.canonical_url)) return null;
   return {...base,provider_id:validated.identity?.provider_id||base.provider_id};
+}
+function protectedByPartner(row,partners) {
+  const clean=value=>{let s=String(value||"");while(s.endsWith("/"))s=s.slice(0,-1);return s;};
+  const url=clean(row?.website_url);
+  return partners.some(p=>Boolean(p && (row?.id && p.hackathon_id===row.id
+    || url && typeof p.features?.website_url==="string"
+      && clean(p.features.website_url)===url)));
 }
 function admission(validated,observation,now,source,forNew=false) {
   if (!policy.eligibleObservation(validated,observation,now)) return false;
@@ -65,25 +80,36 @@ async function main(mode=process.argv[2]) {
   const {summarizeSourceCoverage}=loader.load("src/lib/hackathons/sourceCoverage.ts");
   const {persistApprovedSourceEvidence,evidenceSnapshot}=loader.load("src/lib/hackathons/sourceEvidenceWriter.ts");
   const source={identifySource,validateSourceObservation,windowState};
-  const client=createClient(PROJECT_URL,process.env.SUPABASE_SERVICE_ROLE_KEY,
+  const client=createClient(PROJECT_URL,dryRun && process.env.HACKERMATE_AGGREGATOR_READONLY_PUBLISHABLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY,
     {auth:{autoRefreshToken:false,persistSession:false},global:{headers:{"X-HackerMate-Worker":"source-refresh-v1"}}});
   const started=Date.now(),slot=Math.floor(started/policy.RUN_SLOT_MS),observations=[];
   const catalog=await readCatalog(client);
+  // Match the live SQL writer protection boundary before allocating refresh/adoption checks.
+  // Both production service_role and the public read-only role can SELECT partner_configs;
+  // do not proceed with a partial or unavailable protection snapshot.
+  const partnerReply=await client.from("partner_configs").select("hackathon_id,features").limit(1000);
+  if(partnerReply.error || !Array.isArray(partnerReply.data) || partnerReply.data.length>=1000)
+    throw new Error("Complete partner protection snapshot unavailable; source worker fails closed");
+  const partners=partnerReply.data;
   const counts=policy.countIdentities(catalog,r=>identityForRow(r,source)),known=new Set(counts.keys());
+  const approvedRow=r=>(r.status==="approved" && r.archived===false
+    && ["external","official"].includes(String(r.type)));
   const result={mode:dryRun?"dry-run":"apply",dry_run_no_writes:dryRun,project_ref:PROJECT_REF,started_at:new Date(started).toISOString(),
     catalog_before:catalog.length,refreshed:0,adopted:0,created:0,
     refresh_held:0,legacy_held:0,discovery_held:0,checked:{refresh:0,legacy:0,new:0},
     providers_unavailable:[],remaining_refresh:0,phase_errors:[],accepted_closed_registration_ongoing:0,
-    source_failures:{},discovery_failure_details:[]};
+    source_failures:{},discovery_failure_details:[],
+    discovered_candidates:0,discovery_attempts_by_feed:{},discovery_admissions_by_feed:{},
+    partner_protected_records:catalog.filter(r=>approvedRow(r) && protectedByPartner(r,partners)).length,
+    // Read-only preview of the exact source targets and source-owned field names; no values or tokens.
+    write_preview:dryRun?{refresh:[],adoption:[],create:[]}:undefined};
   const failure=(provider,error)=>{
     const reason=String(error?.message||'unknown_source_failure');
     const key=provider+':'+reason;result.source_failures[key]=(result.source_failures[key]||0)+1;
     console.error('Aggregator source held:',provider,error);
   };
-  const approvedRow=r=>(r.status==="approved" && r.archived===false
-    && ["external","official"].includes(String(r.type)));
   // Existing trusted records are refreshed first, even if their evidence has expired.
-  const allRefresh=catalog.filter(approvedRow).filter(r=>r.source_metadata != null);
+  const allRefresh=catalog.filter(approvedRow).filter(r=>r.source_metadata != null && !protectedByPartner(r,partners));
   const refresh=policy.refreshPlan(allRefresh);
   const refreshTransport=new SourceTransport(fetch,MAX_SOURCE_MS,1000);
   for(const row of refresh){
@@ -110,6 +136,8 @@ async function main(mode=process.argv[2]) {
       observations.push({source_metadata:observation,website_url:row.website_url});
       const validated=validateSourceObservation(observation,row.website_url);
       if(!admission(validated,observation,Date.now(),source))throw new Error("invalid refresh evidence");
+      if(dryRun)result.write_preview.refresh.push({id:row.id,provider:identity.provider,
+        evidence_only:evidenceOnly,patch_fields:evidenceOnly?[]:Object.keys(sourcePatch(observation,row.website_url)).sort()});
       if(!dryRun){
         const apply=await client.rpc(evidenceOnly?"store_hackathon_source_evidence":"apply_hackathon_source_check",
           evidenceOnly?{
@@ -144,7 +172,7 @@ async function main(mode=process.argv[2]) {
   // Legacy adoption never replaces source/editorial fields. A standing founder approval
   // authorizes this policy, NOT an unreviewed factual overwrite or identity exception.
   const legacyTransport=new SourceTransport(fetch,MAX_SOURCE_MS,1000);
-  const legacy=policy.legacyPlan(catalog.filter(approvedRow),started,slot);
+  const legacy=policy.legacyPlan(catalog.filter(approvedRow).filter(r=>!protectedByPartner(r,partners)),started,slot);
   for(const row of legacy){
     if(legacyTransport.remaining()<MIN_BUDGET_MS)break;
     const identity=identityForRow(row,source),key=policy.sourceKey(identity);
@@ -155,6 +183,7 @@ async function main(mode=process.argv[2]) {
       observations.push({source_metadata:observation,website_url:row.website_url});
       const validated=validateSourceObservation(observation,row.website_url);
       if(!admission(validated,observation,Date.now(),source))throw new Error("unverified legacy evidence");
+      if(dryRun)result.write_preview.adoption.push({id:row.id,provider:identity.provider,evidence_only:true});
       if(!dryRun){
         const approval={record_id:row.id,provider_id:observation.provider_id,
           source_hash:observation.source_hash,checked_at:observation.checked_at,
@@ -171,23 +200,33 @@ async function main(mode=process.argv[2]) {
   const discovered=await discoverSources(discoveryTransport);
   result.providers_unavailable=discovered.failures;
   result.discovery_failure_details=discovered.failureDetails;
+  result.discovered_candidates=discovered.identities.length;
   const newItems=policy.discoveryPlan(discovered.identities,known,slot);
   for(const identity of newItems){
     if(discoveryTransport.remaining()<MIN_BUDGET_MS)break;
     result.checked.new++;
+    const feedKey=identity.provider+":"+(["open","upcoming","closed"].includes(identity.feed_bucket)?identity.feed_bucket:"unknown");
+    result.discovery_attempts_by_feed[feedKey]=(result.discovery_attempts_by_feed[feedKey]||0)+1;
     const key=policy.sourceKey(identity);
-    if(!key || known.has(key) || counts.has(key)){result.discovery_held++;continue;}
+    if(protectedByPartner({website_url:identity.canonical_url},partners)
+      || !key || known.has(key) || counts.has(key)){result.discovery_held++;continue;}
     try{
       const observation=await observe(identity,discoveryTransport);
       observations.push({source_metadata:observation,website_url:identity.canonical_url});
       const validated=validateSourceObservation(observation,identity);
       if(!admission(validated,observation,Date.now(),source,true))throw new Error("unverified new source");
-      const patch=sourcePatch(observation,identity);
+      // Feed buckets are sampling hints, never part of the trusted SQL identity.
+      const trustedIdentity=validated.identity;
+      if(!trustedIdentity)throw new Error("unverified new identity");
+      const patch=sourcePatch(observation,trustedIdentity);
       if(!patch.website_url || patch.website_url!==identity.canonical_url
         || typeof patch.name!=="string" || !patch.name.trim())throw new Error("incomplete source patch");
+      if(dryRun)result.write_preview.create.push({provider:trustedIdentity.provider,
+        provider_id:trustedIdentity.provider_id,canonical_url:trustedIdentity.canonical_url,
+        feed_bucket:identity.feed_bucket||"unknown",patch_fields:Object.keys(patch).sort()});
       if(!dryRun){
         const applied=await client.rpc("apply_hackathon_source_check",{
-          p_id:null,p_identity:identity,p_observation:observation,p_patch:patch,
+          p_id:null,p_identity:trustedIdentity,p_observation:observation,p_patch:patch,
           p_expected:null,p_attempt:randomUUID(),p_failure:null,p_adopt_fields:null});
         if(applied.error)console.error("New source writer failed:",applied.error);
         if(applied.error || applied.data?.status!=="created")throw new Error("new source writer held record");
@@ -201,6 +240,7 @@ async function main(mode=process.argv[2]) {
           throw new Error("new source postcondition failed");
       }
       known.add(key);result.created++;
+      result.discovery_admissions_by_feed[feedKey]=(result.discovery_admissions_by_feed[feedKey]||0)+1;
       if(observation.facts.registration_status==='closed' && validated.schedule
         && windowState(validated.schedule.start,validated.schedule.end,Date.now())==='ongoing')result.accepted_closed_registration_ongoing++;
     }catch(error){failure(identity.provider,error);result.discovery_held++}
@@ -232,4 +272,4 @@ async function main(mode=process.argv[2]) {
   return result;
 }
 if(require.main===module)main().catch(e=>{console.error("AGGREGATOR_FAILURE "+String(e?.message||e));process.exitCode=1});
-module.exports={main,assertEnvironment,keyForRow,identityForRow,admission};
+module.exports={main,assertEnvironment,keyForRow,identityForRow,protectedByPartner,admission};
