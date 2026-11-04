@@ -62,17 +62,24 @@ async function main(mode=process.argv[2]) {
   const {identifySource}=loader.load("src/lib/hackathons/providers.ts");
   const {validateSourceObservation,sourceFresh}=loader.load("src/lib/hackathons/source.ts");
   const {windowState}=loader.load("src/lib/hackathons/sourceEvidence.ts");
+  const {summarizeSourceCoverage}=loader.load("src/lib/hackathons/sourceCoverage.ts");
   const {persistApprovedSourceEvidence,evidenceSnapshot}=loader.load("src/lib/hackathons/sourceEvidenceWriter.ts");
   const source={identifySource,validateSourceObservation,windowState};
   const client=createClient(PROJECT_URL,process.env.SUPABASE_SERVICE_ROLE_KEY,
     {auth:{autoRefreshToken:false,persistSession:false},global:{headers:{"X-HackerMate-Worker":"source-refresh-v1"}}});
-  const started=Date.now(),slot=Math.floor(started/policy.RUN_SLOT_MS);
+  const started=Date.now(),slot=Math.floor(started/policy.RUN_SLOT_MS),observations=[];
   const catalog=await readCatalog(client);
   const counts=policy.countIdentities(catalog,r=>identityForRow(r,source)),known=new Set(counts.keys());
   const result={mode:dryRun?"dry-run":"apply",dry_run_no_writes:dryRun,project_ref:PROJECT_REF,started_at:new Date(started).toISOString(),
     catalog_before:catalog.length,refreshed:0,adopted:0,created:0,
     refresh_held:0,legacy_held:0,discovery_held:0,checked:{refresh:0,legacy:0,new:0},
-    providers_unavailable:[],remaining_refresh:0,phase_errors:[]};
+    providers_unavailable:[],remaining_refresh:0,phase_errors:[],accepted_closed_registration_ongoing:0,
+    source_failures:{},discovery_failure_details:[]};
+  const failure=(provider,error)=>{
+    const reason=String(error?.message||'unknown_source_failure');
+    const key=provider+':'+reason;result.source_failures[key]=(result.source_failures[key]||0)+1;
+    console.error('Aggregator source held:',provider,error);
+  };
   const approvedRow=r=>(r.status==="approved" && r.archived===false
     && ["external","official"].includes(String(r.type)));
   // Existing trusted records are refreshed first, even if their evidence has expired.
@@ -95,11 +102,12 @@ async function main(mode=process.argv[2]) {
             p_id:row.id,p_identity:identity,p_observation:null,
             p_expected:evidenceSnapshot(row),p_attempt:attempt,p_action:"lease",p_allow_initial:false,
           }:{p_id:row.id,p_attempt:attempt});
-        if(lease.error)throw new Error("refresh lease RPC failed");
+        if(lease.error){console.error("Refresh lease RPC failed:",lease.error);throw new Error("refresh lease RPC failed");}
         if(lease.data?.status!=="leased"){result.refresh_held++;continue;}
         snapshot=lease.data.snapshot;leased=true;
       }
       const observation=await observe(identity,refreshTransport);
+      observations.push({source_metadata:observation,website_url:row.website_url});
       const validated=validateSourceObservation(observation,row.website_url);
       if(!admission(validated,observation,Date.now(),source))throw new Error("invalid refresh evidence");
       if(!dryRun){
@@ -111,11 +119,13 @@ async function main(mode=process.argv[2]) {
             p_id:row.id,p_identity:identity,p_observation:observation,p_patch:sourcePatch(observation,row.website_url),
             p_expected:snapshot,p_attempt:attempt,p_failure:null,p_adopt_fields:null,
           });
+        if(apply.error)console.error("Refresh apply RPC failed:",apply.error);
         if(apply.error || apply.data?.status!==(evidenceOnly?"evidence_refreshed":"refreshed"))
           throw new Error("refresh apply rejected");
       }
       result.refreshed++;
-    }catch{
+    }catch(error){
+      failure(identity.provider,error);
       result.refresh_held++;
       if(leased && !dryRun){
         const failed=await client.rpc(evidenceOnly?"store_hackathon_source_evidence":"apply_hackathon_source_check",
@@ -126,7 +136,7 @@ async function main(mode=process.argv[2]) {
             p_id:row.id,p_identity:identity,p_observation:null,p_patch:{},
             p_expected:null,p_attempt:attempt,p_failure:"source_check_unsuccessful",p_adopt_fields:null,
           });
-        if(failed.error)result.phase_errors.push("refresh_failure_receipt_unavailable");
+        if(failed.error){console.error("Refresh failure receipt unavailable:",failed.error);result.phase_errors.push("refresh_failure_receipt_unavailable");}
       }
     }
   }
@@ -142,6 +152,7 @@ async function main(mode=process.argv[2]) {
     result.checked.legacy++;
     try{
       const observation=await observe(identity,legacyTransport);
+      observations.push({source_metadata:observation,website_url:row.website_url});
       const validated=validateSourceObservation(observation,row.website_url);
       if(!admission(validated,observation,Date.now(),source))throw new Error("unverified legacy evidence");
       if(!dryRun){
@@ -152,13 +163,14 @@ async function main(mode=process.argv[2]) {
         if(applied.status!=="evidence_refreshed")throw new Error("legacy policy writer held record");
       }
       result.adopted++;known.add(key);
-    }catch{result.legacy_held++}
+    }catch(error){failure(identity.provider,error);result.legacy_held++}
   }
   // Discover from all supported providers. Source transport enforces origin allowlists,
   // robots rules, redirect denial, per-origin pacing, response caps and request timeouts.
   const discoveryTransport=new SourceTransport(fetch,MAX_SOURCE_MS,1000);
   const discovered=await discoverSources(discoveryTransport);
   result.providers_unavailable=discovered.failures;
+  result.discovery_failure_details=discovered.failureDetails;
   const newItems=policy.discoveryPlan(discovered.identities,known,slot);
   for(const identity of newItems){
     if(discoveryTransport.remaining()<MIN_BUDGET_MS)break;
@@ -167,6 +179,7 @@ async function main(mode=process.argv[2]) {
     if(!key || known.has(key) || counts.has(key)){result.discovery_held++;continue;}
     try{
       const observation=await observe(identity,discoveryTransport);
+      observations.push({source_metadata:observation,website_url:identity.canonical_url});
       const validated=validateSourceObservation(observation,identity);
       if(!admission(validated,observation,Date.now(),source,true))throw new Error("unverified new source");
       const patch=sourcePatch(observation,identity);
@@ -176,20 +189,26 @@ async function main(mode=process.argv[2]) {
         const applied=await client.rpc("apply_hackathon_source_check",{
           p_id:null,p_identity:identity,p_observation:observation,p_patch:patch,
           p_expected:null,p_attempt:randomUUID(),p_failure:null,p_adopt_fields:null});
+        if(applied.error)console.error("New source writer failed:",applied.error);
         if(applied.error || applied.data?.status!=="created")throw new Error("new source writer held record");
         const id=applied.data.id;
         const {data:inserted,error}=await client.from("hackathons")
           .select("id,website_url,type,status,archived,source_metadata").eq("id",id).single();
+        if(error)console.error("New source postcondition query failed:",error);
         if(error || !inserted || inserted.website_url!==identity.canonical_url ||
           inserted.type!=="external" || inserted.status!=="approved" || inserted.archived!==false ||
           inserted.source_metadata?.source_hash!==observation.source_hash)
           throw new Error("new source postcondition failed");
       }
       known.add(key);result.created++;
-    }catch{result.discovery_held++}
+      if(observation.facts.registration_status==='closed' && validated.schedule
+        && windowState(validated.schedule.start,validated.schedule.end,Date.now())==='ongoing')result.accepted_closed_registration_ongoing++;
+    }catch(error){failure(identity.provider,error);result.discovery_held++}
   }
   const finalRows=dryRun?catalog:await readCatalog(client);
   const now=Date.now();
+  result.observed_evidence=summarizeSourceCoverage(observations,now);
+  result.catalog_evidence=summarizeSourceCoverage(finalRows.filter(approvedRow),now);
   result.catalog_after=finalRows.length;
   result.verified_metadata=finalRows.filter(r=>approvedRow(r)
     && sourceFresh(validateSourceObservation(r.source_metadata,r.website_url).metadata,now)).length;

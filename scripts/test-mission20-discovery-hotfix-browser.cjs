@@ -28,6 +28,15 @@ for(const width of [390,768,1440])test('guest/member discovery accuracy and pres
   const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));
   await page.clock.install({time:new Date('2026-11-02T12:00:00+05:30')});
   const fit=async()=>assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'no horizontal overflow');
+  await page.goto(BASE+'/hackathons?case=registration-compatibility');
+  for(const provider of ['devfolio','hack2skill','unstop'])await page.getByRole('link',{name:'Compatibility '+provider,exact:true}).waitFor();
+  await fit();
+  await page.goto(BASE+'/hackathons?case=registration-compatibility&tab=open');
+  for(const provider of ['devfolio','hack2skill','unstop'])await page.getByRole('link',{name:'Compatibility '+provider,exact:true}).waitFor();
+  await page.getByRole('tab',{name:/^Happening now/}).click();
+  await page.getByRole('link',{name:'Compatibility unstop',exact:true}).waitFor();
+  for(const provider of ['devfolio','hack2skill'])assert.equal(await page.getByRole('link',{name:'Compatibility '+provider,exact:true}).count(),0);
+  assert.equal(await page.evaluate(()=>window.fixtureWrites.length),0);
   for(const role of ['guest','member']){
    await page.goto(BASE+'/hackathons?role='+role);
    await page.getByRole('link',{name:'Imported registration window',exact:true}).waitFor();

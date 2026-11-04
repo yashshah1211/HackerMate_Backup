@@ -7,6 +7,7 @@ import { discoverSources, SourceTransport } from "./sourceTransport";
 import { eventDate, registrationState } from "./lifecycle";
 import { windowState, validatedSourceIdentity } from "./sourceEvidence";
 import { evidenceSnapshot } from "./sourceEvidenceWriter";
+import { summarizeSourceCoverage } from "./sourceCoverage";
 
 export const CATALOG_COLUMNS = "id,name,description,website_url,college,start_date,end_date,registration_start,registration_end,registration_status,min_team_size,max_team_size,mode,location,prize_pool,currency,rounds_info,rounds_count,tags,type,organizer_id,status,archived,source_metadata";
 export type CatalogRecord = Record<string, unknown> & { id: string; name: string; website_url: string | null };
@@ -180,6 +181,11 @@ export async function synchronizeCatalog(client: SupabaseClient, options: { dryR
     try {
       const observation = evidence = await observe(identity, transport), preview = reconciliation(record, observation);
       if (evidenceOnly) preview.changes = {};
+      if (!record && (!sourceFresh(observation, Date.now()) || observation.category !== "hackathon"
+        || preview.classification === "confirmed_ended_propose_suppression"
+        || !["registration_open", "ongoing_registration_closed", "ongoing"].includes(preview.classification))) {
+        results.push({ ...preview, status: "held", reason: "new_source_requires_open_registration_or_verified_ongoing", changes: {} }); continue;
+      }
       if (dryRun) { results.push(preview); continue; }
       if (!sourceMetadata(observation, record?.website_url)) throw new Error("invalid_source_observation");
       const result = await client.rpc(evidenceOnly ? "store_hackathon_source_evidence" : "apply_hackathon_source_check", evidenceOnly ? {
@@ -202,6 +208,7 @@ export async function synchronizeCatalog(client: SupabaseClient, options: { dryR
       results.push({ id: record?.id || null, name: record?.name || identity.canonical_url, provider: identity.provider, status: "unresolved", classification: "unresolved", changes: {}, requires_adoption: Boolean(record && !sourceMetadata(record.source_metadata, record.website_url)), reason: "source_check_unsuccessful", evidence, validation_errors: evidence ? validateSourceObservation(evidence, record?.website_url).errors : [] });
     }
   }
-  return { success: true, dryRun, checked, discovered: discovery.identities.length, discoveryFailures: discovery.failures,
+  return { success: true, dryRun, checked, discovered: discovery.identities.length, discoveryFailures: discovery.failures, discoveryFailureDetails: discovery.failureDetails,
+    observedCoverage: summarizeSourceCoverage(results.filter(r => r.evidence).map(r => ({ source_metadata: r.evidence })), Date.now()),
     remaining: Math.max(0, work.length - checked), results, message: `Catalog: ${checked} source checks; ${dryRun ? "preview only" : "source-owned writes only"}. No organizer emails sent.` };
 }

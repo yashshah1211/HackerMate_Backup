@@ -105,7 +105,7 @@ test('PG17.6 real source authority, refresh/adoption, editorial conflict, rollba
   }catch(e){return Response.json({message:e.message,code:'FIXTURE_SQL'},{status:400});}
  }}});
  const futureStart=new Date(Date.now()+2*86400000).toISOString(),futureEnd=new Date(Date.now()+3*86400000).toISOString(),futureDeadline=new Date(Date.now()+86400000).toISOString();
- let verifiedBuildWindow=true,adjacentStage=null,inventoryOverride=null,partnerPayload=null,partnerSourceFailure=false;
+ let omitOrganizerNarrative=false,verifiedBuildWindow=true,adjacentStage=null,inventoryOverride=null,partnerPayload=null,partnerSourceFailure=false;
  const fetchSource=async input=>{const u=new URL(input);
   if(u.pathname==='/robots.txt')return new Response('User-agent: *\nAllow: /');
   if(u.pathname.endsWith('search-result')){const sourceId=partnerPayload?1777639:9876;return Response.json({data:{data:u.searchParams.get('page')==='1'&&u.searchParams.get('oppstatus')==='open'?[{id:sourceId,public_url:'hackathons/synthetic-'+sourceId}]:[]}});}
@@ -117,6 +117,7 @@ test('PG17.6 real source authority, refresh/adoption, editorial conflict, rollba
   raw.data.competition.regnRequirements={start_regn_dt:'2026-01-01T00:00:00+05:30',end_regn_dt:futureDeadline,min_team_size:1,max_team_size:2};
   if(adjacentStage){raw.data.competition.rounds=[adjacentStage];raw.data.competition.regnRequirements.reg_status='CLOSED';}
   if(inventoryOverride){raw.data.competition.rounds=inventoryOverride;raw.data.competition.regnRequirements.reg_status='CLOSED';}
+  if(omitOrganizerNarrative)delete raw.data.competition.details;
   return Response.json(raw);
  };
  const syncOptions=()=>({dryRun:false,transport:new SourceTransport(fetchSource,240000,0)});
@@ -127,6 +128,13 @@ test('PG17.6 real source authority, refresh/adoption, editorial conflict, rollba
  assert.equal(db.sql("SELECT count(*) FROM hackathons WHERE source_metadata->>'provider_id'='9876'"),'1');
  const detail=await loadPublicEvent(api,actual.id);assert.equal(detail.id,actual.id);assert.equal(detail.start_date,futureStart);assert.equal(detail.registration_end,futureDeadline);
  pass('complete actual parser/SDK/orchestrator/PG17.6 writer/public detail chain creates then refreshes one source identity');
+ omitOrganizerNarrative=true;
+ const stageOnlyRefresh=await synchronizeCatalog(api,syncOptions());assert(stageOnlyRefresh.results.some(r=>r.id===actual.id&&r.status==='refreshed'));
+ const stageOnlyDetail=await loadPublicEvent(api,actual.id);assert.equal(stageOnlyDetail.start_date,futureStart);assert.equal(stageOnlyDetail.end_date,futureEnd);
+ assert.equal(stageOnlyDetail.source_metadata.check_status,'ok');assert.equal(registrationState(stageOnlyDetail,Date.now()),'open');assert.equal(activeOpportunity(stageOnlyDetail,Date.now()),true);
+ assert.equal(db.sql("SELECT count(*) FROM hackathons WHERE source_metadata->>'provider_id'='9876'"),'1');
+ omitOrganizerNarrative=false;
+ pass('absent Unstop narrative preserves complete stage proof and open registration through real PG refresh and public projection');
  verifiedBuildWindow=false;const unknownSchedule=await synchronizeCatalog(api,syncOptions());assert(unknownSchedule.results.some(r=>r.id===actual.id&&r.status==='refreshed'));
  const unknownDetail=await loadPublicEvent(api,actual.id);assert.equal(unknownDetail.start_date,null);assert.equal(unknownDetail.end_date,null);
  assert.equal(activeOpportunity(unknownDetail,Date.now()),true);assert.equal(registrationState(unknownDetail,Date.now()),'open');
@@ -206,13 +214,18 @@ test('PG17.6 real source authority, refresh/adoption, editorial conflict, rollba
  }
  pass('eight incomplete/contradictory multi-stage inventories cannot patch dates or authorize lifecycle/suppression through real PG refresh');
  const {buildStage}=require('../qa/fixtures/aggregator/provider-facts.cjs');
- for(const variant of ['agreeing','linked']){
-  const start=new Date(Date.now()-2*86400000).toISOString(),middle=new Date(Date.now()-86400000).toISOString(),end=new Date(Date.now()+86400000).toISOString();
+ for(const variant of ['agreeing','linked','organizer-instants']){
+  const minute=Math.floor(Date.now()/60000)*60000;
+  const start=new Date(minute-2*86400000).toISOString(),middle=new Date(minute-86400000).toISOString(),end=new Date(minute+86400000).toISOString();
   if(variant==='agreeing')inventoryOverride=[buildStage(start,end),buildStage(start,end)];
+  else if(variant==='organizer-instants'){
+   const words=v=>new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Kolkata',day:'numeric',month:'short',year:'numeric',hour:'numeric',minute:'2-digit',hour12:true}).format(new Date(v))+' IST';
+   inventoryOverride=[buildStage(start,end)];inventoryOverride[0].details[0].display_text=`The actual hackathon build takes place from ${words(start)} to ${words(end)}.`;
+  }
   else {const parent={...buildStage(start,end),title:'Hackathon build',display_text:'The actual hackathon build takes place in this stage.',start_date:start,end_date:end};parent.details=[buildStage(start,middle).details[0],buildStage(middle,end).details[0]];inventoryOverride=[parent];}
   await verifyInventory(`valid multi-stage=${variant}`,{sync:'refreshed',sql:'refreshed',stored:'ok',classification:'ongoing_registration_closed',supported:true,errors:[]});
  }
- pass('valid agreeing and explicitly linked multi-stage schedules refresh with supported dates and intended ongoing selection');
+ pass('valid agreeing, linked and exact organizer-text schedules refresh with supported dates, closed registration and intended ongoing selection');
  // Date-shift the captured provider format to keep real SQL freshness checks meaningful
  // on later CI runs. These are synthetic observations, never a new live Rack check.
  const capture=require('../qa/fixtures/aggregator/rack-it-up-captured.json'),partnerId=uid(9000),partnerIdentity=capture.identity;

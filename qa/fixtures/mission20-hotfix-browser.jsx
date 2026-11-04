@@ -3,7 +3,7 @@ import {useSyncExternalStore} from 'react';
 import {record as algorush} from './mission20-unverified/algorush.json';
 import providerFacts from './aggregator/provider-facts.cjs';
 import capture from './aggregator/rack-it-up-captured.json';
-import {identifySource,parseUnstop} from '@/lib/hackathons/providers';
+import {identifySource,parseUnstop,parseDevfolio,parseHack2skill} from '@/lib/hackathons/providers';
 export default function Link({href,children,...props}) { return <a href={href} {...props}>{children}</a>; }
 const replace=history.replaceState.bind(history);
 history.replaceState=(...args)=>{replace(...args);window.dispatchEvent(new Event('popstate'));};
@@ -37,7 +37,12 @@ const source=(row,category='hackathon')=>{
  row.website_url=canonical;
  const raw={data:{competition:{id:providerId,title:row.name,type:'hackathons',status:'LIVE',details:'A hackathon.',region:row.mode,
   regnRequirements:{start_regn_dt:row.registration_start,end_regn_dt:row.registration_end,reg_status:['2026-11-01','2026-10-31'].includes(row.registration_end)?'CLOSED':undefined},
-  rounds:[providerFacts.buildStage(row.start_date,row.end_date)]}}};
+  rounds:[providerFacts.buildStage(row.start_date+'T09:00:00+05:30',row.end_date+'T18:00:00+05:30')]}}};
+ // The ongoing case exercises organizer-text reconciliation through the real parser.
+ if(row.name==='Ongoing event closed applications'){
+  const claim='The actual hackathon build takes place from 1 Nov 2026, 9:00 AM IST to 7 Nov 2026, 6:00 PM IST.';
+  raw.data.competition.details=claim;raw.data.competition.rounds[0].details[0].display_text=claim;
+ }
  const m=parseUnstop(identifySource(canonical),raw,Date.parse('2026-11-02T06:29:00Z'),'a'.repeat(64));
  m.category=category;m.facts.registration_url=official;return m;
 };
@@ -66,7 +71,24 @@ const captured=parseUnstop(capture.identity,{data:{competition:{id:1777639,title
 captured.evidence_only=true;captured.protected_fields=['name','description','website_url','college','start_date','end_date','min_team_size','max_team_size','mode','location','prize_pool','currency','rounds_info','rounds_count','tags'];
 captured.check_status='unresolved';captured.issues=['editorial_override'];
 const partnerEvidence=event(50,'Organizer partner event',{website_url:capture.identity.canonical_url,description:'Organizer-owned complete description',start_date:'2026-12-11',end_date:'2026-12-13',registration_start:null,registration_end:null,registration_status:null,tags:['Editorial tag'],source_metadata:captured});
-const visible=params.get('case')==='partner-evidence'?[partnerEvidence]:params.get('case')==='empty-verified'?[rows.find(r=>r.id===id(9))]:params.get('case')==='boundary'?rows.filter(r=>r.id===id(8)).map(r=>({...r,type:'native'})):params.get('case')==='native'?rows.filter(r=>r.id===id(2)).map(r=>({...r,type:'native',name:'Native open event'})):rows;
+const compatibility=[];
+for(const provider of ['devfolio','hack2skill','unstop']){
+ const now=Date.parse('2026-11-02T06:29:00Z'),hash='a'.repeat(64);let m;
+ if(provider==='devfolio'){
+  const raw=structuredClone(providerFacts.devfolio),h=raw.props.pageProps.hackathon;
+  Object.assign(h,{starts_at:'2026-11-01',ends_at:'2026-11-03'});Object.assign(h.settings,{reg_starts_at:'2026-10-01T00:00:00Z',reg_ends_at:'2026-11-03T00:00:00Z',registration_status:'OPEN'});
+  m=parseDevfolio(identifySource('https://synthetic-build.devfolio.co'),'<script id="__NEXT_DATA__">'+JSON.stringify(raw)+'</script>',now,hash);
+ }else if(provider==='hack2skill')m=parseHack2skill({...identifySource('https://hack2skill.com/event/synthetic'),provider_id:'a'.repeat(24)},{success:true,data:{title:'Synthetic',type:'HACKATHON',startDate:'2026-11-01',endDate:'2026-11-03',registrationStart:'2026-10-01T00:00:00Z',registrationEnd:'2026-11-03T00:00:00Z',registrationStatus:'OPEN'}},now,hash);
+ else{
+  const raw=structuredClone(providerFacts.unstop);delete raw.data.competition.details;
+  raw.data.competition.rounds=[providerFacts.buildStage('2026-11-01T00:00:00Z','2026-11-03T00:00:00Z')];
+  Object.assign(raw.data.competition.regnRequirements,{start_regn_dt:'2026-10-01T00:00:00Z',end_regn_dt:'2026-11-03T00:00:00Z',reg_status:'OPEN'});
+  m=parseUnstop(identifySource('https://unstop.com/hackathons/synthetic-1234'),raw,now,hash);
+ }
+ m.facts.name='Compatibility '+provider;
+ compatibility.push({...event(60+compatibility.length,'Compatibility '+provider),...m.facts,name:'Compatibility '+provider,source_metadata:m});
+}
+const visible=params.get('case')==='registration-compatibility'?compatibility:params.get('case')==='partner-evidence'?[partnerEvidence]:params.get('case')==='empty-verified'?[rows.find(r=>r.id===id(9))]:params.get('case')==='boundary'?rows.filter(r=>r.id===id(8)).map(r=>({...r,type:'native'})):params.get('case')==='native'?rows.filter(r=>r.id===id(2)).map(r=>({...r,type:'native',name:'Native open event'})):rows;
 const user=member?{id:userId,email:'synthetic@example.invalid'}:null;
 export const supabase={auth:{getSession:async()=>({data:{session:user?{user}:null},error:null}),getUser:async()=>({data:{user},error:null}),
  onAuthStateChange:()=>({data:{subscription:{unsubscribe(){}}}})},
