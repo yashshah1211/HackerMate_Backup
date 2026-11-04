@@ -74,7 +74,7 @@ for(const width of [390,768,1440])test('guest/member discovery accuracy and pres
     assert(await page.getByRole('link',{name:'Official import 1',exact:true}).isVisible());
     assert(await page.getByRole('link',{name:'Build with AI: Bootcamps',exact:true}).isVisible());
    }
-   await page.getByRole('tab',{name:/^All listings/}).click();
+   await page.getByRole('tab',{name:/^Explore all/}).click();
    await page.getByRole('link',{name:algorush.name,exact:true}).waitFor();
    assert.equal(new URL(page.url()).searchParams.get('tab'),'all');
    for(const name of Array.from({length:8},(_,i)=>'Official import '+(i+1))){
