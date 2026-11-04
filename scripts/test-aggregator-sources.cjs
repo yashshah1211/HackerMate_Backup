@@ -36,6 +36,59 @@ test('missed daily check expires at 26h even if deadline is still future; forged
  assert.equal(life.activeOpportunity(event(m),now+26*3600000-1),true);assert.equal(life.activeOpportunity(event(m),now+26*3600000),false);
 });
 for(const patch of [{type:'workshops'}, {details:'A hackathon bootcamp workshop.'},{details:'Case study challenge.'},{rounds:[fixture.buildStage('2026-02-30','2026-11-07')]}, {rounds:[fixture.buildStage('2026-11-08','2026-11-07')]},{regnRequirements:{start_regn_dt:'2026-11-10',end_regn_dt:'2026-11-01'}},{regnRequirements:{min_team_size:4,max_team_size:1}}])test('ambiguous/contradictory publication cannot promote '+JSON.stringify(patch),()=>assert.deepEqual(list([event(observe(patch))]),[]));
+test('Devfolio source preserves actual organizer About copy and a verified positive cash aggregate',()=>{
+ const raw=clone(fixture.devfolio),h=raw.props.pageProps.hackathon;
+ h.about='Build a sustainable climate technology prototype with peers from multiple campuses. Participants can choose open-innovation tracks and pitch to organizers at the final demo.';
+ h.tagline='Build solutions for a better future';
+ raw.props.pageProps.aggregatePrizeValue=1620;raw.props.pageProps.aggregatePrizeCurrency='USD';
+ const m=p.parseDevfolio(p.identifySource('https://synthetic-build.devfolio.co'),html(raw),now,hash);
+ assert.equal(m.facts.description,h.about);
+ assert.equal(m.facts.prize_pool,'1620');
+ assert.equal(m.facts.currency,'USD');
+ assert.equal(m.check_status,'ok');
+ const patch=sync.sourcePatch(m);
+ assert.equal(patch.description,h.about);assert.equal(patch.prize_pool,'1620');
+ assert.equal(s.synchronizedEvent({...event(m),type:'external'}).description,h.about);
+});
+for(const aggregate of [0,'0','0.00',null,undefined,-10])
+ test('Devfolio unknown prize aggregate is not a guaranteed $0: '+String(aggregate),()=>{
+  const raw=clone(fixture.devfolio),h=raw.props.pageProps.hackathon;
+  h.description='A builder event centered on testing practical ideas with teammates and sharing working prototypes at the end of the hackathon.';
+  raw.props.pageProps.aggregatePrizeValue=aggregate;raw.props.pageProps.aggregatePrizeCurrency='USD';
+  const m=p.parseDevfolio(p.identifySource('https://synthetic-build.devfolio.co'),html(raw),now,hash);
+  assert.equal(m.facts.prize_pool,null);assert.equal(m.facts.currency,null);
+  const patch=sync.sourcePatch(m);
+  assert(!Object.hasOwn(patch,'prize_pool'));assert(!Object.hasOwn(patch,'currency'));
+  assert.equal(patch.description,h.description);
+ });
+test('Devfolio without organizer description stays empty rather than inventing event copy',()=>{
+ const raw=clone(fixture.devfolio),m=p.parseDevfolio(p.identifySource('https://synthetic-build.devfolio.co'),html(raw),now,hash);
+ assert.equal(m.facts.description,'');
+ assert.equal(sync.sourcePatch(m).description,'');
+});
+test('legacy Devfolio zero and synthetic description disappear from directory and detail projections',()=>{
+ const m=p.parseDevfolio(p.identifySource('https://synthetic-build.devfolio.co'),html(fixture.devfolio),now,hash);
+ const placeholder=m.facts.name+'. In-person event. See the official event page for the complete rules, eligibility and current registration information.';
+ const old={...m,facts:{...m.facts,description:placeholder,prize_pool:'0',currency:'USD'}};
+ const row={...event(old),type:'external',description:placeholder,prize_pool:'0',currency:'USD'};
+ const effective=s.synchronizedEvent(row);
+ assert.equal(effective.description,null);assert.equal(effective.prize_pool,null);assert.equal(effective.currency,null);
+ assert.equal(s.presentDevfolioDetails(row).description,null);
+ assert.equal(s.presentDevfolioDetails({...row,type:'native'}).description,placeholder);
+ assert.equal(s.presentDevfolioDetails({...row,type:'native'}).prize_pool,'0');
+ assert.equal(s.presentDevfolioDetails({...row,type:'official'}).description,placeholder);
+ assert.equal(s.presentDevfolioDetails({...row,type:'official'}).prize_pool,'0');
+ assert.equal(s.presentDevfolioDetails({...row,website_url:'https://devfolio.co.evil.invalid'}).description,placeholder);
+ assert.equal(s.presentDevfolioDetails({...row,description:'Explicit organizer details',prize_pool:'1620'}).description,'Explicit organizer details');
+ assert.equal(s.presentDevfolioDetails({...row,description:'Explicit organizer details',prize_pool:'1620'}).prize_pool,'1620');
+});
+test('Devfolio tagline is an optional truthful summary, not a fabricated status sentence',()=>{
+ const raw=clone(fixture.devfolio),h=raw.props.pageProps.hackathon;
+ h.tagline='A weekend to prototype creative open-source tools with builders from across India';
+ const m=p.parseDevfolio(p.identifySource('https://synthetic-build.devfolio.co'),html(raw),now,hash);
+ assert.equal(m.facts.description,h.tagline);
+});
+
 test('Devfolio real settings separate registration from event and preserve stable UUID, team size and official external action',()=>{
  const input=clone(fixture.devfolio);input.props.pageProps.hackathon.settings.external_apply_url='https://example.invalid/apply';
  const m=p.parseDevfolio(p.identifySource('https://synthetic-build.devfolio.co'),html(input),now,hash);
