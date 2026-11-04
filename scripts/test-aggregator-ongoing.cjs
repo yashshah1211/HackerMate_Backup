@@ -115,7 +115,9 @@ function discoveryTransport({closedFailure=false,collision=false}={}){
 test('bounded discovery includes closed/past candidates, dedupes and requires individual verification',async()=>{
  const t=discoveryTransport(),out=await transportModule.discoverSources(t);assert.equal(out.identities.length,3);
  assert.equal(t.calls.filter(url=>url.includes('oppstatus=closed')).length,3);assert(t.calls.length<=11);
- const closed=out.identities.find(i=>i.provider_id==='1234');assert(closed);assert(!Object.hasOwn(closed,'event_status'));
+ const closed=out.identities.find(i=>i.provider_id==='1234');assert(closed);assert.equal(closed.feed_bucket,'closed');assert(!Object.hasOwn(closed,'event_status'));
+ const opened=out.identities.find(i=>i.provider_id==='5678');assert.equal(opened?.feed_bucket,'open');
+ assert.equal(out.identities.find(i=>i.provider==='devfolio')?.feed_bucket,'closed');
  const m=observe();assert(worker.admission(s.validateSourceObservation(m,closed),m,now,{windowState:l.load('src/lib/hackathons/sourceEvidence.ts').windowState},true));
  const unverified=observe(c=>{c.rounds=[];c.details='A hackathon.'});assert.equal(worker.admission(s.validateSourceObservation(unverified),unverified,now,{windowState:l.load('src/lib/hackathons/sourceEvidence.ts').windowState},true),false);
 });

@@ -74,7 +74,8 @@ async function main(mode=process.argv[2]) {
     catalog_before:catalog.length,refreshed:0,adopted:0,created:0,
     refresh_held:0,legacy_held:0,discovery_held:0,checked:{refresh:0,legacy:0,new:0},
     providers_unavailable:[],remaining_refresh:0,phase_errors:[],accepted_closed_registration_ongoing:0,
-    source_failures:{},discovery_failure_details:[]};
+    source_failures:{},discovery_failure_details:[],
+    discovered_candidates:0,discovery_attempts_by_feed:{},discovery_admissions_by_feed:{}};
   const failure=(provider,error)=>{
     const reason=String(error?.message||'unknown_source_failure');
     const key=provider+':'+reason;result.source_failures[key]=(result.source_failures[key]||0)+1;
@@ -171,10 +172,13 @@ async function main(mode=process.argv[2]) {
   const discovered=await discoverSources(discoveryTransport);
   result.providers_unavailable=discovered.failures;
   result.discovery_failure_details=discovered.failureDetails;
+  result.discovered_candidates=discovered.identities.length;
   const newItems=policy.discoveryPlan(discovered.identities,known,slot);
   for(const identity of newItems){
     if(discoveryTransport.remaining()<MIN_BUDGET_MS)break;
     result.checked.new++;
+    const feedKey=identity.provider+":"+(["open","upcoming","closed"].includes(identity.feed_bucket)?identity.feed_bucket:"unknown");
+    result.discovery_attempts_by_feed[feedKey]=(result.discovery_attempts_by_feed[feedKey]||0)+1;
     const key=policy.sourceKey(identity);
     if(!key || known.has(key) || counts.has(key)){result.discovery_held++;continue;}
     try{
@@ -201,6 +205,7 @@ async function main(mode=process.argv[2]) {
           throw new Error("new source postcondition failed");
       }
       known.add(key);result.created++;
+      result.discovery_admissions_by_feed[feedKey]=(result.discovery_admissions_by_feed[feedKey]||0)+1;
       if(observation.facts.registration_status==='closed' && validated.schedule
         && windowState(validated.schedule.start,validated.schedule.end,Date.now())==='ongoing')result.accepted_closed_registration_ongoing++;
     }catch(error){failure(identity.provider,error);result.discovery_held++}
