@@ -14,6 +14,8 @@ const system = {
   Page: ({ children }) => React.createElement('main', null, children),
   PageHeader: ({ title, actions }) => React.createElement('header', null, React.createElement('h1', null, title), actions),
   Section: ({ title, children }) => React.createElement('section', null, React.createElement('h2', null, title), children),
+  Tape: ({ children }) => React.createElement('span', null, children),
+  Chip: ({ children }) => React.createElement('span', null, children),
   ButtonLink: ({ href, children }) => React.createElement('a', { href }, children),
   Button: ({ children, onClick, disabled }) => React.createElement('button', { onClick, disabled }, children),
   PageLoader: ({ label }) => React.createElement('p', null, label),
@@ -172,9 +174,10 @@ for (const onboard of [false, true]) test(`Rack discovery is the first section o
     event: { description: 'Synthetic event details. '.repeat(120), rounds_info: [{ name: 'Synthetic round' }] } });
   const headings = [...v.dom.window.document.querySelectorAll('section h2')].map(node => node.textContent);
   assert.equal(headings[0], 'Find teammates for Rack It Up');
-  assert(headings.includes('About this hackathon')); assert(headings.includes('Rounds'));
-  const headerAction = v.dom.window.document.querySelector('header a');
-  assert.equal(headerAction.textContent, onboard ? 'Complete profile for teammate matching' : 'Sign in for teammate matching');
+  assert(headings.includes('About this hackathon')); assert(headings.includes('Event rounds'));
+  const actionLabel = onboard ? 'Complete profile for teammate matching' : 'Sign in for teammate matching';
+  const headerAction = [...v.dom.window.document.querySelectorAll('a')].find(a => a.textContent.trim() === actionLabel);
+  assert(headerAction, 'guest hero must preserve the teammate sign-in action');
   assert.equal(new URL(headerAction.href).searchParams.get('next'), DESTINATION);
   assert.equal(new URL(headerAction.href).pathname, onboard ? '/onboarding' : '/login');
   assert.equal(v.rpcs.length, 1); assert.deepEqual(v.reads, ['hackathons']);
@@ -182,7 +185,7 @@ for (const onboard of [false, true]) test(`Rack discovery is the first section o
 
 test('Rack overview keeps the existing general participation action without mounting discovery', async t => {
   const v = await view(t, { detail: true, path: `/hackathons/${EVENT}` });
-  assert.equal(v.dom.window.document.querySelector('header a').textContent, 'Sign in to participate');
+  assert([...v.dom.window.document.querySelectorAll('a')].some(a => a.textContent.trim() === 'Sign in to participate'));
   assert.equal(v.rpcs.length, 0);
   assert.equal(v.dom.window.document.querySelector('section h2').textContent, 'About this hackathon');
 });
