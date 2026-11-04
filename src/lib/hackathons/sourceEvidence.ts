@@ -235,6 +235,9 @@ function organizerBuildWindow(value: unknown): StageWindow | null {
 export function reconciledOrganizerWindow(value: unknown, organizer: unknown, issues: string[], observedAt?: number): StageWindow | null {
   const inventory = retainBuildInventory(value);
   if (!inventory) { issues.push("build_inventory_unavailable_or_oversized"); return null; }
+  // An absent narrative carries no competing assertion. Replay the complete stage
+  // inventory below; malformed/oversized supplied text is not silently discarded.
+  if (organizer == null) organizer = "";
   if (typeof organizer !== "string" || organizer.length > 20000) {
     issues.push("organizer_text_unavailable_or_oversized"); return null;
   }

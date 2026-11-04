@@ -58,7 +58,7 @@ robots restrictions and absent event dates must be reported individually.
 
 ## Implemented contract and limits
 
-`aggregator-10` emits `reconciled_hackathon_organizer_instants_v4` for new
+`aggregator-11` emits `reconciled_hackathon_organizer_instants_v4` for new
 Unstop schedules. The validator replays both the retained original organizer
 text (maximum 20,000 characters) and complete retained round inventory. It
 continues replaying the existing vetted v3 basis. New calendar-only event
@@ -159,6 +159,63 @@ Windows initially blocked Chrome process startup and PostgreSQL WAL rename
 inside the execution sandbox. Reruns outside that process sandbox passed with
 Chrome's own sandbox, fixture network denial, and loopback-only PG isolation
 still enabled. No Docker or hosted test project was used.
+
+## Independent review compatibility follow-up (2026-11-04)
+
+Review `PRR_kwDOTLkm6c8AAAABV7zFsg` identified two registration regressions.
+The new regression suite reproduced both before the fixes (11 failures).
+
+- Calendar-only Devfolio/Hack2Skill boundaries now become null schedule facts,
+  with originals retained in `evidence.published_event_window` and an explicit
+  `date_only_event_window` schedule reason. Independently validated registration
+  remains usable. They cannot authorize ongoing status or date patches, including
+  when registration is closed. Contradictory/reversed windows, invalid registration,
+  cancelled statuses and a published ended status remain blocked.
+- Absent/null/empty Unstop narrative now replays the complete vetted build-stage
+  inventory instead of invalidating the observation. Hackathon taxonomy plus
+  complete reconciled build-stage proof can establish category without narrative.
+  Malformed/oversized supplied narrative withholds schedule authority but preserves
+  independently validated registration. Explicit contradictory/ambiguous date
+  assertions, incomplete inventories and conflicting categories stay held.
+- Freshness, identity verification, source validation, protected fields, SQL writers,
+  registrations and partner configuration rules are unchanged. No migration or
+  infrastructure change is introduced. The unattended worker uses these same
+  parsers and retains its existing budgets and schedule.
+
+`ISSUE-104-REVIEW-EVIDENCE.json` records a fresh GET-only comparison at 10:44 UTC:
+12 identical fresh provider responses were replayed through the reviewed head
+`9d8c7d8` and the corrected parser. All 12 retained their prior lifecycle and
+registration classification: four Unstop examples remain schedule-unknown; four
+Devfolio past events remain ended/closed; four Hack2Skill events lack event
+boundaries (two open and two closed registrations). No access restriction occurred
+in this sample and zero new ongoing events were established. These live samples
+do not reproduce the compatibility edge cases; deterministic regressions cover
+those cases. Response hashes and timestamps support this distinction.
+
+Follow-up qualification:
+
+- Full offline qualification: **1,961 passed**, zero failures. Eight additional
+  negative cases added during that run passed in the final targeted run below.
+- Final source/validation/lifecycle/transport/ongoing suites: **331 passed**,
+  including all 46 ongoing-suite tests and those eight additional negative cases.
+- TypeScript: passed. Scoped ESLint: 45 files clean, legacy diagnostics unchanged.
+- Full ESLint: **196 errors / 92 warnings**, no diagnostic changes against reviewed
+  head `9d8c7d8` (which already matched main's established baseline).
+- Native PostgreSQL 17.6: **39 grouped checks passed**, including the new absent
+  narrative refresh through the real SDK, SQL writer and public projection.
+- Real sandboxed Chrome: **390/768/1440 px passed**, including new Available now,
+  registration-open and Happening now assertions. Zero unexpected requests/writes.
+- `git diff --check`: passed.
+
+Browser regressions exercise real public projection. The first browser attempt revealed a
+fixture name mismatch (projection correctly uses verified source names); fixing
+that fixture did not require a product change.
+
+Rollout recommendation: keep this PR Draft for independent re-review. The
+compatibility fixes restore existing registration behavior; they do not justify
+production adoption of any unresolved schedule or a target ongoing count. Follow
+the separately authorized production plan below only after review and release
+approval. No production rollout, SQL apply, merge or deployment was performed.
 
 ## Production rollout plan — not executed
 

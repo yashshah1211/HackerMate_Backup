@@ -1,0 +1,343 @@
+{
+  "checked_at": "2026-11-04T10:44:21.013Z",
+  "baseline": "9d8c7d8ebe840710ac3e284a64d0e3474cea12ff",
+  "mode": "public GET only; same fresh response replayed into both parsers; no database writes",
+  "samples": [
+    {
+      "url": "https://unstop.com/hackathons/aegython-2026-aeglysai-1777958",
+      "provider": "unstop",
+      "checked_at": "2026-11-04T10:44:22.405Z",
+      "sha256": "2533937a6df4bea887fc2dc3481fc118786c870cb499a0971c40b96adbede7bb",
+      "before": {
+        "parser": "aggregator-10",
+        "check": "ok",
+        "category": "hackathon",
+        "registration": "open",
+        "event": "unknown",
+        "start": null,
+        "end": null,
+        "issues": [],
+        "schedule_reasons": [
+          "missing_build_stages"
+        ]
+      },
+      "after": {
+        "parser": "aggregator-11",
+        "check": "ok",
+        "category": "hackathon",
+        "registration": "open",
+        "event": "unknown",
+        "start": null,
+        "end": null,
+        "issues": [],
+        "schedule_reasons": [
+          "missing_build_stages"
+        ]
+      }
+    },
+    {
+      "url": "https://unstop.com/hackathons/hack-a-sol-50-international-institute-of-information-technology-iiit-naya-raipur-1786809",
+      "provider": "unstop",
+      "checked_at": "2026-11-04T10:44:23.891Z",
+      "sha256": "06be442527d852c33d2abb2ddc318d054d3512db4cb378e310e0f33d51e21358",
+      "before": {
+        "parser": "aggregator-10",
+        "check": "ok",
+        "category": "hackathon",
+        "registration": "open",
+        "event": "unknown",
+        "start": null,
+        "end": null,
+        "issues": [],
+        "schedule_reasons": [
+          "mixed_or_unsupported_build_stages"
+        ]
+      },
+      "after": {
+        "parser": "aggregator-11",
+        "check": "ok",
+        "category": "hackathon",
+        "registration": "open",
+        "event": "unknown",
+        "start": null,
+        "end": null,
+        "issues": [],
+        "schedule_reasons": [
+          "mixed_or_unsupported_build_stages"
+        ]
+      }
+    },
+    {
+      "url": "https://unstop.com/hackathons/codenova-india-2026-national-hackathon-wecodecoders-1783775",
+      "provider": "unstop",
+      "checked_at": "2026-11-04T10:44:25.521Z",
+      "sha256": "2b367d0511e9d85c10c8ab19a8c27db4a38a90bc79f8312b538eb7af1cfc2fde",
+      "before": {
+        "parser": "aggregator-10",
+        "check": "ok",
+        "category": "hackathon",
+        "registration": "open",
+        "event": "unknown",
+        "start": null,
+        "end": null,
+        "issues": [],
+        "schedule_reasons": [
+          "mixed_or_unsupported_build_stages"
+        ]
+      },
+      "after": {
+        "parser": "aggregator-11",
+        "check": "ok",
+        "category": "hackathon",
+        "registration": "open",
+        "event": "unknown",
+        "start": null,
+        "end": null,
+        "issues": [],
+        "schedule_reasons": [
+          "mixed_or_unsupported_build_stages"
+        ]
+      }
+    },
+    {
+      "url": "https://unstop.com/hackathons/codenexus-india-2026-national-hackathon-wecodecoders-1764747",
+      "provider": "unstop",
+      "checked_at": "2026-11-04T10:44:26.593Z",
+      "sha256": "db2c22eb5dc180b4fbc7c6e9384c4c92491f49b3ad979d6102c91011fdec87c2",
+      "before": {
+        "parser": "aggregator-10",
+        "check": "ok",
+        "category": "hackathon",
+        "registration": "closed",
+        "event": "unknown",
+        "start": null,
+        "end": null,
+        "issues": [],
+        "schedule_reasons": [
+          "mixed_or_unsupported_build_stages"
+        ]
+      },
+      "after": {
+        "parser": "aggregator-11",
+        "check": "ok",
+        "category": "hackathon",
+        "registration": "closed",
+        "event": "unknown",
+        "start": null,
+        "end": null,
+        "issues": [],
+        "schedule_reasons": [
+          "mixed_or_unsupported_build_stages"
+        ]
+      }
+    },
+    {
+      "url": "https://hackonhills8.devfolio.co",
+      "provider": "devfolio",
+      "checked_at": "2026-11-04T10:44:28.031Z",
+      "sha256": "28ee94b8752a892c15f4a0715fb922bc01773d40ca7e3250c150d294569b25ca",
+      "before": {
+        "parser": "aggregator-10",
+        "check": "ok",
+        "category": "hackathon",
+        "registration": "closed",
+        "event": "ended",
+        "start": "2026-10-31T06:30:00+00:00",
+        "end": "2026-11-01T20:00:00+00:00",
+        "issues": []
+      },
+      "after": {
+        "parser": "aggregator-11",
+        "check": "ok",
+        "category": "hackathon",
+        "registration": "closed",
+        "event": "ended",
+        "start": "2026-10-31T06:30:00+00:00",
+        "end": "2026-11-01T20:00:00+00:00",
+        "issues": []
+      }
+    },
+    {
+      "url": "https://surat-hack-2026.devfolio.co",
+      "provider": "devfolio",
+      "checked_at": "2026-11-04T10:44:29.283Z",
+      "sha256": "ba3087e6d28798a5817cce52de323c20f9a41074f61114b1defc02f7e1ee0607",
+      "before": {
+        "parser": "aggregator-10",
+        "check": "ok",
+        "category": "hackathon",
+        "registration": "closed",
+        "event": "ended",
+        "start": "2026-11-01T00:30:00+00:00",
+        "end": "2026-11-01T18:30:00+00:00",
+        "issues": []
+      },
+      "after": {
+        "parser": "aggregator-11",
+        "check": "ok",
+        "category": "hackathon",
+        "registration": "closed",
+        "event": "ended",
+        "start": "2026-11-01T00:30:00+00:00",
+        "end": "2026-11-01T18:30:00+00:00",
+        "issues": []
+      }
+    },
+    {
+      "url": "https://biosv2.devfolio.co",
+      "provider": "devfolio",
+      "checked_at": "2026-11-04T10:44:30.716Z",
+      "sha256": "81a4a0d0b67e32c4158da990ada941289ffe7d91528cbc8b9b3c99a8a7382900",
+      "before": {
+        "parser": "aggregator-10",
+        "check": "ok",
+        "category": "hackathon",
+        "registration": "closed",
+        "event": "ended",
+        "start": "2026-10-30T06:30:00+00:00",
+        "end": "2026-11-01T06:30:00+00:00",
+        "issues": []
+      },
+      "after": {
+        "parser": "aggregator-11",
+        "check": "ok",
+        "category": "hackathon",
+        "registration": "closed",
+        "event": "ended",
+        "start": "2026-10-30T06:30:00+00:00",
+        "end": "2026-11-01T06:30:00+00:00",
+        "issues": []
+      }
+    },
+    {
+      "url": "https://version-beta-9.devfolio.co",
+      "provider": "devfolio",
+      "checked_at": "2026-11-04T10:44:32.027Z",
+      "sha256": "0d22bc5b66779c13e02f9f717a5b1b6c088bb6456a32d09c05c4dfe56197d042",
+      "before": {
+        "parser": "aggregator-10",
+        "check": "ok",
+        "category": "hackathon",
+        "registration": "closed",
+        "event": "ended",
+        "start": "2026-10-30T14:30:00+00:00",
+        "end": "2026-11-01T02:30:00+00:00",
+        "issues": []
+      },
+      "after": {
+        "parser": "aggregator-11",
+        "check": "ok",
+        "category": "hackathon",
+        "registration": "closed",
+        "event": "ended",
+        "start": "2026-10-30T14:30:00+00:00",
+        "end": "2026-11-01T02:30:00+00:00",
+        "issues": []
+      }
+    },
+    {
+      "url": "https://hack2skill.com/event/startupbuildathon2026",
+      "provider": "hack2skill",
+      "checked_at": "2026-11-04T10:44:33.223Z",
+      "sha256": "735b51bc782c273906afdb000366cc60a70eab55e6e56dc4d09c6af63fa73bad",
+      "before": {
+        "parser": "aggregator-10",
+        "check": "ok",
+        "category": "hackathon",
+        "registration": "open",
+        "event": "unknown",
+        "start": null,
+        "end": null,
+        "issues": []
+      },
+      "after": {
+        "parser": "aggregator-11",
+        "check": "ok",
+        "category": "hackathon",
+        "registration": "open",
+        "event": "unknown",
+        "start": null,
+        "end": null,
+        "issues": []
+      }
+    },
+    {
+      "url": "https://hack2skill.com/event/watchfacedesignchallenge2026",
+      "provider": "hack2skill",
+      "checked_at": "2026-11-04T10:44:34.204Z",
+      "sha256": "ab3e5366adde3576968ae776814e91cdb4618293328ab04106eb7a8d90e76004",
+      "before": {
+        "parser": "aggregator-10",
+        "check": "ok",
+        "category": "hackathon",
+        "registration": "open",
+        "event": "unknown",
+        "start": null,
+        "end": null,
+        "issues": []
+      },
+      "after": {
+        "parser": "aggregator-11",
+        "check": "ok",
+        "category": "hackathon",
+        "registration": "open",
+        "event": "unknown",
+        "start": null,
+        "end": null,
+        "issues": []
+      }
+    },
+    {
+      "url": "https://hack2skill.com/event/codeverse2025",
+      "provider": "hack2skill",
+      "checked_at": "2026-11-04T10:44:35.254Z",
+      "sha256": "c3ed0fb30f51b2ff6737bdec0e9995328d141cd5a6e8c1ae36f0411129088028",
+      "before": {
+        "parser": "aggregator-10",
+        "check": "ok",
+        "category": "hackathon",
+        "registration": "closed",
+        "event": "unknown",
+        "start": null,
+        "end": null,
+        "issues": []
+      },
+      "after": {
+        "parser": "aggregator-11",
+        "check": "ok",
+        "category": "hackathon",
+        "registration": "closed",
+        "event": "unknown",
+        "start": null,
+        "end": null,
+        "issues": []
+      }
+    },
+    {
+      "url": "https://hack2skill.com/event/fit_fest-hackathon-2026",
+      "provider": "hack2skill",
+      "checked_at": "2026-11-04T10:44:36.231Z",
+      "sha256": "3c6ed2b0627bb38a90af19f9e2271768befa8c5f5bdd1c4d0e9a010771bcc587",
+      "before": {
+        "parser": "aggregator-10",
+        "check": "ok",
+        "category": "hackathon",
+        "registration": "closed",
+        "event": "unknown",
+        "start": null,
+        "end": null,
+        "issues": []
+      },
+      "after": {
+        "parser": "aggregator-11",
+        "check": "ok",
+        "category": "hackathon",
+        "registration": "closed",
+        "event": "unknown",
+        "start": null,
+        "end": null,
+        "issues": []
+      }
+    }
+  ]
+}

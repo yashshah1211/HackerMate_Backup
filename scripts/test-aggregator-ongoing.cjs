@@ -40,7 +40,54 @@ test('new date-only Devfolio and Hack2Skill observations cannot establish ongoin
  const dev=structuredClone(fixture.devfolio);Object.assign(dev.props.pageProps.hackathon,{starts_at:'2026-11-04',ends_at:'2026-11-05'});
  const a=p.parseDevfolio(p.identifySource('https://synthetic-build.devfolio.co'),'<script id="__NEXT_DATA__">'+JSON.stringify(dev)+'</script>',now,'a'.repeat(64));
  const b=p.parseHack2skill({...p.identifySource('https://hack2skill.com/event/synthetic'),provider_id:'a'.repeat(24)},{success:true,data:{title:'Fake',type:'HACKATHON',startDate:'2026-11-04',endDate:'2026-11-05'}},now,'a'.repeat(64));
- for(const m of [a,b]){assert(m.issues.includes('date_only_event_window'));assert.equal(life.eventState(row(m),now),'unknown')}
+ for(const m of [a,b]){assert(m.evidence.schedule_reasons.includes('date_only_event_window'));assert.equal(life.eventState(row(m),now),'unknown')}
+});
+
+for(const provider of ['devfolio','hack2skill'])for(const status of ['OPEN','CLOSED'])test(provider+' calendar-only schedule preserves independent '+status+' registration',()=>{
+ const registrationStart='2026-11-01T00:00:00Z',registrationEnd='2026-11-06T00:00:00Z';let m;
+ if(provider==='devfolio'){
+  const raw=structuredClone(fixture.devfolio),h=raw.props.pageProps.hackathon;
+  Object.assign(h,{starts_at:'2026-11-04',ends_at:'2026-11-05',event_status:'ONGOING'});Object.assign(h.settings,{reg_starts_at:registrationStart,reg_ends_at:registrationEnd,registration_status:status});
+  m=p.parseDevfolio(p.identifySource('https://synthetic-build.devfolio.co'),'<script id="__NEXT_DATA__">'+JSON.stringify(raw)+'</script>',now,'a'.repeat(64));
+ }else m=p.parseHack2skill({...p.identifySource('https://hack2skill.com/event/synthetic'),provider_id:'a'.repeat(24)},{success:true,data:{title:'Synthetic',type:'HACKATHON',startDate:'2026-11-04',endDate:'2026-11-05',eventStatus:'ONGOING',registrationStart,registrationEnd,registrationStatus:status}},now,'a'.repeat(64));
+ assert.equal(m.check_status,'ok');assert.equal(m.facts.start_date,null);assert.equal(m.facts.end_date,null);
+ assert.equal(life.eventState(row(m),now),'unknown');assert.equal(life.registrationState(row(m),now),status.toLowerCase());assert.equal(life.activeOpportunity(row(m),now),status==='OPEN');
+ assert.equal(s.hasEventScheduleEvidence(m),false);assert(!Object.hasOwn(l.load('src/lib/hackathons/synchronize.ts').sourcePatch(m),'start_date'));
+});
+for(const [name,change] of [
+ ['reversed calendar schedule',h=>{h.starts_at='2026-11-06';h.ends_at='2026-11-04'}],
+ ['ended provider status',h=>{h.event_status='COMPLETED'}],
+ ['cancelled provider status',h=>{h.event_status='CANCELLED'}],
+ ['invalid registration',h=>{h.settings.reg_ends_at='not-a-date'}],
+ ['reversed registration',h=>{h.settings.reg_starts_at='2026-11-07T00:00:00Z'}],
+])test('calendar normalization cannot hide '+name,()=>{
+ const raw=structuredClone(fixture.devfolio),h=raw.props.pageProps.hackathon;
+ Object.assign(h,{starts_at:'2026-11-04',ends_at:'2026-11-05',event_status:'ONGOING'});Object.assign(h.settings,{reg_starts_at:'2026-11-01T00:00:00Z',reg_ends_at:'2026-11-06T00:00:00Z',registration_status:'OPEN'});change(h);
+ const m=p.parseDevfolio(p.identifySource('https://synthetic-build.devfolio.co'),'<script id="__NEXT_DATA__">'+JSON.stringify(raw)+'</script>',now,'a'.repeat(64));
+ assert.equal(m.check_status,'unresolved');assert.equal(life.eventState(row(m),now),'unknown');assert.equal(life.activeOpportunity(row(m),now),false);
+});
+for(const [name,change] of [
+ ['explicit contradictory narrative',c=>{c.details=claim.replaceAll('2026','2027')}],
+ ['absent narrative with incomplete stages',c=>{delete c.details;c.rounds.push({status:'LIVE',is_hidden:0,is_inactive:0})}],
+ ['absent narrative with other taxonomy',c=>{delete c.details;c.type='competitions'}],
+])test('stage-only compatibility does not admit '+name,()=>{
+ const m=observe(c=>{c.regnRequirements.reg_status='OPEN';change(c)});
+ assert.equal(life.activeOpportunity(row(m),now),false);
+});
+for(const narrative of [undefined,null,'',42,'A hackathon. '+ 'x'.repeat(20001)])test('Unstop independent registration survives unavailable narrative '+String(narrative).slice(0,20),()=>{
+ const m=observe(c=>{c.details=narrative;c.rounds=[fixture.buildStage(start,end)];c.regnRequirements.reg_status='OPEN'});
+ assert.equal(m.check_status,'ok');assert.equal(life.registrationState(row(m),now),'open');assert(life.activeOpportunity(row(m),now));
+ assert.equal(life.eventState(row(m),now),narrative==null||narrative===''?'ongoing':'unknown');
+});
+test('Unstop complete stage-only proof refreshes through the source orchestrator with absent details',async()=>{
+ const raw=structuredClone(fixture.unstop),c=raw.data.competition;c.rounds=[fixture.buildStage(start,end)];delete c.details;
+ const prior=observe(c=>{c.details='A hackathon.';c.rounds=[fixture.buildStage(start,end)];c.regnRequirements.reg_status='OPEN'});
+ const stored={id:'00000000-0000-4000-8000-000000009105',name:'Synthetic',type:'external',status:'approved',archived:false,organizer_id:null,website_url:prior.canonical_url,source_metadata:prior};let reads=0;const calls=[];
+ class Clock extends Date {static now(){return now}}
+ const loader=harness({'./sourceTransport':{discoverSources:async()=>({identities:[],failures:[],failureDetails:[]})}},{Date:Clock,URLSearchParams});
+ const client={from(table){const q={select(){return q},order(){return q},limit(){return q},gt(){return q},abortSignal(){return Promise.resolve({data:table==='hackathons'?(reads++===0?[stored]:[]):[],error:null})}};return q},rpc(name,args){calls.push({name,args});if(name==='apply_hackathon_source_check')stored.source_metadata=args.p_observation;return {abortSignal:async()=>({data:name==='begin_hackathon_source_check'?{status:'leased',snapshot:{}}:{status:'refreshed'},error:null})}}};
+ const result=await loader.load('src/lib/hackathons/synchronize.ts').synchronizeCatalog(client,{dryRun:false,transport:{remaining:()=>240000,detail:async()=>({body:JSON.stringify(raw),hash:'a'.repeat(64),checkedAt:now})}});
+ assert.equal(result.results[0].status,'refreshed');assert.equal(calls.length,2);assert.equal(stored.source_metadata.check_status,'ok');assert.equal(life.eventState(stored,now),'ongoing');assert.equal(life.registrationState(stored,now),'open');assert(life.activeOpportunity(stored,now));
 });
 test('future open registration is active, but not ongoing; imported dates are never a substitute',()=>{
  const m=observe(c=>{c.details='A hackathon.';c.rounds=[fixture.buildStage('2026-11-06T09:00:00+05:30','2026-11-07T18:00:00+05:30')];c.regnRequirements.reg_status='OPEN'});
