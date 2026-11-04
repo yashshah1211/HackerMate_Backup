@@ -147,7 +147,8 @@ export function sourceFresh(m: SourceMetadata | null, now: number, fields: reado
  * A positive organizer prize and native/partner editorial copy are untouched.
  */
 export function presentDevfolioDetails<T extends { type?: string | null; website_url?: string | null }>(event: T): T {
-  if (event.type === "native") return event;
+  // Only third-party imported listings: never reinterpret official, native or partner editorial events.
+  if (event.type !== "external") return event;
   let isDevfolio = false;
   try {
     const u = new URL(event.website_url || "");
