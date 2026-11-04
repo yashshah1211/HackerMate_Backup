@@ -47,10 +47,11 @@ function identityForRow(record,source) {
   return {...base,provider_id:validated.identity?.provider_id||base.provider_id};
 }
 function protectedByPartner(row,partners) {
-  const url=String(row?.website_url||"").replace(/\\/+$/,"");
+  const clean=value=>{let s=String(value||"");while(s.endsWith("/"))s=s.slice(0,-1);return s;};
+  const url=clean(row?.website_url);
   return partners.some(p=>Boolean(p && (row?.id && p.hackathon_id===row.id
     || url && typeof p.features?.website_url==="string"
-      && p.features.website_url.replace(/\\/+$/,"")===url)));
+      && clean(p.features.website_url)===url)));
 }
 function admission(validated,observation,now,source,forNew=false) {
   if (!policy.eligibleObservation(validated,observation,now)) return false;
