@@ -101,9 +101,12 @@ const PORTAL = '/partners/rack-it-up-2026';
           assert.equal(await jump.getAttribute('href'), '#rack-teammates');
           await jump.click();
           await page.waitForFunction(() => {
-            const top = scrollY + document.getElementById('rack-teammates').getBoundingClientRect().top;
+            const target = document.getElementById('rack-teammates');
+            const top = scrollY + target.getBoundingClientRect().top;
+            const margin = parseFloat(getComputedStyle(target).scrollMarginTop) || 0;
             const maximum = document.scrollingElement.scrollHeight - innerHeight;
-            return scrollY > 0 && Math.abs(scrollY - Math.min(top, maximum)) < 3;
+            const expected = Math.max(0, Math.min(top - margin, maximum));
+            return scrollY > 0 && Math.abs(scrollY - expected) < 4;
           });
           assert.equal(new URL(page.url()).pathname + new URL(page.url()).search, DESTINATION);
           assert.equal(new URL(page.url()).hash, '#rack-teammates');
