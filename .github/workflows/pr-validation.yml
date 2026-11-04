@@ -39,6 +39,7 @@ jobs:
         run: |
           node --test --test-concurrency=1 \
             scripts/test-daily-report-claim.cjs \
+            scripts/test-founder-brief.cjs \
             scripts/test-organizer-candidate-discovery.cjs \
             scripts/test-auth-return-paths.cjs \
             scripts/test-evaluator-generation-admission.cjs \
