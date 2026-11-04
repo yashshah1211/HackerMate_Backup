@@ -105,6 +105,10 @@ for(const width of [390,768,1440])test('guest/member discovery accuracy and pres
    assert(await page.getByText(/Hackathon category unverified/).isVisible());
    await provenance.locator('summary').click();
    assert(await page.getByText('Solo',{exact:true}).isVisible());
+   if(role==='member') {
+    await page.getByRole('button',{name:'Find teammates',exact:true}).click();
+    assert.equal(await page.getByRole('tab',{name:/^Looking for teams/}).getAttribute('aria-selected'),'true');
+   }
    assert(await page.getByText(/15 Aug 2026/).first().isVisible());
    assert.equal(await page.getByText('Ongoing',{exact:true}).count(),0);
    if(role==='guest')assert.equal(await page.getByRole('link',{name:/View official event site/}).getAttribute('href'),algorush.website_url);
