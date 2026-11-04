@@ -51,9 +51,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 18
     env:
-      HACKERMATE_AGGREGATOR_ENABLED: \${{ vars.HACKERMATE_AGGREGATOR_ENABLED }}
+      HACKERMATE_AGGREGATOR_ENABLED: ${{ vars.HACKERMATE_AGGREGATOR_ENABLED }}
       NEXT_PUBLIC_SUPABASE_URL: https://rhryjrbebfrrfhtyyzbs.supabase.co
-      SUPABASE_SERVICE_ROLE_KEY: \${{ secrets.HACKERMATE_AGGREGATOR_SERVICE_ROLE_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.HACKERMATE_AGGREGATOR_SERVICE_ROLE_KEY }}
     steps:
       - name: Verify exact repository, branch and service secret
         shell: bash
@@ -74,7 +74,7 @@ jobs:
       - name: Run bounded source refresh
         shell: bash
         env:
-          EVENT_MODE: \${{ inputs.mode }}
+          EVENT_MODE: ${{ inputs.mode }}
         run: |
           mode="--dry-run"
           if [ "$GITHUB_EVENT_NAME" = "schedule" ] || [ "$EVENT_MODE" = "apply" ]; then
