@@ -2142,23 +2142,6 @@ function ResourceRow({
   );
 }
 
-function Fact({ label, value, stacked = false }: { label: string; value: ReactNode; stacked?: boolean }) {
-  if (stacked) {
-    return (
-      <div className="px-3.5 py-2.5">
-        <dt className="caps-label text-ink-3">{label}</dt>
-        <dd className="mt-1 break-words text-[13px] text-ink-2 [overflow-wrap:anywhere]">{value}</dd>
-      </div>
-    );
-  }
-  return (
-    <div className="flex items-center justify-between gap-3 px-3.5 py-2.5">
-      <dt className="shrink-0 caps-label text-ink-3">{label}</dt>
-      <dd className="min-w-0 truncate text-right text-[13px] text-ink-2">{value}</dd>
-    </div>
-  );
-}
-
 function Notice({ icon, title, body, action }: { icon: ReactNode; title: ReactNode; body: ReactNode; action: ReactNode }) {
   return (
     <div className="mt-4 flex flex-col gap-3 rounded-lg border border-line bg-raised px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
