@@ -35,6 +35,14 @@ test("PR live-source review uses only a public, read-only key",()=>{
     GITHUB_REF:"refs/heads/main",GITHUB_EVENT_NAME:"schedule"}),{name:"Error"});
 });
 
+test("partner-linked source rows are excluded by ID or canonical organizer link",()=>{
+  const partners=[{hackathon_id:"rack-event-id",features:{website_url:"https://unstop.com/hackathons/rack-1777639/"}}];
+  assert.equal(worker.protectedByPartner({id:"rack-event-id",website_url:"https://different.example"},partners),true);
+  assert.equal(worker.protectedByPartner({id:"other-event",website_url:"https://unstop.com/hackathons/rack-1777639"},partners),true);
+  assert.equal(worker.protectedByPartner({id:"other-event",website_url:"https://unstop.com/hackathons/unrelated"},partners),false);
+  assert.equal(worker.protectedByPartner({id:"other-event",website_url:""},[{hackathon_id:null,features:{}}]),false);
+});
+
 test("source identity keys distinguish provider-specific identities",()=>{
   assert.equal(p.sourceKey({provider:"unstop",provider_id:"1777639",canonical_url:"https://unstop.com/hackathons/a-1777639"}),"unstop:1777639");
   assert.equal(p.sourceKey({provider:"devfolio",provider_id:"uuid-1",canonical_url:"https://hack.devfolio.co/"}),"devfolio:https://hack.devfolio.co");
