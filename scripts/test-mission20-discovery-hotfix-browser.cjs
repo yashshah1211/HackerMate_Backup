@@ -31,24 +31,25 @@ for(const width of [390,768,1440])test('guest/member discovery accuracy and pres
   for(const role of ['guest','member']){
    await page.goto(BASE+'/hackathons?role='+role);
    await page.getByRole('link',{name:'Imported registration window',exact:true}).waitFor();
-   assert.equal(await page.getByRole('tab',{name:/^All Active/}).getAttribute('aria-selected'),'true');
-   assert(await page.getByText(/Active listings require current source evidence/).isVisible());
+   assert.equal(await page.getByRole('tab',{name:/^Available now/}).getAttribute('aria-selected'),'true');
+   assert(await page.getByRole('button',{name:'How are these listings verified?'}).isVisible());
    assert(await page.getByRole('link',{name:'Ongoing event closed applications',exact:true}).isVisible());
    for(let n=31;n<=36;n++)assert.equal(await page.getByRole('link',{name:'Adjacent stage '+n,exact:true}).count(),0);
    for(let n=37;n<=49;n++)assert.equal(await page.getByRole('link',{name:(n<=44?'Unresolved inventory ':'Invalid cache ')+n,exact:true}).count(),0);
    for(const name of ['Closed applications future event','Ended event',algorush.name,'Unverified availability event','Build with AI: Bootcamps',...Array.from({length:8},(_,i)=>'Official import '+(i+1))])assert.equal(await page.getByRole('link',{name,exact:true}).count(),0);
    await fit();await page.screenshot({path:path.join(OUT,`${role}-discovery-${width}.png`),fullPage:true});
-   await page.getByRole('tab',{name:/^Registration Open/}).click();
+   await page.goto(BASE+'/hackathons?tab=open&role='+role);
+   await page.getByRole('link',{name:'Imported registration window',exact:true}).waitFor();
    assert.equal(new URL(page.url()).searchParams.get('tab'),'open');
    assert.equal(await page.getByRole('link',{name:'Ongoing event closed applications',exact:true}).count(),0);
-   await page.getByRole('tab',{name:/^Ongoing/}).click();
+   await page.getByRole('tab',{name:/^Happening now/}).click();
    await page.getByRole('link',{name:'Ongoing event closed applications',exact:true}).waitFor();
    const ongoing=page.locator('li').filter({has:page.getByRole('link',{name:'Ongoing event closed applications',exact:true})});
    assert(await ongoing.getByText('Registration closed',{exact:true}).isVisible());
    for(const registration of ['unknown','open','all','closed']){
     await page.goto(BASE+'/hackathons?tab=recommended&registration='+registration+'&role='+role);
-    await page.getByRole('tab',{name:/^All Active/}).waitFor();
-    await page.getByText(/Active listings require current source evidence/).waitFor();
+    await page.getByRole('tab',{name:/^Available now/}).waitFor();
+    await page.getByRole('button',{name:'How are these listings verified?'}).waitFor();
     for(const name of [algorush.name,'Unverified availability event',...Array.from({length:8},(_,i)=>'Official import '+(i+1))])assert.equal(await page.getByRole('link',{name,exact:true}).count(),0);
     assert.equal(await page.evaluate(()=>window.fixtureWrites.length),0);
    }
@@ -57,14 +58,14 @@ for(const width of [390,768,1440])test('guest/member discovery accuracy and pres
    if(role==='guest'){
     assert(await page.evaluate(()=>window.fixtureReads.every(r=>r.table==='hackathons')));
    }else{
-    await page.getByRole('button',{name:/^Saved/}).click();
+    await page.getByRole('tab',{name:/^Saved/}).click();
     await page.getByRole('link',{name:'Closed applications future event',exact:true}).waitFor();
     assert(await page.getByRole('link',{name:'Ended event',exact:true}).isVisible());
     assert(await page.getByRole('link',{name:algorush.name,exact:true}).isVisible());
     assert(await page.getByRole('link',{name:'Official import 1',exact:true}).isVisible());
     assert(await page.getByRole('link',{name:'Build with AI: Bootcamps',exact:true}).isVisible());
    }
-   await page.getByRole('button',{name:'All listings / Unverified',exact:true}).click();
+   await page.getByRole('tab',{name:/^All listings/}).click();
    await page.getByRole('link',{name:algorush.name,exact:true}).waitFor();
    assert.equal(new URL(page.url()).searchParams.get('tab'),'all');
    for(const name of Array.from({length:8},(_,i)=>'Official import '+(i+1))){
@@ -135,12 +136,12 @@ for(const width of [390,768,1440])test('guest/member discovery accuracy and pres
   await page.getByRole('link',{name:'Browse hackathons',exact:true}).click();
   await page.getByRole('link',{name:'Imported registration window',exact:true}).waitFor();
   assert.equal(new URL(page.url()).pathname,'/hackathons');assert.equal(new URL(page.url()).searchParams.get('tab'),null);
-  assert.equal(await page.getByRole('tab',{name:/^All Active/}).getAttribute('aria-selected'),'true');
+  assert.equal(await page.getByRole('tab',{name:/^Available now/}).getAttribute('aria-selected'),'true');
   await page.getByRole('link',{name:'Imported registration window',exact:true}).click();await page.getByRole('heading',{name:'Imported registration window',exact:true}).waitFor();
   await page.goBack();await page.getByRole('link',{name:'Imported registration window',exact:true}).waitFor();
   await page.goForward();await page.getByRole('heading',{name:'Imported registration window',exact:true}).waitFor();
   await page.goBack();await page.getByRole('link',{name:'Imported registration window',exact:true}).waitFor();
-  await page.getByRole('tab',{name:/^Registration Open/}).click();await page.reload();await page.getByRole('link',{name:'Imported registration window',exact:true}).waitFor();
+  await page.goto(BASE+'/hackathons?tab=open');await page.reload();await page.getByRole('link',{name:'Imported registration window',exact:true}).waitFor();
   await page.goto(BASE+'/hackathons?case=native&tab=recommended');await page.getByRole('link',{name:'Native open event',exact:true}).waitFor();
   await page.goto(BASE+'/hackathons?tab=all&registration=closed');
   await page.getByRole('link',{name:'Closed applications future event',exact:true}).waitFor();

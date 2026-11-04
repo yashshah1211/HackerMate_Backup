@@ -91,23 +91,36 @@ test('real For you page includes empty-profile and generic-tag events with hones
 });
 test('URL settings and tab changes preserve other context, Saved expectations and event navigation', async () => {
   const view = await page({ query: 'tab=saved&source=partner', saved: ['past', 'unknown'] });
-  assert.deepEqual(view.ids(), ['past', 'unknown']); await view.click('Ongoing'); assert.deepEqual(view.ids(), ['ongoing']);
+  assert.deepEqual(view.ids(), ['past', 'unknown']); await view.click('Happening now'); assert.deepEqual(view.ids(), ['ongoing']);
   assert.equal(new URLSearchParams(view.location.search).get('source'), 'partner'); assert.equal(view.location.hash, '#discovery');
   await view.navigate('tab=upcoming'); assert.deepEqual(view.ids(), ['future']);
   assert.match(view.html, /href="\/hackathons\/future"/); assert.match(view.html, /href="\/hackathons\/create"/);
 });
 test('combined desktop filters have correct counts, empty-state guidance and reset all controls', async () => {
   const view = await page({ query: 'source=partner', events: [event('match', { tags: ['React'], mode: 'hybrid', min_team_size: 1, max_team_size: 4 }), event('other')] });
-  await view.choose('hk-topic-desktop', 'react'); await view.choose('hk-size-desktop', 'solo'); await view.search('match');
-  assert.deepEqual(view.ids(), ['match']); assert.match(view.html, /3 active settings/);
-  await view.choose('hk-from-desktop', '2026-10-21'); assert.deepEqual(view.ids(), []); assert.match(view.html, /No events match these settings/);
-  await view.click('Clear filters'); assert.deepEqual(view.ids(), ['match', 'other']); assert(!view.html.includes('active settings'));
+  await view.click('Filters'); await view.choose('hk-topic-mobile', 'react'); await view.choose('hk-size-mobile', 'solo'); await view.search('match');
+  assert.deepEqual(view.ids(), ['match']); assert.match(view.html, /3 selected filters/);
+  await view.choose('hk-from-mobile', '2026-10-21'); assert.deepEqual(view.ids(), []); assert.match(view.html, /No events match these settings/);
+  await view.click('Clear filters'); assert.deepEqual(view.ids(), ['match', 'other']); assert(!view.html.includes('selected filters'));
   assert.equal(new URLSearchParams(view.location.search).get('source'), 'partner');
 });
 test('mobile sheet offers the same filters and reset clears the search too', async () => {
-  const view = await page({ query: 'tab=recommended' }); await view.search('future'); await view.click('1'); // Filters button carries active count.
+  const view = await page({ query: 'tab=recommended' }); await view.search('future'); await view.click('Filters'); // Advanced filters are opened on demand.
   await view.choose('hk-topic-mobile', 'react'); assert.deepEqual(view.ids(), []);
   await view.click('Reset'); assert.equal(new URLSearchParams(view.location.search).has('q'), false); assert.deepEqual(view.ids(), ['future', 'ongoing', 'unknown']);
+});
+test('simplified default keeps advanced settings out of the initial layout and makes verified status understandable', async () => {
+  const view = await page();
+  assert.match(view.html, /Available now/);
+  assert.match(view.html, /Happening now/);
+  assert.match(view.html, /All listings/);
+  assert.match(view.html, /All formats/);
+  assert(!view.html.includes('Registration deadline from'));
+  assert(!view.html.includes('416 schedules unverified'));
+  await view.click('Filters');
+  assert.match(view.html, /Registration deadline from/);
+  await view.click('See past events');
+  assert.equal(new URLSearchParams(view.location.search).get('tab'), 'past');
 });
 test('save/unsave still uses the existing user-scoped workflow and updates Saved immediately', async () => {
   const view = await page(); await view.save('future', false); assert.equal(view.writes[0].operation, 'insert');
@@ -116,13 +129,13 @@ test('save/unsave still uses the existing user-scoped workflow and updates Saved
 });
 test('save failure and signed-out save never invent a successful bookmark', async () => {
   const view = await page({ saveError: true }); await view.save('future', false); assert.equal(view.toasts.at(-1).type, 'error');
-  await view.click('Saved'); assert.deepEqual(view.ids(), []); await view.click('All Active'); view.signOut(); await view.save('future', false);
+  await view.click('Saved'); assert.deepEqual(view.ids(), []); await view.click('Available now'); view.signOut(); await view.save('future', false);
   assert.equal(view.toasts.at(-1).type, 'warning'); assert.equal(view.writes.length, 1);
 });
 test('refreshing the display clock updates ongoing/ended results without another backend request', async () => {
   const view = await page({ query: 'tab=ongoing', events: [event('boundary', { start_date: '2026-10-14T11:00:00Z', end_date: '2026-10-14T13:00:00Z' })] });
   assert.deepEqual(view.ids(), ['boundary']); const count = view.reads.length; await view.advance(Date.parse('2026-10-14T13:00:00Z')); assert.deepEqual(view.ids(), []); assert.equal(view.reads.length, count);
-  await view.click('Past listings'); assert.deepEqual(view.ids(), ['boundary']);
+  await view.click('Filters'); await view.click('See past events'); assert.deepEqual(view.ids(), ['boundary']);
 });
 
 test('search preserves a trailing space while typing and still trims for matching', async () => {

@@ -138,7 +138,7 @@ async function mount(options = {}) {
 test('real directory effects: guests browse/filter, Saved and bookmarks offer sign-in, no private reads or writes', async () => {
   const view = await mount({ query: '?tab=upcoming&q=Public&mode=hybrid&source=partner' });
   try {
-    assert.match(view.html, /Public synthetic-event/); assert.match(view.html, /All Active/); assert(!view.html.includes('0 saved'));
+    assert.match(view.html, /Public synthetic-event/); assert.match(view.html, /Available now/); assert(!view.html.includes('0 saved'));
     await view.click('Save hackathon');
     const link = [...view.dom.window.document.querySelectorAll('a')].find(a => a.textContent === 'Sign in');
     assert(link); assert.equal(new URL(link.href).searchParams.get('next'), '/hackathons?tab=upcoming&q=Public&mode=hybrid&source=partner');
@@ -181,7 +181,7 @@ test('account transitions discard stale private renders and unsubscribe on unmou
   try {
     assert(view.c.reads.some(r => r.table === 'saved_hackathons'));
     await view.change(() => view.c.signOut()); assert.match(view.html, /Account verification unavailable/);
-    await view.click('Sign out and browse public events'); assert.match(view.html, /All Active/);
+    await view.click('Sign out and browse public events'); assert.match(view.html, /Available now/);
     assert(!view.html.includes('0 saved')); assert.equal(view.c.listeners.size, 1);
   } finally { await view.close(); }
   assert.equal(view.c.listeners.size, 0); assert.equal(view.c.stopped, 1);
