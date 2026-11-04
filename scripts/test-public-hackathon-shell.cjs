@@ -92,11 +92,11 @@ async function appView(options = {}) {
   const previous = { window: global.window, document: global.document, localStorage: global.localStorage, IS_REACT_ACT_ENVIRONMENT: global.IS_REACT_ACT_ENVIRONMENT };
   Object.assign(global, { window: dom.window, document: dom.window.document, localStorage: dom.window.localStorage, IS_REACT_ACT_ENVIRONMENT: true });
   dom.window.matchMedia = () => ({ matches: false, addEventListener() {}, removeEventListener() {} });
-  const records = { mounts: [], cleanups: [], listeners: new Set(), hookCalls: 0 };
+  const records = { mounts: [], cleanups: [], listeners: new Set(), hookCalls: 0, authChecks: 0 };
   let userId = options.user || null;
   const client = { auth: {
     async getSession() { return { data: { session: userId ? { user: { id: userId } } : null }, error: null }; },
-    async getUser() { return { data: { user: userId ? { id: userId } : null }, error: options.unverified ? { name: 'AuthApiError' } : null }; },
+    async getUser() { records.authChecks++; return { data: { user: userId ? { id: userId } : null }, error: options.unverified ? { name: 'AuthApiError' } : null }; },
     onAuthStateChange(fn) { records.listeners.add(fn); return { data: { subscription: { unsubscribe() { records.listeners.delete(fn); } } } }; },
     async signOut() { userId = null; records.listeners.forEach(fn => fn('SIGNED_OUT', null)); return { error: null }; },
   }, from(table) { assert.equal(table, 'profiles'); return { select(columns) { assert.equal(columns, 'id,is_banned,onboarding_completed'); return this; }, eq() { return this; }, async maybeSingle() { return { data: { id: userId, is_banned: !!options.banned, onboarding_completed: true }, error: null }; } }; } };
@@ -128,6 +128,8 @@ async function appView(options = {}) {
   await settle();
   return { records, dom, get html() { return dom.window.document.body.innerHTML; },
     async emit(event, identity) { userId = identity; await React.act(async () => records.listeners.forEach(fn => fn(event, identity ? { user: { id: identity } } : null))); await settle(); },
+    async focus() { await React.act(async () => dom.window.dispatchEvent(new dom.window.Event('focus'))); await settle(); },
+    changeUserSilently(next) { userId = next; },
     async signOutExplicitly() { const button = [...dom.window.document.querySelectorAll('button')].find(node => node.textContent === 'Sign out and browse public events'); assert(button); await React.act(async () => button.click()); await settle(); },
     async close() { await React.act(async () => root.unmount()); assert.equal(records.listeners.size, 0); dom.window.close(); Object.assign(global, previous); },
   };
@@ -151,4 +153,60 @@ test('shell boundary: unsolicited sign-out cleans private shell and requires exp
   const view = await appView({ user: A });
   try { await view.emit('SIGNED_OUT', null); assert.deepEqual(view.records.cleanups, [A]); assert.match(view.html, /Account verification unavailable/); assert(!view.html.includes('data-public-discovery-shell')); await view.signOutExplicitly(); assert.match(view.html, /data-public-discovery-shell/); assert.equal(view.records.mounts.length, 1); }
   finally { await view.close(); }
+});
+
+// Returning to an open tab should reauthorize, not destroy the directory and
+// cause a fresh multi-page listing fetch for the same verified identity.
+test('shell boundary: same-account tab focus rechecks auth without remounting the view',async()=>{
+  const view=await appView({user:A});
+  try{
+    const before=view.dom.window.document.querySelector('[data-private-shell]');
+    const checks=view.records.authChecks;
+    await view.focus();
+    assert(view.records.authChecks>checks,'focus must verify current account');
+    assert.strictEqual(view.dom.window.document.querySelector('[data-private-shell]'),before);
+    assert.deepEqual(view.records.mounts,[A]);
+    assert.deepEqual(view.records.cleanups,[]);
+    assert.equal(view.records.listeners.size,1);
+  }finally{await view.close()}
+});
+test('shell boundary: same-account token refresh keeps verified content mounted',async()=>{
+  const view=await appView({user:A});
+  try{
+    const before=view.dom.window.document.querySelector('[data-private-shell]');
+    await view.emit('TOKEN_REFRESHED',A);
+    assert.strictEqual(view.dom.window.document.querySelector('[data-private-shell]'),before);
+    assert.deepEqual(view.records.mounts,[A]);
+    assert.deepEqual(view.records.cleanups,[]);
+  }finally{await view.close()}
+});
+test('shell boundary: focus detects changed identity and drops previous account content',async()=>{
+  const view=await appView({user:A});
+  try{
+    view.changeUserSilently(B);
+    await view.focus();
+    assert.deepEqual(view.records.cleanups,[A]);
+    assert.deepEqual(view.records.mounts,[A,B]);
+    assert.match(view.html,/data-private-shell/);
+  }finally{await view.close()}
+});
+test('shell boundary: focus detects missing account and fails closed without guest downgrade',async()=>{
+  const view=await appView({user:A});
+  try{
+    view.changeUserSilently(null);
+    await view.focus();
+    assert.match(view.html,/Account verification unavailable/);
+    assert(!view.html.includes('data-private-shell'));
+    assert(!view.html.includes('data-public-discovery-shell'));
+  }finally{await view.close()}
+});
+test('shell boundary: guest tab focus also keeps public content mounted',async()=>{
+  const view=await appView();
+  try{
+    const before=view.dom.window.document.querySelector('[data-public-discovery-shell]');
+    const checks=view.records.authChecks;
+    await view.focus();
+    assert(view.records.authChecks>checks);
+    assert.strictEqual(view.dom.window.document.querySelector('[data-public-discovery-shell]'),before);
+  }finally{await view.close()}
 });

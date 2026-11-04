@@ -356,7 +356,10 @@ function HackathonsContent({ access }: { access: Extract<BrowsingAccess, { kind:
   const topics = [...new Map(hackathons.flatMap(h => eventTopics(h)).map(tag => [tag.toLowerCase(), tag])).entries()]
     .sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0);
   const openCount = discoverEvents(hackathons, { ...settings, tab: "open" }, userSkills, savedIds, now).length;
-  const ongoingCount = discoverEvents(hackathons, { ...settings, tab: "ongoing" }, userSkills, savedIds, now).length;
+  // Visibility is based on the entire trusted catalog, never on the current search/filters.
+  // This avoids an unhelpful zero tab while keeping ongoing detection and deep links intact.
+  const ongoingCatalogCount = discoverEvents(hackathons,
+    { ...readDiscoverySettings(new URLSearchParams()), tab: "ongoing" }, userSkills, savedIds, now).length;
   const activeCount = discoverEvents(hackathons, { ...settings, tab: "active" }, userSkills, savedIds, now).length;
   const defaultSort = activeTab === "recommended" ? "relevant" : "date";
   const activeFilterCount = [search.trim(), modeFilter, platformFilter, settings.topic, settings.from, settings.to,
@@ -373,7 +376,9 @@ function HackathonsContent({ access }: { access: Extract<BrowsingAccess, { kind:
   // offering three clear public choices instead of overlapping technical filters.
   const tabOptions: { value: Tab; label: string; count?: number }[] = [
     { value: "active", label: "Available now", count: activeCount },
-    { value: "ongoing", label: "Happening now", count: ongoingCount },
+    ...(ongoingCatalogCount > 0 || activeTab === "ongoing"
+      ? [{ value: "ongoing" as Tab, label: "Happening now", count: ongoingCatalogCount || undefined }]
+      : []),
     { value: "all", label: "All listings", count: hackathons.length },
     { value: "saved", label: "Saved", count: savedIds.size || undefined },
   ];

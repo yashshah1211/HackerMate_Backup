@@ -17,15 +17,22 @@ export default function BrowsingBoundary({ children }: { children: (access: Read
 
 function BrowsingBoundaryRoot({ children }: { children: (access: ReadableAccess) => ReactNode }) {
   const [access, setAccess] = useState<BrowsingAccess | null>(null);
+  const accessRef = useRef<BrowsingAccess | null>(null);
+  const publishAccess = (next: BrowsingAccess | null) => {
+    accessRef.current = next;
+    setAccess(next);
+  };
   const requiresExplicitGuest = useRef(false);
   const actions = useRef<{ retry: () => void; signOut: () => void } | null>(null);
   useEffect(() => {
     let alive = true, generation = 0;
     let signOutRequest: number | null = null;
     const timers = new Set<ReturnType<typeof setTimeout>>();
-    const evaluate = () => {
+    const evaluate = (preserveCurrent = false) => {
       const request = ++generation;
-      setAccess(null);
+      // A same-tab focus/unchanged-token recheck must not tear down the entire
+      // directory and refetch every event. Hard auth changes still clear it.
+      if (!preserveCurrent) publishAccess(null);
       // Defer Supabase calls outside its auth callback/lock.
       const timer = setTimeout(async () => {
         timers.delete(timer);
@@ -34,7 +41,7 @@ function BrowsingBoundaryRoot({ children }: { children: (access: ReadableAccess)
         if (!alive || request !== generation) return;
         if (next.kind !== "guest") requiresExplicitGuest.current = true;
         // Missing credentials cannot erase an observed account or verification failure.
-        setAccess(next.kind === "guest" && requiresExplicitGuest.current ? { kind: "unavailable" } : next);
+        publishAccess(next.kind === "guest" && requiresExplicitGuest.current ? { kind: "unavailable" } : next);
       }, 0);
       timers.add(timer);
     };
@@ -43,7 +50,7 @@ function BrowsingBoundaryRoot({ children }: { children: (access: ReadableAccess)
       const request = ++generation;
       signOutRequest = request;
       requiresExplicitGuest.current = true;
-      setAccess(null);
+      publishAccess(null);
       const timer = setTimeout(async () => {
         timers.delete(timer);
         if (!alive || request !== generation) { signOutRequest = null; return; }
@@ -55,10 +62,10 @@ function BrowsingBoundaryRoot({ children }: { children: (access: ReadableAccess)
           if (!alive || request !== generation) return;
           if (next.kind !== "guest") throw new Error("Sign-out did not establish public browsing access");
           requiresExplicitGuest.current = false;
-          setAccess(next);
+          publishAccess(next);
         } catch (error) {
           console.error("Public browsing sign-out failed:", error);
-          if (alive && request === generation) setAccess({ kind: "unavailable" });
+          if (alive && request === generation) publishAccess({ kind: "unavailable" });
         } finally { signOutRequest = null; }
       }, 0);
       timers.add(timer);
@@ -70,11 +77,19 @@ function BrowsingBoundaryRoot({ children }: { children: (access: ReadableAccess)
       // This event alone proves no intent. Only our still-current explicit action
       // may wait for its own signOut + verification to establish a guest state.
       if (event === "SIGNED_OUT" && !session && signOutRequest === generation) return;
-      evaluate();
+      // Supabase can emit SIGNED_IN or TOKEN_REFRESHED on tab focus for the
+      // *same* account. Verify again, but preserve the already-verified view.
+      // A different identity, missing session or explicit sign-out still clears
+      // the view immediately, preventing cross-account content exposure.
+      const sameMember = accessRef.current?.kind === "member"
+        && session?.user?.id === accessRef.current.userId
+        && ["SIGNED_IN", "TOKEN_REFRESHED", "USER_UPDATED", "INITIAL_SESSION"].includes(event);
+      evaluate(Boolean(sameMember));
     });
     evaluate();
-    // Recheck account state when returning from another tab, without polling.
-    const onFocus = () => { evaluate(); };
+    // Recheck access when returning from another tab without discarding
+    // verified content. A failed or changed verification still replaces it.
+    const onFocus = () => { evaluate(true); };
     window.addEventListener("focus", onFocus);
     return () => { alive = false; generation++; actions.current = null; subscription.unsubscribe(); timers.forEach(clearTimeout); window.removeEventListener("focus", onFocus); };
   }, []);
