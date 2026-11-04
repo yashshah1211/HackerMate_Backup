@@ -526,7 +526,7 @@ function HackathonsContent({ access }: { access: Extract<BrowsingAccess, { kind:
           <div className="flex items-center gap-2">
             <div className="min-w-0 flex-1 sm:w-[160px] sm:flex-none">
               <DiscoveryDropdown id="hk-mode-quick" label="Event format" value={modeFilter}
-                onChange={setModeFilter} compact options={[
+                onChange={setModeFilter} options={[
                   { value: "", label: "All formats" }, { value: "online", label: "Online" },
                   { value: "in-person", label: "In person" }, { value: "hybrid", label: "Hybrid" },
                 ]} />
