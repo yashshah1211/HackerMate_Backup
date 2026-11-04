@@ -1,0 +1,259 @@
+{
+  "date": "2026-11-04",
+  "browser": "Chrome via Playwright",
+  "source": "Actual application components; isolated synthetic transport; NASA copy captured read-only",
+  "screenshots": [
+    {
+      "file": "nasa-about-guest-dark-1440.png",
+      "width": 828,
+      "height": 1969,
+      "bytes": 151352,
+      "sha256": "18632508b22a87d44833caab5d8720a89f1c59f3f80138daa14243e32bfc1827"
+    },
+    {
+      "file": "nasa-about-guest-dark-390.png",
+      "width": 358,
+      "height": 3034,
+      "bytes": 136449,
+      "sha256": "a55cee4429b0156a939f1a3ff1678c5206312b14c57230748f06325ae2f100c1"
+    },
+    {
+      "file": "nasa-about-guest-dark-768.png",
+      "width": 704,
+      "height": 1969,
+      "bytes": 148975,
+      "sha256": "05e8e0e2f6cf6ee534e58dcbc8e4c0f333c528bdfde5f392b4332bbd49fb785e"
+    },
+    {
+      "file": "nasa-about-guest-light-1440.png",
+      "width": 828,
+      "height": 1969,
+      "bytes": 146958,
+      "sha256": "6dbac5a1fa7cb3abb403d65097094bd81d3231f8d31d84de2cbe812f4896318e"
+    },
+    {
+      "file": "nasa-about-guest-light-390.png",
+      "width": 358,
+      "height": 3034,
+      "bytes": 134305,
+      "sha256": "66c835309a14bf2e41ee11da918d2dce18f0f674da376b5322e8011ab9ec0cfa"
+    },
+    {
+      "file": "nasa-about-guest-light-768.png",
+      "width": 704,
+      "height": 1969,
+      "bytes": 144930,
+      "sha256": "cd221a52e59a6d139335a6eee73f79100dc4d54e1dbd41fe7de6ddd935c6e278"
+    },
+    {
+      "file": "nasa-about-member-dark-1440.png",
+      "width": 828,
+      "height": 1969,
+      "bytes": 151438,
+      "sha256": "7cf806d783159858ce4e6db067d684c455542cf03191c05b8961382eb00f5c92"
+    },
+    {
+      "file": "nasa-about-member-dark-390.png",
+      "width": 358,
+      "height": 3034,
+      "bytes": 138593,
+      "sha256": "7a252aa0b2d7a935b40a3e6e09bd4c91e2281112f4e79ee4f80e904891d4cd69"
+    },
+    {
+      "file": "nasa-about-member-dark-768.png",
+      "width": 704,
+      "height": 1969,
+      "bytes": 148975,
+      "sha256": "05e8e0e2f6cf6ee534e58dcbc8e4c0f333c528bdfde5f392b4332bbd49fb785e"
+    },
+    {
+      "file": "nasa-about-member-light-1440.png",
+      "width": 828,
+      "height": 1969,
+      "bytes": 146958,
+      "sha256": "6dbac5a1fa7cb3abb403d65097094bd81d3231f8d31d84de2cbe812f4896318e"
+    },
+    {
+      "file": "nasa-about-member-light-390.png",
+      "width": 358,
+      "height": 3034,
+      "bytes": 136442,
+      "sha256": "75c4d88398dcd059bae054ea7fd8fcbb269838ad3d9fdb6bdf74ef5f82dbacbf"
+    },
+    {
+      "file": "nasa-about-member-light-768.png",
+      "width": 704,
+      "height": 1969,
+      "bytes": 144795,
+      "sha256": "91f6bd03cd29849eaa7db622ed73ee7b51b63fe603c15bc69c3d74149b0a4c45"
+    },
+    {
+      "file": "nasa-guest-dark-1440.png",
+      "width": 1440,
+      "height": 2662,
+      "bytes": 259016,
+      "sha256": "104a6c2eaec3588b74ac073ed741c50507c19e1df8a68e13a6bcca6f3e7c9b38"
+    },
+    {
+      "file": "nasa-guest-dark-390.png",
+      "width": 390,
+      "height": 4886,
+      "bytes": 226211,
+      "sha256": "c08a52aa9ae8f246d4c0fbecf764a9cae1a624e74003e3dbaafd88699d3ef6de"
+    },
+    {
+      "file": "nasa-guest-dark-768.png",
+      "width": 768,
+      "height": 3436,
+      "bytes": 239273,
+      "sha256": "b533debd2b27269f3eee83e0ad8d362beed8bd51bcf4bf9ae780541be9b8d12b"
+    },
+    {
+      "file": "nasa-guest-light-1440.png",
+      "width": 1440,
+      "height": 2662,
+      "bytes": 254780,
+      "sha256": "454ada5ea413d248de3b96b524db5c64618d7336734f5d6fb2f3ba4939ba5715"
+    },
+    {
+      "file": "nasa-guest-light-390.png",
+      "width": 390,
+      "height": 4886,
+      "bytes": 224888,
+      "sha256": "4d603bd42c7f356595a72dcbf259b92243ed1a90e642de33adb3eadc13088846"
+    },
+    {
+      "file": "nasa-guest-light-768.png",
+      "width": 768,
+      "height": 3436,
+      "bytes": 236020,
+      "sha256": "76440f7fae10e5357d93cc50e9303b9d637f90715295a6171bef2e44454ae333"
+    },
+    {
+      "file": "nasa-member-dark-1440.png",
+      "width": 1440,
+      "height": 3109,
+      "bytes": 275790,
+      "sha256": "fa4dd23dc8e618fc58a47031a2663b81dced5ffa73e3d02b86bb4d8e9fc07475"
+    },
+    {
+      "file": "nasa-member-dark-390.png",
+      "width": 390,
+      "height": 5504,
+      "bytes": 241745,
+      "sha256": "53ed7b85d9669377f41c0062c18c9667c6fc71c1232a7c62ff325774469198c0"
+    },
+    {
+      "file": "nasa-member-dark-768.png",
+      "width": 768,
+      "height": 3946,
+      "bytes": 257869,
+      "sha256": "cdbb197e1cced1e661a904ffea924c364f61a8e3a6e7cf8f6bc987693046a813"
+    },
+    {
+      "file": "nasa-member-light-1440.png",
+      "width": 1440,
+      "height": 3109,
+      "bytes": 271453,
+      "sha256": "3f3a198121d89511f319eb494a8e1763e02faa9a87b0db8ae9c076308951785d"
+    },
+    {
+      "file": "nasa-member-light-390.png",
+      "width": 390,
+      "height": 5504,
+      "bytes": 240655,
+      "sha256": "84e75ddb73ddafe1f2f34bd452ee318dea612e680e2edc2320f6ec40440ee229"
+    },
+    {
+      "file": "nasa-member-light-768.png",
+      "width": 768,
+      "height": 3946,
+      "bytes": 254414,
+      "sha256": "7783c1803729d4f0b8ac2255d491121bdfb83fde8a583c9f0486fe2bc71a4fd8"
+    },
+    {
+      "file": "secondary-guest-dark-1440.png",
+      "width": 1440,
+      "height": 1970,
+      "bytes": 178128,
+      "sha256": "9398f53e7f62a5284044840ae7a663d4bbd94a8a8fd8ed31c864ff56a6984442"
+    },
+    {
+      "file": "secondary-guest-dark-390.png",
+      "width": 390,
+      "height": 3570,
+      "bytes": 156990,
+      "sha256": "43a5cd1ed06357b9331caf34953ace12b7f5d71e4f58a1071541e594c797ee84"
+    },
+    {
+      "file": "secondary-guest-dark-768.png",
+      "width": 768,
+      "height": 2758,
+      "bytes": 165457,
+      "sha256": "c38c594efe111cbe277b0a9b35e3e5aa88283b8d45d8114ac4d1819a9ab96b81"
+    },
+    {
+      "file": "secondary-guest-light-1440.png",
+      "width": 1440,
+      "height": 1970,
+      "bytes": 176524,
+      "sha256": "fdeab24bf6da7cba00e1a8da32bcfa65b6bf367ed613c9d37dc48ae29fc30168"
+    },
+    {
+      "file": "secondary-guest-light-390.png",
+      "width": 390,
+      "height": 3570,
+      "bytes": 157873,
+      "sha256": "c0cee2b2787418e3804873930d13e686f3c3ef3e255530d130fd98fc3a69d62f"
+    },
+    {
+      "file": "secondary-guest-light-768.png",
+      "width": 768,
+      "height": 2758,
+      "bytes": 164255,
+      "sha256": "b4764163a51a3cd68b378faf21746e3402aca831935e69af7afb5fb09df5817e"
+    },
+    {
+      "file": "secondary-member-dark-1440.png",
+      "width": 1440,
+      "height": 2417,
+      "bytes": 194241,
+      "sha256": "81f1c8da1eadfb65e605d31ac11e854dbc6c4eb73d6580ab99e1fa17ae93f84b"
+    },
+    {
+      "file": "secondary-member-dark-390.png",
+      "width": 390,
+      "height": 4188,
+      "bytes": 174094,
+      "sha256": "84fc9c5d2e6003c219dfe1757bed00819656ab86f7b2aad3e29bfe9dc6c85e47"
+    },
+    {
+      "file": "secondary-member-dark-768.png",
+      "width": 768,
+      "height": 3268,
+      "bytes": 183167,
+      "sha256": "b523804f03b5a069830f981ac26deed845a847ada52573dc06bb765a516d868d"
+    },
+    {
+      "file": "secondary-member-light-1440.png",
+      "width": 1440,
+      "height": 2417,
+      "bytes": 192277,
+      "sha256": "895cd85ebd425372be00f28481df63aeae45119b53fbc396733dfeb1df4b441c"
+    },
+    {
+      "file": "secondary-member-light-390.png",
+      "width": 390,
+      "height": 4188,
+      "bytes": 174551,
+      "sha256": "04e66061f6f7810913aef6993d97a244cc76669abd21e9f58bf1b3ea6eefdbfb"
+    },
+    {
+      "file": "secondary-member-light-768.png",
+      "width": 768,
+      "height": 3268,
+      "bytes": 182169,
+      "sha256": "0772e281ef4ca8bb0a0ee79b41483eb5aa7e941dc0f311ac951c4ba4d4bd0c3b"
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+/* eslint-disable @typescript-eslint/no-require-imports -- Shared offline fixtures. */
+// Synthetic adversarial/format cases; nasa-raipur.json is the exact public copy.
+const nasa = require('./nasa-raipur.json');
+const secondary = 'Projects are assessed on originality, technical depth, clarity of demonstration and practical impact. The panel considers how convincingly the prototype addresses its chosen problem. '.repeat(8);
+module.exports = {
+  nasa: { name: 'NASA Space Apps Challenge 2026', description: nasa.description, website_url: nasa.source },
+  moderate: { name: 'Synthetic Unstop event', description: 'Build practical solutions with peers and demonstrate your prototype.\n\nEligibility:\nOpen to college students.\n\nRegistration:\n1. Complete the form at https://unstop.com/hackathons/example-1234\n2. Verify your email before 12 November 2026.\n\nEvent Details:\nDates: 14–15 November 2026\nVenue: Campus innovation lab\n\nRules:\n- Use original work.\n- Credit external libraries.\n\nPrizes:\nSelected projects receive certificates.' },
+  short: { name: 'Short description', description: 'Build something useful together.' },
+  empty: { name: 'Missing description', description: ' <p>&nbsp;</p> ' },
+  entities: { name: 'Entities and links', description: 'Design &amp; build &times; learn &rarr; share. &#8377;500 &euro;20 &copy; 2026.\nImportant Links:\nProject: https://example.org/build_(guide)?a=1&amp;b=2.\n<a href="https://example.org/register?a=1&amp;b=2">Registration form</a>\nUnsafe javascript:alert(1), data:text/html,test and https://user:password@example.org/private stay plain.\n&lt;img src=x onerror=alert(1)&gt; <script>window.organizerExecuted=true</script>' },
+  malformed: { name: 'Unstructured description', description: 'Rules apply to everyone. 2026 is the year we build. C++ is welcome; Bring your own ideas.\nOdd label: do not discard this.\n<p broken\n<> <custom>unknown organizer markup</custom>\n----\nEligibility is reviewed by the organizer, please ask questions.' },
+  devfolio: { name: 'Devfolio organizer copy', website_url: 'https://synthetic-build.devfolio.co', description: 'Build a sustainable climate technology prototype with peers.\n\n## Tracks\n- Open innovation\n- Climate tools\n\n## Rules\nParticipants must credit open-source libraries.' },
+  native: { name: 'Native event', type: 'native', description: '<h3>Build day</h3><p>Bring an idea and share a working prototype.</p><h3>Schedule</h3><ol start="3"><li>Opening briefing</li><li value="7">Project demonstrations</li></ol>' },
+  rack: { name: 'Rack It Up 2026', website_url: 'https://unstop.com/hackathons/rack-it-up-2026-48-hour-online-hackathon-by-rackem-karma-enterprises-1777639', description: 'Find teammates for Rack It Up 2026.\nRegistration:\nRegistration takes place on Unstop. Joining this community does not register your team.\nRules:\nTeams of 1–4; solo participation is welcome.' },
+  long: { name: 'Long secondary details', description: `An event guide with source-authored details.\n\nJudging Criteria:\n${secondary}\n\nRegistration:\nYou must complete both registrations before 12 November 2026.\n\nPrizes:\n${secondary}\n\nEligibility:\nOnly college students may enter.\n\nImportant Notes:\nDo not submit confidential information.` },
+  hiddenWarning: { name: 'Warning in secondary section', description: `An event guide.\n\nJudging Criteria:\n${secondary} Important: only students aged 18+ may enter. The deadline is 12 November 2026.\n\nPrizes:\n${secondary}` },
+};
