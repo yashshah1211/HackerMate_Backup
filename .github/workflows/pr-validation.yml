@@ -39,6 +39,7 @@ jobs:
         run: |
           node --test --test-concurrency=1 \
             scripts/test-daily-report-claim.cjs \
+            scripts/test-founder-brief.cjs \
             scripts/test-organizer-candidate-discovery.cjs \
             scripts/test-auth-return-paths.cjs \
             scripts/test-evaluator-generation-admission.cjs \
@@ -54,3 +55,13 @@ jobs:
             scripts/test-partner-discovery-navigation.cjs \
             scripts/test-partner-authorization.cjs \
             scripts/test-certificate-verification-page.cjs
+
+      - name: Render Founder Brief review artifacts without production data
+        run: node scripts/render-founder-brief-preview.cjs
+      - name: Upload Founder Brief preview for independent visual QA
+        uses: actions/upload-artifact@v4
+        with:
+          name: founder-brief-review-preview
+          path: artifacts/founder-brief-preview/
+          retention-days: 7
+          if-no-files-found: error
