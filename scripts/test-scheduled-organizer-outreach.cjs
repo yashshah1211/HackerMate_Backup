@@ -12,6 +12,7 @@ const originalLead = () => ({
   id: "lead-a", title: "Fixture Hackathon", status: "new",
   organizer_email: "organizer@example.org", unstop_url: validUrl,
   last_sent_to: null, pitch_sent_at: null,
+  notes: "[HACKERMATE_OUTREACH_APPROVED_V1]",
 });
 
 function setup(options = {}) {
@@ -122,6 +123,13 @@ test("no verified new CRM lead means zero email, not recycling removed records",
   assert.equal(result.eligible, 0);
   assert.equal(state.sends.length, 0);
   assert.equal(state.claims.size, 0);
+});
+
+test("a new CRM row without explicit organizer-contact approval is never sent", async () => {
+  const { mod, db, state } = setup({ leads: [{ ...originalLead(), notes: "contact from unverified HTML" }] });
+  const result = await mod.runScheduledOrganizerOutreach(db, now);
+  assert.equal(result.eligible, 0);
+  assert.equal(state.sends.length, 0);
 });
 
 test("fresh verified lead sends one email and records provider acceptance; same day cannot resend", async () => {
