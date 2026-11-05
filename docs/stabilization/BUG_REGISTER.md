@@ -243,7 +243,7 @@ Baseline `7fc7acc83dc4585c2624ec047f2c34c1dff312a6`. New IDs do not reuse Missio
 
 - Actual: remove creator from team_members; SELECT returns zero, but `WITH removed AS (DELETE FROM team_tasks RETURNING 1) SELECT count(*) FROM removed` returns one. Same for links. Reading visibility alone concealed the minimal-return DELETE bypass.
 - Root cause: DELETE checks created_by/owner without current membership.
-- Fix: require current owner/member and active profile alongside creator-or-owner deletion. Migration: `20261105121307_workspace_actor_boundaries.sql`; query inventory precedes authoring.
+- Fix: require current owner/member and active profile alongside creator-or-owner deletion. Migration: `20261105132849_workspace_actor_boundaries.sql`; query inventory precedes authoring.
 - Reproduction/regression: set `MISSION03_WORKSPACE_BASELINE=1` and run `node --test scripts/test-mission03-workspace-rls.cjs` to use original policies in the disposable fixture; desired removed-creator denials fail. Unset that variable for the normal run applying the proposed migration. Original native selection: ten subtests failed; final expanded suite 19/19 passes, independently repeated.
 - Status: corrected in migration/local native runtime; **not deployed**. Active owner without roster row, current creator deletion and same-session committed revocation are covered.
 
