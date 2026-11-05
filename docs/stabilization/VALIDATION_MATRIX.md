@@ -210,3 +210,16 @@ Earlier run42032075480 failed pg_ctl startup after passing all1,068offline check
 Deployed baseline46d7fcd (migration20261105132849): independently verified VercelREADY/domain/commit and source equivalence. LiveanonymousGET only:home/login/teams200;dashboard/messages→login; syntheticworkspace200shell;presignGET405. Recent runtime-error clusters returnednone; retained30m runtime/permission-denied query empty. Empty logs are not evidence of exercised authenticated paths. Installed Supabase catalogs were not freshly queried: connection unavailable/requested; prior applied-grant/policy checks are attributed to release record, with prepared READONLY preflight for follow-up.
 
 Fresh synthetic102pass/native19pass/browser2pass(document/workspace/auth desktop/mobile), native documentconcurrency and synthetic10-read/0-write smoke pass. Initial Windows inclusion of Linuxshell workflow runner failed its CRLF marker assertion before shell/curl; kept as limitation and supported selection rerun102/102. No production writes, suspensions/removals/messages/uploads or cron invocation. Separate STAB-026 minimalfix reproduces link0-row false success;3new regressions plus existingfocusedselection39/39, TypeScript pass, affected lint unchanged. Final follow-up CI belongs to its separate Draft PR. See MISSION_03_PRODUCTION_ACCEPTANCE.md for classified evidence and MISSION_03_CONTROLLED_ACCEPTANCE_PLAN.md for founder-gated live tests.
+
+## Post-release acceptance resumption evidence
+
+| Category | Current verified evidence |
+| --- | --- |
+| Deployment |46d7fcd READY, production domain target confirmed read-only |
+| Installed workspace |20261105132849 independently catalog-verified; active actor policies, column grants and document revision guard intact |
+| Notification prerequisites |18/18 catalog predicates true, app_settings RLS/no anon-auth policies and service role maintenance retained |
+| P1 messaging/participant defects |Actual installed metadata plus disposable native reproduction; no live customer exploit. Separate Draft PR#121, final native21/21 and both independent reviews pass; production correction unapplied |
+| Original STAB-026 CI |19b249a run42045697311 actual logs:1071offline/19native/2browser, TypeScript/document concurrency/smoke/artifacts pass |
+| Live authenticated acceptance |None. Exact controlled plan remains prepared/stopped; full authorization NO-GO until approved P1 rollout and acceptance |
+
+Only report/plan/register/progress/matrix/preflight documentation changes in this resumption; source and three regressions unchanged. Updated-head CI recorded in PR metadata/delivery, not substituted by older green run. STAB-006 open/STAB-011 separately blocked; no production records/config/credentials/cron/messages/merge/deploy changes.

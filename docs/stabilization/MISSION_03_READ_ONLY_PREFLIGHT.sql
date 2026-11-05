@@ -1,4 +1,6 @@
--- PREPARED, NOT EXECUTED against production in this audit.
+-- Review artifact. Checks independently inspected in catalog-only READ ONLY
+-- queries during resumption; this exact multi-SELECT batch was not run verbatim.
+-- Fresh execution/inspection required before any approved acceptance run.
 -- Run only through the approved production connection. Catalog metadata only:
 -- no customer rows, app_settings values, credentials, trigger bodies or mutations.
 BEGIN READ ONLY;
