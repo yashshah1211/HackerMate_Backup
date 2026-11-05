@@ -10,6 +10,8 @@ One genuine P2 defect was reproduced in deployed source: **STAB-026**, resource 
 
 Fresh installed database policy/grant verification is blocked because the Supabase connection is not installed/available in this session. A connection was requested. Do not reinterpret the prior release addendum or founder's report as a new independent catalog query. No credential fallback, secret decryption or data-plane impersonation was attempted.
 
+**Unverified messaging safety concern:** repository messaging SELECT policy/can_access_conversation authorization uses conversation participation/team ownership or membership without an explicit suspension predicate; send RPCs consult that helper. This is outside the three-table Mission03 suspension correction. Installed definitions/additional restrictions have not been read, and no live banned-session message read/send was attempted, so no deployed bypass or new regression is claimed. Suspended-user messaging cannot be signed off from the account guard alone. Fresh catalog review and the explicit negative read/send probes in the approval plan are required; an installed bypass would be a high-priority security finding and change the affected assessment to NO-GO.
+
 ## Evidence classification
 
 | Category | Observation | What it establishes / does not establish |
@@ -65,6 +67,6 @@ STAB-006 remains open: public presigned PUT does not demonstrate verified bytes 
 
 1. Make the Supabase connection available to complete the already-authorized catalog-only phase. Alternatively, founder runs the prepared read-only SQL and provides only its non-secret catalog output; that will be attributed as founder-run evidence.
 2. Review the separate STAB-026 Draft PR. Do not merge/deploy it automatically; rerun affected acceptance after any approved deployment.
-3. Separately approve [the controlled acceptance plan](MISSION_03_CONTROLLED_ACCEPTANCE_PLAN.md):4 dedicated identities,1 test-only workspace, bounded mutations, removal/suspension,64messages, notification recipients/window, cleanup and retained safety/audit tombstones. No production test accounts have been created and no such test has begun.
+3. Separately approve [the controlled acceptance plan](MISSION_03_CONTROLLED_ACCEPTANCE_PLAN.md):4 dedicated identities,1 test-only workspace, bounded mutations, removal/suspension,66send attempts (64expected accepted plus2denials), notification recipients/window, cleanup and retained safety/audit tombstones. No production test accounts have been created and no such test has begun.
 
 Full GO requires fresh catalog agreement plus successful authorized owner/member/revocation/suspension/document/chat/account/mobile journeys and documented cleanup. A demonstrated live authorization/data-integrity failure changes the affected release assessment to NO-GO and triggers a separately reviewed correction.

@@ -42,15 +42,17 @@ SELECT p.oid::regprocedure::text AS signature, pg_get_function_result(p.oid) AS 
  has_function_privilege('service_role',p.oid,'EXECUTE') AS service_execute
 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
 WHERE n.nspname='public' AND p.proname IN
- ('is_team_member','is_team_owner','save_team_document','guard_team_document_revision',
-  'ensure_team_conversation','send_message_with_mentions','mark_conversation_read')
+ ('is_team_member','is_team_owner','can_access_conversation','get_my_dm_conversations',
+  'save_team_document','guard_team_document_revision','ensure_team_conversation',
+  'send_message_with_mentions','mark_conversation_read')
 ORDER BY 1;
 
 -- Safe whitelist: these reviewed function bodies contain no notification secrets.
 SELECT p.proname,pg_get_functiondef(p.oid) AS definition
 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
 WHERE n.nspname='public' AND p.proname IN
- ('is_team_member','is_team_owner','save_team_document','guard_team_document_revision');
+ ('is_team_member','is_team_owner','can_access_conversation','get_my_dm_conversations',
+  'save_team_document','guard_team_document_revision','ensure_team_conversation');
 
 -- Trigger metadata only: never dump notification/email function bodies.
 SELECT c.relname,t.tgname,t.tgenabled,p.oid::regprocedure::text AS function_signature
