@@ -94,11 +94,8 @@ function TeamWorkspaceContent() {
 
     setCurrentUser(user);
 
-    let userIsOwner = false;
-    if (user && teamData.owner_id === user.id) {
-      userIsOwner = true;
-      setIsOwner(true);
-    }
+    const userIsOwner = Boolean(user && teamData.owner_id === user.id);
+    setIsOwner(userIsOwner);
 
     // Load members
     const { data: memberData, error: memberError } = await supabase
@@ -242,9 +239,10 @@ function TeamWorkspaceContent() {
 }
 
 export default function TeamWorkspacePage() {
+  const params = useParams();
   return (
     <Suspense fallback={<PageLoader label="Opening workspace" />}>
-      <TeamWorkspaceContent />
+      <TeamWorkspaceContent key={params.id as string} />
     </Suspense>
   );
 }

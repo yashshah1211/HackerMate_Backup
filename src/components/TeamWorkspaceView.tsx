@@ -367,7 +367,7 @@ export default function TeamWorkspaceView({
   const [timeLeft, setTimeLeft] = useState("");
   const [countdownParts, setCountdownParts] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0, ended: false });
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const [taskComments, setTaskComments] = useState<any[]>([]);
+  const [taskComments, setTaskComments] = useState<{ id: string; task_id: string; user_id: string; content: string; created_at: string }[]>([]);
   const [newTaskComment, setNewTaskComment] = useState("");
   const [loadingComments, setLoadingComments] = useState(false);
   const [submittingComment, setSubmittingComment] = useState(false);
@@ -907,13 +907,18 @@ export default function TeamWorkspaceView({
       confirmText: "Delete",
       cancelText: "Cancel",
       onConfirm: async () => {
-        const { error } = await supabase
+        const { data: deleted, error } = await supabase
           .from("team_tasks")
           .delete()
-          .eq("id", taskId);
+          .eq("id", taskId)
+          .eq("team_id", team.id)
+          .select("id")
+          .maybeSingle();
         if (error) {
           console.error(error);
           showToast(error.message, "error");
+        } else if (!deleted) {
+          showToast("Task could not be deleted. Refresh and verify your access.", "error");
         } else {
           showToast("Task deleted", "success");
           setTasks((prev) => prev.filter((t) => t.id !== taskId));
@@ -1207,58 +1212,62 @@ export default function TeamWorkspaceView({
     return () => clearInterval(interval);
   }, [activeHackathon]);
 
+  const selectedTaskId = selectedTask?.id;
   // Load selected task comments and sync in real-time
   useEffect(() => {
-    if (!selectedTask) {
-      setTaskComments([]);
-      return;
+    let active = true;
+    let request = 0;
+    if (!selectedTaskId) {
+      Promise.resolve().then(() => { if (active) setTaskComments([]); });
+      return () => { active = false; };
     }
 
     const fetchTaskComments = async () => {
+      if (!active) return;
+      const current = ++request;
       setLoadingComments(true);
-      const { data, error } = await supabase
-        .from("team_task_comments")
-        .select("*")
-        .eq("task_id", selectedTask.id)
-        .order("created_at", { ascending: true });
-      if (error) {
-        console.error(error);
-      } else {
-        setTaskComments(data || []);
+      try {
+        const { data, error } = await supabase
+          .from("team_task_comments")
+          .select("*")
+          .eq("task_id", selectedTaskId)
+          .order("created_at", { ascending: true });
+        if (error) throw error;
+        if (active && current === request) setTaskComments(data || []);
+      } catch (error) {
+        console.error("[Workspace] Task comments failed:", error);
+      } finally {
+        if (active && current === request) setLoadingComments(false);
       }
-      setLoadingComments(false);
     };
 
-    fetchTaskComments();
+    Promise.resolve().then(() => {
+      if (!active) return;
+      setTaskComments([]);
+      void fetchTaskComments();
+    });
 
     const commentChannel = supabase
-      .channel(`task_comments:${selectedTask.id}`)
+      .channel(`task_comments:${selectedTaskId}`)
       .on(
         "postgres_changes",
         {
           event: "*",
           schema: "public",
           table: "team_task_comments",
-          filter: `task_id=eq.${selectedTask.id}`,
+          filter: `task_id=eq.${selectedTaskId}`,
         },
-        () => {
-          supabase
-            .from("team_task_comments")
-            .select("*")
-            .eq("task_id", selectedTask.id)
-            .order("created_at", { ascending: true })
-            .then(({ data }) => {
-              if (data) setTaskComments(data);
-            });
-        }
+        () => { void fetchTaskComments(); }
       )
       .subscribe();
 
     return () => {
+      active = false;
+      ++request;
       commentChannel.unsubscribe();
       supabase.removeChannel(commentChannel);
     };
-  }, [selectedTask]);
+  }, [selectedTaskId]);
 
   // Mobile-only pane switch for the shared doc (write / preview side by side on desktop).
 
