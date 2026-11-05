@@ -138,12 +138,14 @@ export async function runScheduledOrganizerOutreach(db: SupabaseClient, now = ne
   }
 
   const seen = new Set<string>();
+  const seenEventUrls = new Set<string>();
   const eligible = rows.filter(lead => {
     if (lead.status !== "new" || lead.pitch_sent_at || lead.last_sent_to) return false;
     const email = normalizedOrganizerEmail(lead.organizer_email);
     const source = providerEventUrl(lead.unstop_url);
-    if (!email || !source || suppressed.has(email) || historicalEventUrls.has(source) || seen.has(email)) return false;
+    if (!email || !source || suppressed.has(email) || historicalEventUrls.has(source) || seen.has(email) || seenEventUrls.has(source)) return false;
     seen.add(email);
+    seenEventUrls.add(source);
     return true;
   });
   const result = baseResult("no_eligible", eligible.length);
@@ -191,7 +193,11 @@ export async function runScheduledOrganizerOutreach(db: SupabaseClient, now = ne
     const claim = await reserve(db, key, {
       status: "claimed_before_provider_attempt", lead_id: lead.id, at: now.toISOString(),
     });
-    if (claim === "duplicate") { result.held++; continue; }
+    if (claim === "duplicate") {
+      result.held++; result.status = "partial";
+      result.error = "Recipient previously claimed; manual outcome reconciliation required.";
+      break;
+    }
     if (claim !== "reserved") {
       result.status = "partial"; result.error = "Recipient claim unavailable.";
       break;
@@ -240,8 +246,8 @@ export async function runScheduledOrganizerOutreach(db: SupabaseClient, now = ne
         break;
       }
     }
-    if (dispatch.status === "unknown" || dispatch.status === "not_dispatched") {
-      result.status = "partial"; result.error = "Unknown or unavailable provider outcome; manual investigation required.";
+    if (dispatch.status === "unknown" || dispatch.status === "not_dispatched" || dispatch.status === "failed") {
+      result.status = "partial"; result.error = "Provider did not confirm intended acceptance; manual investigation required.";
       break;
     }
   }
