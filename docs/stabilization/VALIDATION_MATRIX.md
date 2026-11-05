@@ -169,3 +169,32 @@ Current integration base: `cad50fafec5d9219f38fd95028198e9480582d7f`. Merge head
 Actual new-head [CI run42019542520](https://github.com/yashshah1211/HackerMate_Backup/actions/runs/42019542520) completed/success on Linux/Node22; job logs explicitly confirm schedule/manual trigger, destination rejection and no retry tests,1051/1051 regressions,2/2 browser scenarios, smoke and all TypeScript/artifact steps. Do not substitute earlier run42014706513 for this evidence. Local existing Ubuntu has Bash but lacks Linux Node/jq, and Windows lacks jq; the platform-specific shell tests were executed unchanged in Linux CI with mock curl, not against any live destination. No skip was added to CI. Raw local logs: scratch/mission02/integration/.
 
 This documentation update contains no runtime changes. Final-head CI must also succeed and its exact SHA/run is reported in PR metadata/delivery. Remaining production acceptance limits and STAB-006/STAB-011 are unchanged. No production settings/data, messages/emails, manual dispatch, merge or deploy occurred.
+
+## Mission 03 — native authority and concurrent persistence
+
+Pinned original main7fc7acc; recovered existing worktree rather than restarting. Failing-before logs remain in ignored scratch/mission03; committed regressions execute actual handlers/components/SDK or native PostgreSQL with synthetic data. No real integration call is substituted for a fixture.
+
+| Check | Actual evidence |
+| --- | --- |
+| Original native permission regressions | 14 reported cases:3pass/11fail including parent, ten failed task/link subtests; removed creator minimal-return DELETE, creator forgery and banned access |
+| Expanded original-policy replay | Fixture-only MISSION03_WORKSPACE_BASELINE=1:19cases,5pass/14fail including parent, expected exit1. Unset flag then corrected19/19 passes; no custom Node test CLI argument forwarding assumed |
+| Original UI regressions | 8cases:1pass/7fail; four chat history races, task commit order, zero-row acknowledgment and thrown failure |
+| Independent partial-fix findings | Old read overwrites task commit; old acknowledgment overwrites newer remote edit; Clear chat restores old history; stale query error lost; document suspension read/save bypass. Each reproduced and corrected |
+| Final task/link/document native suite | node --test scripts/test-mission03-workspace-rls.cjs:19pass/0fail/0skip, fresh PostgreSQL18 localhost/finally cleanup; independent reviewer also19/19 |
+| Native revocation transaction | Existing session reads task, pauses, another session commits membership removal, first session's next UPDATE affects0; no forbidden title committed |
+| Document follow-up | Desired banned SELECT0 failed with1 before policy; final banned read/save/create/delete denied, active owner/member saved/conflict retained |
+| Focused state/SDK/Mission02 | 36pass/0fail/0skip; independent reviewer repeated36/36. Actual SDK serialization preserves conversation filter, exact timestamp precision and created_at/id ordering |
+| Exact PR application selection | 1038pass/0fail/0skip; retains all Mission01/02 cases. Local excludes only unchanged Linux-only30-case database-report shell runner, which remains mandatory in hosted CI |
+| Existing native document concurrency | Pass: real blocked writers, conflict/override/third writer, concurrent creation, legacy/RLS denials and FK cleanup; existing revision migration and function unchanged |
+| Related workspace/teams/invites/moderation/run-mode | 326pass/0fail/0skip |
+| Broader offline qualifier | 1990pass/0fail/0skip |
+| Chromium account + collaboration | 2pass/0fail at1440/390; actual UI/CSS, stable history, pending read events, queued task commits, retained drafts, honest deletion and route authorization; zero external requests/page errors |
+| Synthetic core smoke | Pass; static safe-profile audit,10reads/0mutations. Not a real page rendering or deployed-policy assertion |
+| Safe production build | Pass;3synthetic reads/0mutations, production env scrubbed/offline fonts/external network blocked |
+| TypeScript | Pass sequentially after final build |
+| Full ESLint comparison | 193errors/90warnings →192errors/90warnings; no added file/rule/severity/message identities or multiplicities, source-location frames normalized |
+| Schedule/dispatch preservation | Existing daily-database-report workflow and claim code unchanged; one37 3 cron, main/repository restriction, serialization and curl retry0 retained |
+
+Counts overlap. Native SELECT/profiles privileges simulate the documented installed contract; deployed policy/grant drift is not established. Task/link UPDATE restrictions explicitly include inherited column privileges; SELECT grants remain unchanged. Document policy is restrictive over existing membership and keeps invoker RPC/CAS semantics. No production migration was applied. Real core-page/runtime checks after any approved live permission application remain required. Partial-work fixture failures (sandbox sockets/initdb, deleted synthetic profile, invalid synthetic category, WindowsCRLF and cross-VM assertion identity) were corrected or rerun with authorized localhost access, never hidden by skips.
+
+New Draft PR/final-head CI will be recorded in the handoff and PR metadata after actual completion. STAB-006 stays open with unchanged presign contract and blocked remediation plan; STAB-011 remains blocked separately. Ambiguous send retry lacks proven durable idempotency; one-client task order is not a global conflict-resolution guarantee. No production messages/emails/uploads/settings/records/permissions, merge or deployment changed.
