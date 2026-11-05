@@ -7,6 +7,7 @@ import { checkEmailBudget, recordEmailSendSuccess } from "@/lib/admin/emailBudge
 // The CRM must already have a manually verified, new organizer contact.
 // Do not infer email addresses from unrelated page text or resurrect removed leads.
 export const SCHEDULED_ORGANIZER_DAILY_LIMIT = 5;
+export const ORGANIZER_CONTACT_APPROVAL_MARKER = "[HACKERMATE_OUTREACH_APPROVED_V1]";
 const CLAIM_PREFIX = "cron:organizer-outreach:v1:";
 const MAX_SCAN = 20000;
 
@@ -18,6 +19,7 @@ type Lead = {
   pitch_sent_at: string | null;
   status: string | null;
   unstop_url: string | null;
+  notes: string | null;
 };
 
 type ClaimStatus = "reserved" | "duplicate" | "unavailable";
@@ -54,6 +56,10 @@ function providerEventUrl(raw: string | null): string | null {
   } catch { return null; }
 }
 
+function contactApproved(notes: string | null): boolean {
+  return typeof notes === "string" && notes.split(/\r?\n/).some(s => s.trim() === ORGANIZER_CONTACT_APPROVAL_MARKER);
+}
+
 function hashedEmail(email: string): string {
   return createHash("sha256").update(email).digest("hex");
 }
@@ -66,7 +72,7 @@ async function readAllLeads(db: SupabaseClient): Promise<Lead[]> {
   const all: Lead[] = [];
   for (let offset = 0; offset < MAX_SCAN; offset += 100) {
     const { data, error } = await db.from("organizer_leads")
-      .select("id,title,organizer_email,last_sent_to,pitch_sent_at,status,unstop_url")
+      .select("id,title,organizer_email,last_sent_to,pitch_sent_at,status,unstop_url,notes")
       .order("id").range(offset, offset + 99);
     if (error || !Array.isArray(data)) throw new Error("Organizer outreach CRM read unavailable; no email attempted.");
     all.push(...(data as Lead[]));
@@ -140,7 +146,7 @@ export async function runScheduledOrganizerOutreach(db: SupabaseClient, now = ne
   const seen = new Set<string>();
   const seenEventUrls = new Set<string>();
   const eligible = rows.filter(lead => {
-    if (lead.status !== "new" || lead.pitch_sent_at || lead.last_sent_to) return false;
+    if (lead.status !== "new" || lead.pitch_sent_at || lead.last_sent_to || !contactApproved(lead.notes)) return false;
     const email = normalizedOrganizerEmail(lead.organizer_email);
     const source = providerEventUrl(lead.unstop_url);
     if (!email || !source || suppressed.has(email) || historicalEventUrls.has(source) || seen.has(email) || seenEventUrls.has(source)) return false;
@@ -175,14 +181,14 @@ export async function runScheduledOrganizerOutreach(db: SupabaseClient, now = ne
     if (!email) continue;
     // Re-read eligibility after the initial snapshot; never rely on a stale lead.
     const current = await db.from("organizer_leads")
-      .select("id,title,organizer_email,last_sent_to,pitch_sent_at,status,unstop_url")
+      .select("id,title,organizer_email,last_sent_to,pitch_sent_at,status,unstop_url,notes")
       .eq("id", lead.id).maybeSingle();
     if (current.error || !current.data) {
       result.status = "partial"; result.error = "Lead revalidation unavailable.";
       break;
     }
     const live = current.data as Lead;
-    if (live.status !== "new" || live.pitch_sent_at || live.last_sent_to ||
+    if (live.status !== "new" || live.pitch_sent_at || live.last_sent_to || !contactApproved(live.notes) ||
         normalizedOrganizerEmail(live.organizer_email) !== email ||
         providerEventUrl(live.unstop_url) !== providerEventUrl(lead.unstop_url)) {
       result.held++;
