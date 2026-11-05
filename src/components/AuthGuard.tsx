@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { identifyUser } from "@/lib/posthog";
@@ -19,13 +19,23 @@ export default function AuthGuard({
   const [authorized, setAuthorized] = useState(false);
   const [isBanned, setIsBanned] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
-  const isMountedRef = useRef(true);
-
   useEffect(() => {
-    isMountedRef.current = true;
+    let mounted = true;
+    let verificationId = 0;
+    let authorizedUserId: string | null = null;
+    const isCurrent = (id: number) => mounted && verificationId === id;
 
-    async function evaluateUser(user: any) {
-      if (!isMountedRef.current) return;
+    async function evaluateUser(user: { id: string; email?: string } | null) {
+      if (!mounted) return;
+      const id = ++verificationId;
+      // Keep existing workspace state during a same-account token refresh.
+      // Account changes and failed verification still revoke access.
+      if (!user || authorizedUserId !== user.id) {
+        authorizedUserId = null;
+        setAuthorized(false);
+      }
+      setIsBanned(false);
+      setAuthError(null);
 
       if (!user) {
         const next = `${window.location.pathname}${window.location.search}`;
@@ -35,13 +45,17 @@ export default function AuthGuard({
 
       try {
         // Fetch user profile
-        const { data: profile } = await supabase
+        const { data: profile, error: profileError } = await supabase
           .from("profiles")
           .select("id, onboarding_completed, is_banned, role")
           .eq("id", user.id)
           .maybeSingle();
 
-        if (!isMountedRef.current) return;
+        if (!isCurrent(id)) return;
+        if (profileError) throw profileError;
+        if (!profile || profile.id !== user.id || typeof profile.is_banned !== "boolean") {
+          throw new Error("Account status unavailable");
+        }
 
         if (profile) {
           identifyUser(profile.id, {
@@ -51,6 +65,7 @@ export default function AuthGuard({
         }
 
         if (profile?.is_banned) {
+          authorizedUserId = null;
           setIsBanned(true);
           setAuthorized(false);
           return;
@@ -60,6 +75,8 @@ export default function AuthGuard({
         const isAdmin = isSuperAdmin || profile?.role === "admin";
 
         if (adminOnly && !isAdmin) {
+          authorizedUserId = null;
+          setAuthorized(false);
           router.replace("/dashboard");
           return;
         }
@@ -72,35 +89,49 @@ export default function AuthGuard({
               pathname.startsWith("/hackathons") ||
               pathname.startsWith("/developers"))
           ) {
+            authorizedUserId = user.id;
             setAuthorized(true);
             return;
           }
+          authorizedUserId = null;
+          setAuthorized(false);
           const next = `${window.location.pathname}${window.location.search}`;
           router.replace(`/onboarding?next=${encodeURIComponent(next)}`);
           return;
         }
 
+        authorizedUserId = user.id;
         setAuthorized(true);
       } catch (err) {
-        console.error("[AuthGuard] Profile verification error:", err);
         // Never fail-open to authorized=true, which bypasses bans, onboarding, and admin gates
-        if (isMountedRef.current) {
+        if (isCurrent(id)) {
+          console.error("[AuthGuard] Profile verification error:", err);
+          authorizedUserId = null;
+          setAuthorized(false);
           setAuthError("Unable to verify your account session. Please check your network connection.");
         }
       }
     }
 
     // 1. Check existing session first
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    const initialId = verificationId;
+    supabase.auth.getSession().then(async ({ data: { session }, error }) => {
+      if (!isCurrent(initialId)) return;
+      if (error) throw error;
       if (session?.user) {
-        evaluateUser(session.user);
+        void evaluateUser(session.user);
       } else {
         // If getSession is empty, double check getUser before deciding to redirect
-        supabase.auth.getUser().then(({ data: { user } }) => {
-          if (user) {
-            evaluateUser(user);
-          }
-        });
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        if (!isCurrent(initialId)) return;
+        if (userError && userError.name !== "AuthSessionMissingError") throw userError;
+        void evaluateUser(user);
+      }
+    }).catch(error => {
+      if (isCurrent(initialId)) {
+        console.error("[AuthGuard] Session verification error:", error);
+        setAuthorized(false);
+        setAuthError("Unable to verify your account session. Please check your network connection.");
       }
     });
 
@@ -109,16 +140,23 @@ export default function AuthGuard({
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === "SIGNED_OUT") {
-        if (isMountedRef.current) {
+        if (mounted) {
+          ++verificationId;
+          authorizedUserId = null;
           setAuthorized(false);
+          setIsBanned(false);
+          setAuthError(null);
           const next = `${window.location.pathname}${window.location.search}`;
           router.replace(`/login?next=${encodeURIComponent(next)}`);
         }
       } else if (session?.user) {
-        evaluateUser(session.user);
+        void evaluateUser(session.user);
       } else if (event === "INITIAL_SESSION" && !session) {
         // Initial session resolution confirmed no active session
-        if (isMountedRef.current) {
+        if (mounted) {
+          ++verificationId;
+          authorizedUserId = null;
+          setAuthorized(false);
           const next = `${window.location.pathname}${window.location.search}`;
           router.replace(`/login?next=${encodeURIComponent(next)}`);
         }
@@ -126,7 +164,8 @@ export default function AuthGuard({
     });
 
     return () => {
-      isMountedRef.current = false;
+      mounted = false;
+      ++verificationId;
       subscription.unsubscribe();
     };
   }, [adminOnly, router]);

@@ -93,7 +93,7 @@ export async function requireVerifiedProfile(
       .maybeSingle();
 
     if (profileError) {
-      console.error("[requireAdmin] Admin profile lookup failed:", options.lookupFailureStatus ? { code: profileError.code } : profileError);
+      console.error("[requireAdmin] Admin profile lookup failed:", profileError);
       return NextResponse.json({ error: options.lookupFailureStatus ? "Unable to verify access." : "Forbidden: Unable to verify administrator access." }, { status: options.lookupFailureStatus ?? 403 });
     }
 
@@ -107,7 +107,7 @@ export async function requireVerifiedProfile(
     const isFounder = user.email.toLowerCase().trim() === "yashshah7117@gmail.com";
     return { user, supabaseUserClient, isAdmin: profile.role === "admin" || isFounder };
   } catch (e) {
-    console.error("[requireAdmin] Admin profile lookup error:", options.lookupFailureStatus ? "Lookup exception" : e);
+    console.error("[requireAdmin] Admin profile lookup error:", e);
     return NextResponse.json({ error: options.lookupFailureStatus ? "Unable to verify access." : "Forbidden: Unable to verify administrator access." }, { status: options.lookupFailureStatus ?? 403 });
   }
 }
