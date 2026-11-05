@@ -88,3 +88,29 @@ The existing email reliability fixture now includes notificationId/recipientId a
 Production gates remain unverified: deployed app_settings service-role grants, a real webhook/notification transaction and delivered email. No deployment was performed. Historical seeded-credential activity/rotation is unverified; STAB-011 is not included in confirmed-defect totals. STAB-006 remains unresolved and its contract preserved.
 
 Hosted verification: [Draft PR #116](https://github.com/yashshah1211/HackerMate_Backup/pull/116) / [Actions run 41997786170](https://github.com/yashshah1211/HackerMate_Backup/actions/runs/41997786170), source/CI head `ba4c44f`, Linux + Node 22. All job steps succeeded: TypeScript, **992 pass / 0 fail** offline tests, synthetic core smoke, and **1 pass / 0 fail** real-guard Chromium scenario across desktop/mobile. No production credentials are supplied by this workflow. Vercel deployment lookup for this SHA returned zero records. A documentation-only commit records these references; inspect PR checks for current-head status.
+
+## Final release-readiness review — 2026-11-05
+
+Pinned full-PR review at base652d1ef/head9d4c215, followed by focused fixes for STAB-013/014/015. Two independent agents reviewed the original diff and re-reviewed the source corrections. Full analysis, public API contract table, crash policy, production gate and manual reconciliation procedure: [RELEASE_REVIEW.md](RELEASE_REVIEW.md).
+
+| Gate | Verified result |
+| --- | --- |
+| New defect reproduction before fixes | 88 pass / 6 fail / 94; failed assertions establish receipt loss, cookie precedence regression and stale diagnostic loss |
+| Final exact PR offline selection | 1,002 pass / 0 fail / 0 skipped; all existing PR checks retained |
+| Existing complete offline qualification | node scripts/qualify-aggregator.cjs: 1,990 pass / 0 fail / 0 skipped |
+| Existing rack qualification | node qa/rack-qualification.cjs tests: 850 pass / 0 fail / 0 skipped |
+| Existing moderation/email/UI and producer selection | 180 pass / 0 fail / 0 skipped; actual moderation warning assertions retained |
+| Native reservation/crash | 15 actual SQL assertions; real worker exit after commit, fresh helper replay, receipt/nonce persistence and existing concurrency/release guarantees |
+| Native production dependency/producer fixture | 26 assertions; read-only preflight detects revoked INSERT/UPDATE/DELETE, actual tracked producer emits correct UUID payload to capturing non-networked stub |
+| TypeScript | npm run typecheck -- --incremental false --pretty false: pass |
+| ESLint | 195 errors / 91 warnings; zero new file/rule/severity/message diagnostics compared with batch2-final-eslint.json |
+| Production webpack build | Pass, 3 synthetic reads / zero mutations; offline fonts and network guard |
+| Guard Chromium | 1 scenario passes at both1440px and390px; zero external requests |
+| Core query smoke | Eight summary checks pass; 10 synthetic reads / zero mutations |
+| Independent source review | Standards and Spec reviewers rechecked fixes; no additional source blocker |
+
+Counts overlap and must not be summed as unique tests. Commands: existing PR workflow selection; node scripts/qualify-aggregator.cjs; node qa/rack-qualification.cjs tests/build; network-guarded node --test for test-admin-moderation.cjs, test-admin-moderation-ui.cjs, test-email-reliability.cjs, test-connection-email-dedup.cjs, test-email-ui.cjs, test-stabilization-deployment-contract.cjs; test-stabilization-notification-postgres.cjs; test-stabilization-browser.cjs; node scripts/run-stabilization-smoke.cjs. Ignored raw evidence: scratch/stabilization/release-*.log and release-eslint.json.
+
+One exploratory broader selection initially failed to load test-auth-browsing-compatibility.cjs because its required pinned PR#21 and preserved suspension checkout paths (AUTH_REVIEW_ROOT/SUSPENSION_REVIEW_ROOT) were absent. This historical cross-checkout probe was not pointed at substitute code or modified to pass. Applicable suites reran180/180; historical probe remains unavailable, not a claimed product defect/pass. An intermediate TypeScript closure-narrowing error during implementation was corrected with typed identity returns; final TypeScript passes without suppression.
+
+The native fixture provisions its own privileges and has no real pg_net extension; pg_net_installed is deliberately false there. It proves the preflight reports the missing dependency and captures the real producer function's payload, not live worker health or deployed grants. The new SQL script only returns booleans in a READ ONLY transaction and has not been executed against production. Crash tests establish duplicate-attempt prevention with possible suppressed delivery, not exactly-once delivery. Final hosted CI for the follow-up head remains authoritative on PR#116; no merge/deploy is authorized.

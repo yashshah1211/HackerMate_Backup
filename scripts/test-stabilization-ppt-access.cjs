@@ -79,8 +79,13 @@ for (const method of ['GET', 'DELETE']) {
   for (const [label, options] of [['owner', {}], ['member', { owner: false, member: true }], ['admin', { owner: false, profile: { role: 'admin' } }]]) {
     test(`PPT ${method}: active ${label} retains scoped access`, async () => {
       const f = fixture(options), response = await f.call(method); assert.equal(response.status, 200);
-      if (method === 'DELETE') assert.deepEqual(f.state.deletes[0], [['id', EVAL], ['team_id', TEAM]]);
-      else assert.equal((await response.json()).evaluations.length, 1);
+      const body = await response.json();
+      if (method === 'DELETE') {
+        assert.deepEqual(f.state.deletes[0], [['id', EVAL], ['team_id', TEAM]]);
+        assert.deepEqual(body, { success: true, deletedId: EVAL });
+      } else {
+        assert.deepEqual(Object.keys(body), ['evaluations']); assert.equal(body.evaluations.length, 1);
+      }
     });
   }
 }

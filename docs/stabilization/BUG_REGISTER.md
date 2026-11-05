@@ -3,7 +3,7 @@
 Baseline: `652d1ef` (latest `origin/main` fetched 2026-11-05). Branch: `stabilize/full-codebase-20261105`.
 Only demonstrated defects enter this register. Local fixture verification does not establish deployed RLS or production health.
 
-Confirmed code-level defects: **P0 0 / P1 8 / P2 3 / P3 0**. Ten resolved locally; STAB-006 remains unresolved. STAB-011 is an additional P1 credential risk needing production verification, excluded from confirmed-defect totals. Severity describes impact of demonstrated code paths, not proof of a deployed breach.
+Confirmed code-level defects: **P0 0 / P1 8 / P2 6 / P3 0**. Thirteen resolved locally; STAB-006 remains unresolved. STAB-011 is an additional P1 credential risk needing production verification, excluded from confirmed-defect totals. Severity describes impact of demonstrated code paths, not proof of a deployed breach.
 
 | Priority | Issue | Evidence | Local outcome |
 | --- | --- | --- | --- |
@@ -148,3 +148,33 @@ Second batch adds three confirmed P1 fixes (STAB-008/009/012) and one P2 fix (ST
 - Regression: repeated/concurrent calls; accepted/rejected/unknown outcomes; claim/outcome/release errors; configuration recovery; wrong event/recipient/ban/query errors; payload substitution; wrong bearer. Native PostgreSQL proves primary-key concurrency and reservation compare-and-set semantics.
 - Post-fix evidence: final 66 focused checks pass (PPT/email/replay combined); native PG18 fixture passes 12 real SQL assertions, with fresh synthetic cluster and finally cleanup. Existing email reliability checks retain their assertions and now provide the IDs present in the actual trigger payload.
 - Status: fixed locally. Live app_settings grants and real producer/provider delivery remain deployment verification gates; no live email, secret change or production record mutation was performed.
+
+## STAB-013 — P2 — Notification outcomes discard reconciliation evidence
+
+- Files: src/lib/notificationEmailClaim.ts and notification webhook.
+- Actual/reproduction: execute an accepted real-handler fixture; HTTP dispatch contains providerId, but the persisted app_settings outcome contains only status/time and discards the original reservation identity/time. New receipt regression fails before the fix.
+- Expected: retain existing provider receipt and non-PII attempt metadata so an operator can reconcile without guessing; never infer retry safety from absent metadata.
+- Root cause: finish helper accepts only status/attempted and replaces the reservation with a two-field outcome.
+- Minimal fix: persist providerId/status, sandbox/intended-recipient/attempted flags and original nonce/reservedAt under the same exact key/value compare-and-set. No recipient/content or secret is stored.
+- Regression: accepted and sandbox receipts, native SQL persistence, stale release, persistence failure and fresh-handler replay. Reconciliation/crash policy documented in RELEASE_REVIEW.md.
+- Status: fixed locally; real provider delivery and production records remain untouched.
+
+## STAB-014 — P2 — Email auth refactor changes existing cookie precedence
+
+- Files: src/app/api/send-email/route.ts, src/lib/admin/requireAdmin.ts.
+- Actual/reproduction: valid cookie identity A plus different valid bearer B, senderId=A and valid pending relationship: baseline real handler returns200/sends once; initial PR returns401/sends nothing. Independently reproduced; new dual-credential regression fails.
+- Expected: preserve this endpoint's valid-cookie-first behavior while denying rejected identities and inactive profiles; use bearer when cookie authentication fails.
+- Root cause: replacing the old local auth gate with the shared helper silently adopted its bearer-first policy.
+- Minimal fix: explicit cookieFirst option used only by send-email. Other callers retain bearer-first behavior. Error-free selected identity still passes the same protected-profile gate. Preserve legacy token trimming.
+- Regression: conflicting credentials, rejected cookie fallback, suspension cannot fall through, actual cookie-only/bearer-only compatibility, surrounding token whitespace; existing admin/moderation suites retained.
+- Status: fixed locally and independently re-reviewed; no role expansion or profile-error fallback.
+
+## STAB-015 — P2 — Stale profile query errors disappear from logs
+
+- Files: src/components/AuthGuard.tsx, existing stale-response regression.
+- Actual/reproduction: resolve newer active profile, then older 42501 failure; current authorized UI remains correct but console.error never receives the actual failure. Extended mounted React regression fails.
+- Expected: actual Supabase query error is logged per AGENTS §2 even when too stale to update UI.
+- Root cause: sequence return precedes profileError handling, and logging is inside the current-request branch.
+- Minimal fix: throw/log actual query failures before UI currentness checks; retain sequence checks around every state update.
+- Regression: exact old error logged, newer verified UI remains authorized, no verification notice replaces it; desktop/mobile guard regression remains passing.
+- Status: fixed locally and independently re-reviewed.
