@@ -77,8 +77,11 @@ def main():
     try:
         fixture.run([str(fixture.BIN / ("initdb" + fixture.SUFFIX)), "-D", str(data), "-U", "document_test",
                      "-A", "trust", "--no-locale", "--encoding=UTF8"], env=env)
+        # Packaged Linux PostgreSQL can default to a system-owned socket folder.
+        # All clients below explicitly use loopback TCP, so avoid that dependency.
+        socket_option = "" if os.name == "nt" else " -c unix_socket_directories="
         fixture.run([ctl, "-D", str(data), "-l", str(root / "server.log"), "-o",
-                     f"-h 127.0.0.1 -p {port}", "-w", "start"], env=env)
+                     f"-h 127.0.0.1 -p {port}{socket_option}", "-w", "start"], env=env)
         sql("""CREATE ROLE authenticated; CREATE ROLE anon; CREATE SCHEMA auth;
 CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS
 $$ SELECT nullif(current_setting('request.jwt.claim.sub',true),'')::uuid $$;
