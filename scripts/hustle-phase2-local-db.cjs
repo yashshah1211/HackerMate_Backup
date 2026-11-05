@@ -27,7 +27,10 @@ async function createFixture() {
   }
   try {
     run('initdb',['-D',cluster,'-U','fixture_owner','-A','trust','--no-locale','-E','UTF8']);
-    run('pg_ctl',['-D',cluster,'-l',path.join(temp,'postgres.log'),'-w','start','-o',`-h 127.0.0.1 -p ${port} -F -c hm.fixture_only=hustle-phase2`]);started=true;
+    // Packaged Linux defaults may point at a system-owned Unix socket directory.
+    // Every fixture client explicitly uses loopback TCP; no Unix socket is needed.
+    const socketOption=process.platform==='win32'?'':' -c unix_socket_directories=';
+    run('pg_ctl',['-D',cluster,'-l',path.join(temp,'postgres.log'),'-w','start','-o',`-h 127.0.0.1 -p ${port} -F -c hm.fixture_only=hustle-phase2${socketOption}`]);started=true;
     run('createdb',['-h','127.0.0.1','-p',String(port),'-U','fixture_owner','hustle_phase2_fixture']);
     assert.equal(sql("SELECT current_database()='hustle_phase2_fixture' AND inet_server_addr()='127.0.0.1'::inet AND current_setting('hm.fixture_only')='hustle-phase2'"),'t');
     sql(`CREATE ROLE anon NOLOGIN; CREATE ROLE authenticated NOLOGIN; CREATE ROLE service_role NOLOGIN BYPASSRLS;
@@ -46,7 +49,13 @@ async function createFixture() {
     const migration=fs.readdirSync(path.join(ROOT,'supabase/migrations')).find(f=>f.endsWith('_hustle_phase2_shortlist.sql'));
     sql(fs.readFileSync(path.join(ROOT,'supabase/migrations',migration),'utf8'));
     return {sql,asyncSql,close,port,ROOT,IDS,EVENT,quote};
-  } catch(error) { await close(); throw error; }
+  } catch(error) {
+    // Preserve startup evidence before finally-style cleanup removes this fake
+    // cluster. pg_ctl output is detached to avoid retained child pipe handles.
+    const log=path.join(temp,'postgres.log');
+    if(!started&&fs.existsSync(log))console.error('Disposable PostgreSQL startup log:\n'+fs.readFileSync(log,'utf8'));
+    await close(); throw error;
+  }
 }
 /** Clock substitution ONLY in a disposable fixture. Migration has no test clock. */
 function installClock(db, initial='2026-10-23T04:30:00Z') {

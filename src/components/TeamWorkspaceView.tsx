@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase, subscribeWithRetry } from "@/lib/supabase";
 import ChatThread from "@/components/chatThread";
 import ShareModal from "@/components/ShareModal";
@@ -121,6 +121,13 @@ export default function TeamWorkspaceView({
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [chatLoading, setChatLoading] = useState(true);
   const [showShareModal, setShowShareModal] = useState(false);
+  const taskWrites = useRef(new Map<string, Promise<boolean>>());
+  const taskReadSequence = useRef(0);
+  const workspaceActive = useRef(true);
+  useEffect(() => {
+    workspaceActive.current = true;
+    return () => { workspaceActive.current = false; };
+  }, []);
 
   // Workspace tab states
   const [workspaceTab, setWorkspaceTab] = useState<WorkspaceTab>(initialTab);
@@ -469,19 +476,23 @@ export default function TeamWorkspaceView({
   }, [showInviteBuilderModal, team.id]);
 
   // Fetch Tasks
-  const fetchTasks = async () => {
-    setLoadingTasks(true);
-    const { data, error } = await supabase
-      .from("team_tasks")
-      .select("*")
-      .eq("team_id", team.id)
-      .order("created_at", { ascending: true });
-    if (error) {
+  const fetchTasks = async (showLoading = true) => {
+    const sequence = ++taskReadSequence.current;
+    if (showLoading) setLoadingTasks(true);
+    try {
+      const { data, error } = await supabase
+        .from("team_tasks")
+        .select("*")
+        .eq("team_id", team.id)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      if (workspaceActive.current && sequence === taskReadSequence.current) setTasks(data || []);
+    } catch (error) {
       console.error("Error fetching team tasks:", error);
-    } else {
-      setTasks(data || []);
+      if (workspaceActive.current && sequence === taskReadSequence.current) showToast("Tasks could not be refreshed. Verify the current state before retrying.", "error");
+    } finally {
+      if (workspaceActive.current && sequence === taskReadSequence.current) setLoadingTasks(false);
     }
-    setLoadingTasks(false);
   };
 
   // Fetch Resources (Links)
@@ -564,7 +575,7 @@ export default function TeamWorkspaceView({
   };
 
   // Client-side HTTP pinger helper
-  const pingUrl = async (depId: string, url: string) => {
+  const pingUrl = useCallback(async (depId: string, url: string) => {
     setPingStatus((prev) => ({ ...prev, [depId]: { status: "checking" } }));
     const startTime = Date.now();
     try {
@@ -594,7 +605,7 @@ export default function TeamWorkspaceView({
         [depId]: { status: "offline" }
       }));
     }
-  };
+  }, []);
 
   // Add Deployment
   const handleAddDeployment = async (e: React.FormEvent) => {
@@ -770,6 +781,39 @@ export default function TeamWorkspaceView({
   };
 
   // Drag and Drop Handlers
+  // Serialize per-task requests while their responses remain pending. This cannot
+  // order server commits after an ambiguous transport failure. Zero rows fail.
+  const persistTask = (taskId: string, patch: Partial<Pick<Task, "status" | "assignee_id" | "due_date">>) => {
+    const previous = taskWrites.current.get(taskId) ?? Promise.resolve(true);
+    const write = previous.then(async () => {
+      if (!workspaceActive.current) return false;
+      try {
+        const { data, error } = await supabase.from("team_tasks").update(patch)
+          .eq("id", taskId).eq("team_id", team.id).select("id").maybeSingle();
+        if (error) throw error;
+        if (!workspaceActive.current) return false;
+        if (!data) {
+          showToast("Task could not be updated. Refresh and verify your access.", "error");
+          return false;
+        }
+        // Read after the acknowledged commit: replaying the submitted patch here
+        // could undo a newer edit committed by another teammate while we waited.
+        // A shared sequence also rejects reloads begun before this commit.
+        await fetchTasks(false);
+        return true;
+      } catch (error) {
+        console.error("Error updating task:", error);
+        if (workspaceActive.current) showToast("Task update failed. Refresh before retrying if the result is uncertain.", "error");
+        return false;
+      }
+    });
+    taskWrites.current.set(taskId, write);
+    void write.then(() => {
+      if (taskWrites.current.get(taskId) === write) taskWrites.current.delete(taskId);
+    });
+    return write;
+  };
+
   const handleDragStart = (e: React.DragEvent, taskId: string) => {
     e.dataTransfer.setData("text/plain", taskId);
   };
@@ -780,20 +824,9 @@ export default function TeamWorkspaceView({
     if (!taskId) return;
 
     const currentTask = tasks.find((t) => t.id === taskId);
-    if (currentTask && currentTask.status === status) return;
+    if (currentTask?.status === status && !taskWrites.current.has(taskId)) return;
 
-    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, status } : t)));
-
-    const { error } = await supabase
-      .from("team_tasks")
-      .update({ status })
-      .eq("id", taskId);
-
-    if (error) {
-      console.error(error);
-      showToast(error.message, "error");
-      fetchTasks();
-    } else {
+    if (await persistTask(taskId, { status })) {
       if (currentTask && currentTask.assignee_id && currentTask.assignee_id !== currentUserId) {
         const currentUserMember = members.find((m) => m.profiles.id === currentUserId);
         const currentUserName = currentUserMember?.profiles?.full_name || "A teammate";
@@ -816,17 +849,9 @@ export default function TeamWorkspaceView({
   // Update Task Status
   const handleUpdateTaskStatus = async (taskId: string, status: "todo" | "in_progress" | "completed") => {
     const currentTask = tasks.find((t) => t.id === taskId);
-    if (currentTask && currentTask.status === status) return;
+    if (currentTask?.status === status && !taskWrites.current.has(taskId)) return;
 
-    const { error } = await supabase
-      .from("team_tasks")
-      .update({ status })
-      .eq("id", taskId);
-    if (error) {
-      console.error(error);
-      showToast(error.message, "error");
-    } else {
-      setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, status } : t)));
+    if (await persistTask(taskId, { status })) {
 
       if (currentTask && currentTask.assignee_id && currentTask.assignee_id !== currentUserId) {
         const currentUserMember = members.find((m) => m.profiles.id === currentUserId);
@@ -850,20 +875,9 @@ export default function TeamWorkspaceView({
   // Update Task Assignee
   const handleUpdateTaskAssignee = async (taskId: string, assigneeId: string | null) => {
     const currentTask = tasks.find((t) => t.id === taskId);
-    if (currentTask && currentTask.assignee_id === assigneeId) return;
+    if (currentTask?.assignee_id === assigneeId && !taskWrites.current.has(taskId)) return;
 
-    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, assignee_id: assigneeId } : t)));
-
-    const { error } = await supabase
-      .from("team_tasks")
-      .update({ assignee_id: assigneeId })
-      .eq("id", taskId);
-
-    if (error) {
-      console.error(error);
-      showToast(error.message, "error");
-      fetchTasks();
-    } else {
+    if (await persistTask(taskId, { assignee_id: assigneeId })) {
       if (assigneeId && assigneeId !== currentUserId) {
         const currentUserMember = members.find((m) => m.profiles.id === currentUserId);
         const currentUserName = currentUserMember?.profiles?.full_name || "A teammate";
@@ -881,20 +895,9 @@ export default function TeamWorkspaceView({
   // Update Task Due Date
   const handleUpdateTaskDueDate = async (taskId: string, dueDate: string | null) => {
     const currentTask = tasks.find((t) => t.id === taskId);
-    if (currentTask && currentTask.due_date === dueDate) return;
+    if (currentTask?.due_date === dueDate && !taskWrites.current.has(taskId)) return;
 
-    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, due_date: dueDate } : t)));
-
-    const { error } = await supabase
-      .from("team_tasks")
-      .update({ due_date: dueDate || null })
-      .eq("id", taskId);
-
-    if (error) {
-      console.error(error);
-      showToast(error.message, "error");
-      fetchTasks();
-    } else {
+    if (await persistTask(taskId, { due_date: dueDate || null })) {
       showToast("Due date updated!", "success");
     }
   };
@@ -1039,16 +1042,7 @@ export default function TeamWorkspaceView({
           table: "team_tasks",
           filter: `team_id=eq.${team.id}`,
         },
-        () => {
-          supabase
-            .from("team_tasks")
-            .select("*")
-            .eq("team_id", team.id)
-            .order("created_at", { ascending: true })
-            .then(({ data }) => {
-              if (data) setTasks(data);
-            });
-        }
+        () => { if (workspaceActive.current) void fetchTasks(false); }
       );
 
     const linksChannel = supabase

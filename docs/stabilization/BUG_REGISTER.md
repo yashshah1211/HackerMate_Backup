@@ -3,7 +3,7 @@
 Baseline: `652d1ef` (latest `origin/main` fetched 2026-11-05). Branch: `stabilize/full-codebase-20261105`.
 Only demonstrated defects enter this register. Local fixture verification does not establish deployed RLS or production health.
 
-Confirmed code-level defects: **P0 0 / P1 11 / P2 8 / P3 0**. Eighteen resolved in code; STAB-006 remains unresolved. STAB-011 is an additional P1 credential risk needing production verification, excluded from confirmed-defect totals. Severity describes impact of demonstrated code paths, not proof of a deployed breach. Mission02 verification is synthetic/local unless explicitly identified as hosted CI; prior fixes are preserved from merged PR#116.
+Confirmed code-level defects: **P0 0 / P1 16 / P2 8 / P3 0**. Twenty-three corrected in code; STAB-006 remains unresolved. Mission03 corrections include an unapplied permission migration, so production vulnerabilities are not claimed closed. STAB-011 is an additional P1 credential risk needing production verification, excluded from confirmed-defect totals. Severity describes demonstrated code paths, not proof of a deployed breach. Mission03 baseline is main `7fc7acc`; prior fixes from merged PRs #116–118 are preserved. See MISSION_03_HANDOFF.md for current evidence and acceptance gates.
 
 | Priority | Issue | Evidence | Local outcome |
 | --- | --- | --- | --- |
@@ -13,7 +13,7 @@ Confirmed code-level defects: **P0 0 / P1 11 / P2 8 / P3 0**. Eighteen resolved 
 | 4 | STAB-001, P1 | Profile permission failure renders protected dashboard children | Fixed; actual error logged, verification notice |
 | 5 | STAB-002, P1 | In-flight profile success restores children after sign-out | Fixed; stale result ignored, current account recovery preserved |
 
-Second batch adds three confirmed P1 fixes (STAB-008/009/012) and one P2 fix (STAB-010). The only remaining confirmed P0/P1 defect is STAB-006; the separate STAB-011 credential review is partially verified and blocked on safe application-side comparison. No P0 breach was established.
+Second batch added three confirmed P1 fixes (STAB-008/009/012) and one P2 fix (STAB-010). Mission03 adds STAB-021–025 below. STAB-006 remains open; STAB-021–023 require approved production migration before deployed closure. The separate STAB-011 credential review remains blocked on safe application-side comparison. No P0 breach was established.
 
 ## STAB-001 — P1 — Account guard grants access after failed profile verification
 
@@ -234,3 +234,47 @@ Baseline6e6b0e3b1fbb6b351112e011bed78e27033db258 (PR#116 merged). Branch stabili
 - Minimal fix: key workspace content by route team ID; assign owner boolean on every verified load. Comment effect uses primitive task ID, active/request sequence, one shared read path, cleanup and typed rows. No server-side authority was expanded.
 - Regression: actual route rendering proves previous owner cannot enter another workspace; task switches, same-task out-of-order realtime loads and late callbacks after unsubscribe; real desktop/mobile route gate.
 - Status: fixed locally and independently re-reviewed. The UI reproduction does not prove a database RLS bypass; live membership revocation/account lifecycle remain separate integration coverage limits.
+
+## Mission 03 — backend permissions and concurrent persistence
+
+Baseline `7fc7acc83dc4585c2624ec047f2c34c1dff312a6`. New IDs do not reuse Mission 01/02 identifiers. Native fixtures use synthetic IDs and fresh localhost clusters with finally cleanup. The migration below is prepared only; deployed RLS/grants are unchanged.
+
+### STAB-021 — P1 — Removed creators retain task/link deletion authority
+
+- Actual: remove creator from team_members; SELECT returns zero, but `WITH removed AS (DELETE FROM team_tasks RETURNING 1) SELECT count(*) FROM removed` returns one. Same for links. Reading visibility alone concealed the minimal-return DELETE bypass.
+- Root cause: DELETE checks created_by/owner without current membership.
+- Fix: require current owner/member and active profile alongside creator-or-owner deletion. Migration: `20261105132849_workspace_actor_boundaries.sql`; query inventory precedes authoring.
+- Reproduction/regression: set `MISSION03_WORKSPACE_BASELINE=1` and run `node --test scripts/test-mission03-workspace-rls.cjs` to use original policies in the disposable fixture; desired removed-creator denials fail. Unset that variable for the normal run applying the proposed migration. Original native selection: ten subtests failed; final expanded suite 19/19 passes, independently repeated.
+- Status: corrected in migration/local native runtime; **not deployed**. Active owner without roster row, current creator deletion and same-session committed revocation are covered.
+
+### STAB-022 — P1 — Writable creator identity bypasses deletion restrictions
+
+- Actual: ordinary member's direct DELETE of an owner's task/link affects zero; UPDATE created_by=self succeeds, then DELETE removes it.
+- Root cause: table-wide UPDATE permits immutable id/team_id/created_by/created_at fields; RLS only verifies membership, not identity immutability.
+- Fix: remove table-wide and independent immutable-column UPDATE grants from PUBLIC/anon/authenticated, then grant existing mutable fields. SELECT/INSERT success shapes are unchanged; nullable-creator insert compatibility retained.
+- Regression: real native table/column privileges, seeded inherited column grants, denied creator forgery, allowed task/link mutable fields, owner/creator deletion, service-role maintenance, FK ON DELETE SET NULL and migration reapplication. All pass in final 19-case native suite.
+- Status: corrected locally; requires approved migration and installed-grant verification before deployed closure.
+
+### STAB-023 — P1 — Suspended roster members retain workspace data access
+
+- Actual: banned current member SELECT/UPDATE succeeds on tasks/links. Independent review also read one document and committed a banned save through the existing invoker RPC. Desired document denial then failed with count 1 instead of 0 before its policy was added.
+- Root cause: is_team_member includes roster/owner without consulting current protected profile suspension.
+- Fix: current known-false is_banned gate in task/link policies and an additional restrictive document actor policy, preserving original membership and revision protections. No global helper/profile grant change; document queries were inventoried before extending the policy.
+- Regression: banned read/update/create/delete, live false→true/null flag transitions, document read/save/create/delete denial, active owner/member CAS saved/conflict and immutable grants. Final native 19/19 passes; independent security reviewer repeated 19/19.
+- Status: corrected locally for these inventoried tables, not an exhaustive workspace suspension claim. Public object revocation remains STAB-006. Production policy application/acceptance remains open.
+
+### STAB-024 — P1 — History reads corrupt concurrent realtime chat state
+
+- Actual: offset pagination shifts during insertion, rendering boundary message twice; pending initial read loses a newer insert, replaces an update or resurrects a deletion. Independent review also reproduced history restoration after Clear chat.
+- Root cause: offset uses mutable rendered count; snapshots replace/prepend without stable cursor, identity reconciliation or event/clear precedence.
+- Fix: exact microsecond-preserving (created_at,id) keyset; stable ordering and deduplication; realtime upsert/delete overlay retained only while reads are pending; cursor follows raw page; clear generation/current boundary rejects stale history. Actual errors log even when stale; rejected pagination unlocks retry.
+- Regression: real mounted component initial/paged races, clear and failure paths, actual Supabase SDK filter serialization, timestamp ties/microseconds/timezones, and desktop/mobile Chromium. Original four history regressions fail; final focused selection 36/36 passes including prior Mission 02 checks.
+- Status: corrected in code/local runtime; no message send contract or durable exactly-once guarantee introduced.
+
+### STAB-025 — P1 — Out-of-order task persistence loses latest intent
+
+- Actual: dispatch in_progress then completed; complete newer write first and older write last: database and UI finish in_progress. Zero-row UPDATE also falsely changes the UI. Review demonstrated stale reload-after-ack and stale ack-after-remote-write reversions.
+- Root cause: independent writes and uncoordinated task snapshots/patch acknowledgments.
+- Fix: serialize mutations per task; require id/team_id-scoped returned row; authoritative read after commit rather than replaying old patch; shared request sequence rejects obsolete reloads. No optimistic state requiring destructive rollback, automatic mutation retry or global last-writer guarantee.
+- Regression: controlled server commit order, zero/error/throw outcomes, deliberate retry, both read/ack races; actual browser stored-state order and queued work cancellation after route unmount. Original ordering/zero/throw tests fail; expanded focused 36/36 and browser 2/2 pass.
+- Status: corrected locally and independently re-reviewed. Different clients retain existing last-writer semantics; ambiguous external commit outcomes remain a separate acceptance limit.

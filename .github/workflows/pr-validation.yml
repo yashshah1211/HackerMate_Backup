@@ -40,6 +40,8 @@ jobs:
         run: |
           node --import ./qa/fixtures/rack-network-guard.mjs --test --test-concurrency=1 \
             scripts/test-mission02-state.cjs \
+            scripts/test-mission03-state.cjs \
+            scripts/test-mission03-history-query.cjs \
             scripts/test-stabilization-boundaries.cjs \
             scripts/test-stabilization-ppt-access.cjs \
             scripts/test-stabilization-email-access.cjs \
@@ -63,6 +65,15 @@ jobs:
             scripts/test-partner-discovery-navigation.cjs \
             scripts/test-partner-authorization.cjs \
             scripts/test-certificate-verification-page.cjs
+
+      - name: Verify workspace permissions and document concurrency in disposable native PostgreSQL
+        run: |
+          mission03_pg_bin=$(find /usr/lib/postgresql -mindepth 2 -maxdepth 2 -type d -name bin | sort -V | tail -n 1)
+          test -n "$mission03_pg_bin"
+          export PATH="$mission03_pg_bin:$PATH"
+          export PARTNER_TEST_PG_BIN="$mission03_pg_bin"
+          node --test scripts/test-mission03-workspace-rls.cjs
+          python3 scripts/test-team-document-local.py
 
       - name: Run existing core-page query smoke against synthetic loopback fixtures
         run: node scripts/run-stabilization-smoke.cjs
