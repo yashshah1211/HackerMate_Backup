@@ -204,3 +204,27 @@ New Draft PR/final-head CI will be recorded in the handoff and PR metadata after
 [Draft PR#119](https://github.com/yashshah1211/HackerMate_Backup/pull/119), corrected source1a5e84e85a6f3bbf1e8b8e92631c8634927d9fba: [run42033320712](https://github.com/yashshah1211/HackerMate_Backup/actions/runs/42033320712) completed/success; job127264976043 logs inspected. **1,068pass/0fail/0skip** includes all30Linux report-workflow cases. **19native pass/0fail/0skip** covers current task/link/document boundaries. Existing native document concurrency passes. **2browser pass/0fail/0skip**, both1440/390 variants, zero external requests/page errors; TypeScript,10-read/0-mutation synthetic smoke and artifact render/upload all pass. Vercel lists zero deployments for that source head.
 
 Earlier run42032075480 failed pg_ctl startup after passing all1,068offline checks. Diagnostic run42032700197 established /var/run/postgresql lock permission denial on packaged PostgreSQL18.6. Both fixture launchers now disable Unix sockets only in non-Windows process startup, retaining127.0.0.1/random ports/cleanup. Corrected Linux CI demonstrates the fix; no test was skipped or host/production configuration changed. Full ESLint was rerun after the portability changes:192errors/90warnings, no additions versus193/90. Follow-up documentation must pass its own final-head run; exact final SHA/run is in PR metadata/delivery.
+
+## Post-release messaging security — STAB-027/028
+
+| Check | Verified result |
+| --- | --- |
+| Actual installed baseline replay, final matrix |19reported cases,7pass/12fail including parent; expected denial failures. Forward-only drift/rollback cases do not apply to original baseline |
+| Final messaging native |21pass/0fail/0skip in disposable localhost PostgreSQL18; exact installed SQL/metadata, suspension/current roster, unfiltered participant move, hybrid preview, active contracts, live-session ban, policy composition, ownership/ACL/search_path, drift, reapply and rollback/reapply |
+| Independent final reviewers |Security/Standards21/21 and Correctness/Spec21/21, no further confirmed blocker in scoped boundary |
+| Existing workspace native/document concurrency |19/19 plus real competing-writer suite pass |
+| PR selection/Mission01–03 |1038/1038 local; unchanged Linux-only30 shell checks remain in hosted CI |
+| Broad qualifier |1990/1990 |
+| Desktop/mobile Chromium |2/2,1440/390px, no external requests/page errors |
+| Synthetic query smoke |10reads/0mutations; not complete live pages |
+| Safe build / TypeScript |Pass;3synthetic reads/0mutations, then sequential TypeScript pass |
+| Full ESLint |192errors/90warnings unchanged;0 added normalized diagnostic identities/multiplicities; final changed native test0/0 |
+| Production catalog |workspace20261105132849 installed; matching messaging policy/function schema/ACL snapshots; candidate migration absent; no customer records read |
+| Notification prerequisites |18/18 true; app_settings/trigger/function prerequisites intact, no values or secret-bearing notification bodies read |
+| Live authenticated tests |None; controlled test-account plan prepared only. Production full authorization NO-GO until P1 fixes applied/verified with explicit approval |
+
+Counts overlap. LocalNode24/PG18 vsproductionPG17.6.1; hostedNode22/Linux validation required. Original green19case matrix missed reviewer bypasses, now regressions added. Initial HTTP EACCES rerun with authorized localhost access passed; no assertions/CI checks removed. Installed reaction source/schema alignment and different-emoji uniqueness behavior are separate acceptance limitations, not silently fixed. No production migration/data/config, messages/email, cron, merge/deploy. STAB-006 open; STAB-011 separately blocked. See POST_RELEASE_MESSAGING_SECURITY_HANDOFF.md and final PR metadata for exact final HEAD/actual hosted CI.
+
+Final base advance: merged origin/main affa1f6 (#122) without rewriting; messaging SQL/tests/fixtures and Founder Brief unchanged. Combined local/hosted results and final HEAD in PR#121 metadata. Production independently advanced toaffa/READY; all7original messaging fingerprints stillmatch, candidate migration absent. No P1 production closure inferred.
+
+Integrated local checks1052/1052, safe build3reads/0writes and sequential TypeScript pass. ESLint192errors/92warnings includes two inherited upstream outreach-test warnings; no added messaging-security diagnostics. Independent integration review clear. Final integrated hosted/broad results in PR metadata/delivery.

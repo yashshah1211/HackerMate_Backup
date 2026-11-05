@@ -1,0 +1,145 @@
+[
+  {
+    "signature": "can_access_conversation(uuid)",
+    "owner": "postgres",
+    "prosecdef": true,
+    "proconfig": [
+      "search_path=public, pg_temp"
+    ],
+    "acl": "{postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+    "anon_exec": false,
+    "auth_exec": true,
+    "service_exec": true,
+    "definition": "CREATE OR REPLACE FUNCTION public.can_access_conversation(p_conversation_id uuid)\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$\n  SELECT EXISTS (\n    SELECT 1\n    FROM public.conversation_participants\n    WHERE conversation_id = p_conversation_id AND user_id = (SELECT auth.uid())\n  ) OR EXISTS (\n    SELECT 1\n    FROM public.conversations c\n    WHERE c.id = p_conversation_id\n      AND c.team_id IS NOT NULL\n      AND (\n        EXISTS (SELECT 1 FROM public.teams t WHERE t.id = c.team_id AND t.owner_id = (SELECT auth.uid()))\n        OR EXISTS (SELECT 1 FROM public.team_members tm WHERE tm.team_id = c.team_id AND tm.user_id = (SELECT auth.uid()))\n      )\n  );\n$function$\n"
+  },
+  {
+    "signature": "delete_message(uuid)",
+    "owner": "postgres",
+    "prosecdef": true,
+    "proconfig": [
+      "search_path=public, pg_temp"
+    ],
+    "acl": "{postgres=X/postgres,authenticated=X/postgres}",
+    "anon_exec": false,
+    "auth_exec": true,
+    "service_exec": false,
+    "definition": "CREATE OR REPLACE FUNCTION public.delete_message(p_message_id uuid)\n RETURNS boolean\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$\nDECLARE\n  v_sender_id UUID;\n  v_caller_id UUID;\nBEGIN\n  v_caller_id := auth.uid();\n  IF v_caller_id IS NULL THEN\n    RAISE EXCEPTION 'Not authenticated';\n  END IF;\n\n  SELECT sender_id INTO v_sender_id\n  FROM public.messages\n  WHERE id = p_message_id;\n\n  IF NOT FOUND THEN\n    RAISE EXCEPTION 'Message not found';\n  END IF;\n\n  IF v_sender_id != v_caller_id THEN\n    RAISE EXCEPTION 'You can only delete your own messages';\n  END IF;\n\n  DELETE FROM public.messages\n  WHERE id = p_message_id;\n\n  RETURN TRUE;\nEND;\n$function$\n"
+  },
+  {
+    "signature": "ensure_team_conversation(uuid)",
+    "owner": "postgres",
+    "prosecdef": true,
+    "proconfig": [
+      "search_path=public, pg_temp"
+    ],
+    "acl": "{postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+    "anon_exec": false,
+    "auth_exec": true,
+    "service_exec": true,
+    "definition": "CREATE OR REPLACE FUNCTION public.ensure_team_conversation(p_team_id uuid)\n RETURNS uuid\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$\r\nDECLARE\r\n  v_conversation_id uuid;\r\nBEGIN\r\n  -- Only team members may call this\r\n  IF NOT public.is_team_member(p_team_id) THEN\r\n    RAISE EXCEPTION 'Access denied';\r\n  END IF;\r\n\r\n  -- Try to find an existing conversation first\r\n  SELECT id INTO v_conversation_id\r\n  FROM public.conversations\r\n  WHERE team_id = p_team_id AND type = 'team'\r\n  LIMIT 1;\r\n\r\n  IF v_conversation_id IS NULL THEN\r\n    -- Insert, ignoring a race-condition duplicate\r\n    INSERT INTO public.conversations (type, team_id)\r\n    VALUES ('team', p_team_id)\r\n    ON CONFLICT DO NOTHING\r\n    RETURNING id INTO v_conversation_id;\r\n\r\n    -- If a concurrent session inserted simultaneously, fetch it now\r\n    IF v_conversation_id IS NULL THEN\r\n      SELECT id INTO v_conversation_id\r\n      FROM public.conversations\r\n      WHERE team_id = p_team_id AND type = 'team'\r\n      LIMIT 1;\r\n    END IF;\r\n  END IF;\r\n\r\n  -- Ensure the calling user is a conversation participant\r\n  INSERT INTO public.conversation_participants (conversation_id, user_id)\r\n  VALUES (v_conversation_id, auth.uid())\r\n  ON CONFLICT DO NOTHING;\r\n\r\n  RETURN v_conversation_id;\r\nEND;\r\n$function$\n"
+  },
+  {
+    "signature": "get_my_dm_conversations()",
+    "owner": "postgres",
+    "prosecdef": true,
+    "proconfig": [
+      "search_path=public, pg_temp"
+    ],
+    "acl": "{postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+    "anon_exec": false,
+    "auth_exec": true,
+    "service_exec": true,
+    "definition": "CREATE OR REPLACE FUNCTION public.get_my_dm_conversations()\n RETURNS TABLE(conversation_id uuid, other_user_id uuid, last_message text, last_message_at timestamp with time zone, unread_count bigint)\n LANGUAGE plpgsql\n STABLE SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$\nDECLARE\n  v_my_id uuid := (SELECT auth.uid());\nBEGIN\n  IF v_my_id IS NULL THEN\n    RETURN;\n  END IF;\n\n  RETURN QUERY\n  WITH my_dms AS (\n    SELECT\n      cp.conversation_id,\n      cp.cleared_at,\n      other_cp.user_id AS other_user_id\n    FROM public.conversation_participants cp\n    JOIN public.conversations c ON c.id = cp.conversation_id AND c.type = 'dm'\n    JOIN public.conversation_participants other_cp \n      ON other_cp.conversation_id = cp.conversation_id \n     AND other_cp.user_id <> v_my_id\n    WHERE cp.user_id = v_my_id\n      AND NOT EXISTS (\n        SELECT 1 FROM public.blocked_users b\n        WHERE (b.blocker_id = v_my_id AND b.blocked_id = other_cp.user_id)\n           OR (b.blocker_id = other_cp.user_id AND b.blocked_id = v_my_id)\n      )\n  ),\n  ranked_messages AS (\n    SELECT\n      m.conversation_id,\n      m.content,\n      m.created_at,\n      ROW_NUMBER() OVER (\n        PARTITION BY m.conversation_id \n        ORDER BY m.created_at DESC\n      ) AS rn\n    FROM public.messages m\n    JOIN my_dms d ON d.conversation_id = m.conversation_id\n    WHERE d.cleared_at IS NULL OR m.created_at > d.cleared_at\n  ),\n  unread_counts AS (\n    SELECT\n      m.conversation_id,\n      count(*) AS unread_cnt\n    FROM public.messages m\n    JOIN my_dms d ON d.conversation_id = m.conversation_id\n    WHERE m.sender_id <> v_my_id\n      AND m.is_read = false\n      AND (d.cleared_at IS NULL OR m.created_at > d.cleared_at)\n    GROUP BY m.conversation_id\n  )\n  SELECT\n    d.conversation_id,\n    d.other_user_id,\n    rm.content AS last_message,\n    rm.created_at AS last_message_at,\n    COALESCE(uc.unread_cnt, 0)::bigint AS unread_count\n  FROM my_dms d\n  LEFT JOIN ranked_messages rm ON rm.conversation_id = d.conversation_id AND rm.rn = 1\n  LEFT JOIN unread_counts uc ON uc.conversation_id = d.conversation_id\n  ORDER BY rm.created_at DESC NULLS LAST;\nEND;\n$function$\n"
+  },
+  {
+    "signature": "get_or_create_dm(uuid)",
+    "owner": "postgres",
+    "prosecdef": true,
+    "proconfig": [
+      "search_path=public, pg_temp"
+    ],
+    "acl": "{postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+    "anon_exec": false,
+    "auth_exec": true,
+    "service_exec": true,
+    "definition": "CREATE OR REPLACE FUNCTION public.get_or_create_dm(other_user_id uuid)\n RETURNS uuid\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$\r\ndeclare\r\n  v_user_id uuid := auth.uid();\r\n  v_conversation_id uuid;\r\nbegin\r\n  if v_user_id is null or other_user_id = v_user_id then\r\n    raise exception 'Invalid direct-message recipient';\r\n  end if;\r\n  if not exists (\r\n    select 1 from public.friend_requests\r\n    where status = 'accepted'\r\n      and (\r\n        (sender_id = v_user_id and receiver_id = other_user_id)\r\n        or (sender_id = other_user_id and receiver_id = v_user_id)\r\n      )\r\n  ) then\r\n    raise exception 'You can only message connected builders';\r\n  end if;\r\n\r\n  perform pg_advisory_xact_lock(\r\n    hashtextextended(least(v_user_id::text, other_user_id::text) || ':' ||\r\n      greatest(v_user_id::text, other_user_id::text), 1)\r\n  );\r\n\r\n  select c.id into v_conversation_id\r\n  from public.conversations c\r\n  where c.type = 'dm'\r\n    and exists (\r\n      select 1 from public.conversation_participants p\r\n      where p.conversation_id = c.id and p.user_id = v_user_id\r\n    )\r\n    and exists (\r\n      select 1 from public.conversation_participants p\r\n      where p.conversation_id = c.id and p.user_id = other_user_id\r\n    )\r\n  limit 1;\r\n\r\n  if v_conversation_id is null then\r\n    insert into public.conversations (type)\r\n    values ('dm')\r\n    returning id into v_conversation_id;\r\n    insert into public.conversation_participants (conversation_id, user_id)\r\n    values\r\n      (v_conversation_id, v_user_id),\r\n      (v_conversation_id, other_user_id);\r\n  end if;\r\n\r\n  return v_conversation_id;\r\nend;\r\n$function$\n"
+  },
+  {
+    "signature": "mark_conversation_read(uuid)",
+    "owner": "postgres",
+    "prosecdef": true,
+    "proconfig": [
+      "search_path=public, pg_temp"
+    ],
+    "acl": "{postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+    "anon_exec": false,
+    "auth_exec": true,
+    "service_exec": true,
+    "definition": "CREATE OR REPLACE FUNCTION public.mark_conversation_read(p_conversation_id uuid)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$\r\nbegin\r\n  if not public.can_access_conversation(p_conversation_id) then\r\n    raise exception 'Conversation access denied';\r\n  end if;\r\n  update public.messages\r\n  set is_read = true\r\n  where conversation_id = p_conversation_id\r\n    and sender_id <> auth.uid()\r\n    and is_read = false;\r\nend;\r\n$function$\n"
+  },
+  {
+    "signature": "pin_message(uuid)",
+    "owner": "postgres",
+    "prosecdef": true,
+    "proconfig": [
+      "search_path=public, pg_temp"
+    ],
+    "acl": "{postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+    "anon_exec": false,
+    "auth_exec": true,
+    "service_exec": true,
+    "definition": "CREATE OR REPLACE FUNCTION public.pin_message(p_message_id uuid)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$\r\nDECLARE\r\n  v_conversation_id uuid;\r\nBEGIN\r\n  SELECT conversation_id\r\n  INTO v_conversation_id\r\n  FROM messages\r\n  WHERE id = p_message_id;\r\n\r\n  IF v_conversation_id IS NULL THEN\r\n    RAISE EXCEPTION 'Message not found';\r\n  END IF;\r\n\r\n  IF NOT can_access_conversation(v_conversation_id) THEN\r\n    RAISE EXCEPTION 'Conversation access denied';\r\n  END IF;\r\n\r\n  UPDATE messages\r\n  SET is_pinned = false\r\n  WHERE conversation_id = v_conversation_id;\r\n\r\n  UPDATE messages\r\n  SET is_pinned = true\r\n  WHERE id = p_message_id;\r\nEND;\r\n$function$\n"
+  },
+  {
+    "signature": "send_message_with_mentions(uuid,text,uuid[],uuid)",
+    "owner": "postgres",
+    "prosecdef": true,
+    "proconfig": [
+      "search_path=public, pg_temp"
+    ],
+    "acl": "{postgres=X/postgres,authenticated=X/postgres}",
+    "anon_exec": false,
+    "auth_exec": true,
+    "service_exec": false,
+    "definition": "CREATE OR REPLACE FUNCTION public.send_message_with_mentions(p_conversation_id uuid, p_content text, p_mentions uuid[] DEFAULT ARRAY[]::uuid[], p_reply_to_id uuid DEFAULT NULL::uuid)\n RETURNS uuid\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$\nDECLARE\n  v_content text := btrim(p_content);\n  v_message_id uuid;\n  v_match text[];\n  v_url text;\n  v_domain text;\n  v_allowed text[] := array[\n    'github.com', 'gitlab.com', 'bitbucket.org', 'vercel.app', 'netlify.app',\n    'figma.com', 'miro.com', 'notion.so', 'notion.site', 'discord.gg',\n    'discord.com', 'whatsapp.com', 'slack.com', 'zoom.us', 'meet.google.com',\n    'google.com', 'linkedin.com', 'x.com', 'twitter.com', 'unstop.com',\n    'devpost.com', 'r2.dev', 'cloudflare.com', 'cloudflarestorage.com',\n    'supabase.co', 'hackermate.in'\n  ];\nBEGIN\n  IF (\n    SELECT count(*)\n    FROM public.messages\n    WHERE sender_id = auth.uid()\n      AND created_at > now() - interval '10 seconds'\n  ) >= 5 THEN\n    RAISE EXCEPTION 'You are sending messages too fast. Please wait a moment.';\n  END IF;\n\n  IF NOT public.can_access_conversation(p_conversation_id) THEN\n    RAISE EXCEPTION 'Conversation access denied';\n  END IF;\n  IF v_content IS NULL OR char_length(v_content) = 0 OR char_length(v_content) > 5000 THEN\n    RAISE EXCEPTION 'Messages must contain between 1 and 5000 characters';\n  END IF;\n  IF v_content ~* '\\m(fuck|shit|bitch|asshole|bastard|cunt|dick|pussy|motherfuck|whore|slut|faggot|nigger|chutiya|bhenchod|madarchod|gandu|bsdk)\\M' THEN\n    RAISE EXCEPTION 'Message blocked by the community safety filter';\n  END IF;\n\n  -- Exempt structured system attachments or validate link domains\n  IF NOT (v_content LIKE '__IMAGE__::%' OR v_content LIKE '__VOICE__::%' OR v_content LIKE '__TEAM_INVITE__::%') THEN\n    FOR v_match IN\n      SELECT regexp_matches(\n        v_content,\n        '(https?://[^[:space:]]+|www\\.[^[:space:]]+|[a-zA-Z0-9.-]+\\.(com|org|net|in|co|io|edu|gov|us|xyz|info|biz|me|cc|tv|dev)(/[^[:space:]]*)?)',\n        'gi'\n      )\n    LOOP\n      v_url := lower(v_match[1]);\n      v_domain := regexp_replace(v_url, '^(https?://)?(www\\.)?([^/:?#]+).*$', '\\3');\n      IF NOT EXISTS (\n        SELECT 1 FROM unnest(v_allowed) allowed\n        WHERE v_domain = allowed OR right(v_domain, char_length(allowed) + 1) = '.' || allowed\n      ) THEN\n        RAISE EXCEPTION 'This link domain is not allowed in HackerMate messages';\n      END IF;\n    END LOOP;\n  END IF;\n\n  INSERT INTO public.messages (conversation_id, sender_id, content, reply_to_id, mentions)\n  VALUES (p_conversation_id, auth.uid(), v_content, p_reply_to_id, p_mentions)\n  RETURNING id INTO v_message_id;\n\n  RETURN v_message_id;\nEND;\n$function$\n"
+  },
+  {
+    "signature": "send_message(uuid,text,uuid)",
+    "owner": "postgres",
+    "prosecdef": true,
+    "proconfig": [
+      "search_path=public, pg_temp"
+    ],
+    "acl": "{postgres=X/postgres,authenticated=X/postgres}",
+    "anon_exec": false,
+    "auth_exec": true,
+    "service_exec": false,
+    "definition": "CREATE OR REPLACE FUNCTION public.send_message(p_conversation_id uuid, p_content text, p_reply_to_id uuid DEFAULT NULL::uuid)\n RETURNS uuid\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$\nDECLARE\n  v_content text := btrim(p_content);\n  v_message_id uuid;\n  v_match text[];\n  v_url text;\n  v_domain text;\n  v_allowed text[] := array[\n    'github.com', 'gitlab.com', 'bitbucket.org', 'vercel.app', 'netlify.app',\n    'figma.com', 'miro.com', 'notion.so', 'notion.site', 'discord.gg',\n    'discord.com', 'whatsapp.com', 'slack.com', 'zoom.us', 'meet.google.com',\n    'google.com', 'linkedin.com', 'x.com', 'twitter.com', 'unstop.com',\n    'devpost.com', 'r2.dev', 'cloudflare.com', 'cloudflarestorage.com',\n    'supabase.co', 'hackermate.in'\n  ];\nBEGIN\n  IF (\n    SELECT count(*)\n    FROM public.messages\n    WHERE sender_id = auth.uid()\n      AND created_at > now() - interval '10 seconds'\n  ) >= 5 THEN\n    RAISE EXCEPTION 'You are sending messages too fast. Please wait a moment.';\n  END IF;\n\n  IF NOT public.can_access_conversation(p_conversation_id) THEN\n    RAISE EXCEPTION 'Conversation access denied';\n  END IF;\n  IF v_content IS NULL OR char_length(v_content) = 0 OR char_length(v_content) > 5000 THEN\n    RAISE EXCEPTION 'Messages must contain between 1 and 5000 characters';\n  END IF;\n  IF v_content ~* '\\m(fuck|shit|bitch|asshole|bastard|cunt|dick|pussy|motherfuck|whore|slut|faggot|nigger|chutiya|bhenchod|madarchod|gandu|bsdk)\\M' THEN\n    RAISE EXCEPTION 'Message blocked by the community safety filter';\n  END IF;\n\n  -- Exempt structured system attachments or validate link domains\n  IF NOT (v_content LIKE '__IMAGE__::%' OR v_content LIKE '__VOICE__::%' OR v_content LIKE '__TEAM_INVITE__::%') THEN\n    FOR v_match IN\n      SELECT regexp_matches(\n        v_content,\n        '(https?://[^[:space:]]+|www\\.[^[:space:]]+|[a-zA-Z0-9.-]+\\.(com|org|net|in|co|io|edu|gov|us|xyz|info|biz|me|cc|tv|dev)(/[^[:space:]]*)?)',\n        'gi'\n      )\n    LOOP\n      v_url := lower(v_match[1]);\n      v_domain := regexp_replace(v_url, '^(https?://)?(www\\.)?([^/:?#]+).*$', '\\3');\n      IF NOT EXISTS (\n        SELECT 1 FROM unnest(v_allowed) allowed\n        WHERE v_domain = allowed OR right(v_domain, char_length(allowed) + 1) = '.' || allowed\n      ) THEN\n        RAISE EXCEPTION 'This link domain is not allowed in HackerMate messages';\n      END IF;\n    END LOOP;\n  END IF;\n\n  INSERT INTO public.messages (conversation_id, sender_id, content, reply_to_id)\n  VALUES (p_conversation_id, auth.uid(), v_content, p_reply_to_id)\n  RETURNING id INTO v_message_id;\n\n  RETURN v_message_id;\nEND;\n$function$\n"
+  },
+  {
+    "signature": "toggle_message_reaction(uuid,text)",
+    "owner": "postgres",
+    "prosecdef": true,
+    "proconfig": [
+      "search_path=public, pg_temp"
+    ],
+    "acl": "{postgres=X/postgres,authenticated=X/postgres}",
+    "anon_exec": false,
+    "auth_exec": true,
+    "service_exec": false,
+    "definition": "CREATE OR REPLACE FUNCTION public.toggle_message_reaction(p_message_id uuid, p_emoji text)\n RETURNS jsonb\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$\nDECLARE\n  v_user_id UUID;\n  v_existing_id UUID;\n  v_action TEXT;\n  v_allowed BOOLEAN;\nBEGIN\n  v_user_id := auth.uid();\n  IF v_user_id IS NULL THEN\n    RAISE EXCEPTION 'Not authenticated';\n  END IF;\n\n  -- Validate participant access\n  SELECT EXISTS (\n    SELECT 1 FROM public.messages m\n    JOIN public.conversations c ON c.id = m.conversation_id\n    LEFT JOIN public.conversation_participants cp ON cp.conversation_id = c.id AND cp.user_id = v_user_id\n    LEFT JOIN public.team_members tm ON tm.team_id = c.team_id AND tm.user_id = v_user_id\n    WHERE m.id = p_message_id\n      AND (cp.user_id IS NOT NULL OR tm.user_id IS NOT NULL)\n  ) INTO v_allowed;\n\n  IF NOT v_allowed THEN\n    RAISE EXCEPTION 'Access denied to this conversation';\n  END IF;\n\n  -- Check if reaction already exists for this user and emoji\n  SELECT id INTO v_existing_id\n  FROM public.message_reactions\n  WHERE message_id = p_message_id\n    AND user_id = v_user_id\n    AND emoji = p_emoji;\n\n  IF v_existing_id IS NOT NULL THEN\n    DELETE FROM public.message_reactions WHERE id = v_existing_id;\n    v_action := 'removed';\n  ELSE\n    INSERT INTO public.message_reactions (message_id, user_id, emoji)\n    VALUES (p_message_id, v_user_id, p_emoji);\n    v_action := 'added';\n  END IF;\n\n  RETURN jsonb_build_object(\n    'success', true,\n    'action', v_action,\n    'message_id', p_message_id,\n    'emoji', p_emoji\n  );\nEND;\n$function$\n"
+  },
+  {
+    "signature": "unpin_message(uuid)",
+    "owner": "postgres",
+    "prosecdef": true,
+    "proconfig": [
+      "search_path=public, pg_temp"
+    ],
+    "acl": "{postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+    "anon_exec": false,
+    "auth_exec": true,
+    "service_exec": true,
+    "definition": "CREATE OR REPLACE FUNCTION public.unpin_message(p_message_id uuid)\n RETURNS void\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$\r\nDECLARE\r\n  v_conversation_id uuid;\r\nBEGIN\r\n  SELECT conversation_id\r\n  INTO v_conversation_id\r\n  FROM messages\r\n  WHERE id = p_message_id;\r\n\r\n  IF v_conversation_id IS NULL THEN\r\n    RAISE EXCEPTION 'Message not found';\r\n  END IF;\r\n\r\n  IF NOT can_access_conversation(v_conversation_id) THEN\r\n    RAISE EXCEPTION 'Conversation access denied';\r\n  END IF;\r\n\r\n  UPDATE messages\r\n  SET is_pinned = false\r\n  WHERE id = p_message_id;\r\nEND;\r\n$function$\n"
+  }
+]
