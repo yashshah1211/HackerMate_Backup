@@ -46,7 +46,9 @@ exit "$FIXTURE_EXIT"
       assert.equal(args.includes('POST'), true);
       assert.equal(args.includes('Authorization: Bearer synthetic-bearer-secret'), true);
       assert.equal(args.at(-1), `${site || 'https://www.hackermate.in'}/api/cron/database-activity-report`);
-      assert.equal(args.some(arg => /retry/.test(arg)), false);
+      const retryIndex = args.indexOf('--retry');
+      assert.notEqual(retryIndex, -1, 'curl must explicitly disable retries');
+      assert.equal(args[retryIndex + 1], '0', 'no automatic resend on unknown outcome');
     } else {
       assert.equal(readdirSync(dir).includes('args'), false, 'invalid destination must not invoke curl');
     }
