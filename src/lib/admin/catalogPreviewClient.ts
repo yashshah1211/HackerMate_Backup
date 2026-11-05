@@ -1,9 +1,10 @@
 /** A defensive client boundary for an admin-only, read-only catalog preview. */
 export interface CatalogPreviewSummary {
   message: string;
-  checked: number;
-  discovered: number;
-  remaining: number;
+  snapshotOnly: true;
+  total: number;
+  withSourceMetadata: number;
+  archived: number;
 }
 
 export async function requestCatalogPreview(fetcher: typeof fetch = fetch): Promise<CatalogPreviewSummary> {
@@ -12,6 +13,7 @@ export async function requestCatalogPreview(fetcher: typeof fetch = fetch): Prom
     cache: "no-store",
     credentials: "same-origin",
     headers: { Accept: "application/json" },
+    signal: AbortSignal.timeout(12000),
   });
 
   const type = response.headers.get("content-type")?.toLowerCase() ?? "";
@@ -36,15 +38,22 @@ export async function requestCatalogPreview(fetcher: typeof fetch = fetch): Prom
 
   // A successful JSON response is not sufficient: enforce the server's
   // read-only result contract before showing a success notification.
-  if (!data || data.success !== true || data.dryRun !== true
-    || typeof data.checked !== "number" || typeof data.discovered !== "number") {
+  if (!data || data.success !== true || data.dryRun !== true || data.snapshotOnly !== true
+    || !Number.isSafeInteger(data.total) || (data.total as number) < 0
+    || !Number.isSafeInteger(data.withSourceMetadata) || (data.withSourceMetadata as number) < 0
+    || !Number.isSafeInteger(data.archived) || (data.archived as number) < 0
+    || (data.withSourceMetadata as number) > (data.total as number)
+    || (data.archived as number) > (data.total as number)) {
     throw new Error("Catalog preview returned an unexpected response. No changes were confirmed.");
   }
+  const total = data.total as number;
+  const withSourceMetadata = data.withSourceMetadata as number;
+  const archived = data.archived as number;
   return {
-    message: typeof data.message === "string" ? data.message
-      : `Catalog preview complete: ${data.checked} source checks. No records or emails changed.`,
-    checked: data.checked,
-    discovered: data.discovered,
-    remaining: typeof data.remaining === "number" ? data.remaining : 0,
+    message: `Catalog snapshot: ${total} saved listings, ${withSourceMetadata} with source metadata, ${archived} archived. No live checks or emails.`,
+    snapshotOnly: true,
+    total,
+    withSourceMetadata,
+    archived,
   };
 }
