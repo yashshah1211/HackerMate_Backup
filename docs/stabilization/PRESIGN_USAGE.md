@@ -51,3 +51,9 @@ These facts establish retirement of the known in-repository callers. They do not
 ## Outcome
 
 Known first-party callers migrated to direct uploads. No recent presign traffic was observed in available request records, but one hour of retention cannot establish that external consumers are absent. Keep STAB-006 open and preserve the successful contract until an existing longer-term archive or consumer inventory resolves compatibility. No application code, successful presign contract, storage policy, deployment or production records were changed during this follow-up.
+
+## Compatibility-safe remediation boundary
+
+STAB-006 remains open after the release review. Preserve POST, its successful uploadUrl/publicUrl/key fields and existing consumer behavior. Inventory longer-retained requests/custom consumers and inspect storage publication policy read-only before selecting a correction. Do not treat the new active-profile gate or unknown-signature rejection on the direct endpoint as presign byte/moderation enforcement.
+
+Full parity needs bytes inspected before public publication, plus actual size/ownership enforcement and safe denied-object cleanup. A separately approved quarantine/finalization or controlled serving approach must preserve agreed consumer contracts or provide an explicit migration path; keeping response field names alone does not establish compatibility. Bucket/serving/integration changes and any new finalize protocol require separate design/authorization and regression coverage. No such infrastructure/API change was made in PR#116.

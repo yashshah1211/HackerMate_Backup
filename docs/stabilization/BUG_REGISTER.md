@@ -13,7 +13,7 @@ Confirmed code-level defects: **P0 0 / P1 8 / P2 6 / P3 0**. Thirteen resolved l
 | 4 | STAB-001, P1 | Profile permission failure renders protected dashboard children | Fixed; actual error logged, verification notice |
 | 5 | STAB-002, P1 | In-flight profile success restores children after sign-out | Fixed; stale result ignored, current account recovery preserved |
 
-Second batch adds three confirmed P1 fixes (STAB-008/009/012) and one P2 fix (STAB-010). The only remaining confirmed P0/P1 defect is STAB-006; the separate STAB-011 credential review requires an authorized production check. No P0 breach was established.
+Second batch adds three confirmed P1 fixes (STAB-008/009/012) and one P2 fix (STAB-010). The only remaining confirmed P0/P1 defect is STAB-006; the separate STAB-011 credential review is partially verified and blocked on safe application-side comparison. No P0 breach was established.
 
 ## STAB-001 — P1 — Account guard grants access after failed profile verification
 
@@ -130,12 +130,13 @@ Second batch adds three confirmed P1 fixes (STAB-008/009/012) and one P2 fix (ST
 
 - Feature/file: secret seeding in `supabase/migrations/202608030002_re_enable_offline_email_notifications.sql`; earlier migrations also contain placeholder/default webhook credentials. Values are intentionally not reproduced here.
 - Confirmed fact: tracked SQL contains a fixed bearer credential and upserts it into app_secrets. Anyone with access to that source can know the seeded value.
-- Unverified: whether production still uses the historical value, whether it was already rotated, and whether an unauthorized party accessed or used it. This is not evidence of a production breach; excluded from confirmed product-defect totals.
+- Read-only follow-up: active database trigger credential does not match seeds extracted entirely inside PostgreSQL from retained migrations202607080005/202608030002. Both history records and the active secret exist; the installed trigger reads the expected app_secrets key. Only booleans/YES-NO-UNKNOWN left the server, with no credential/hash literals in query text or outputs.
+- Unverified: application-side credential equality, whether retained migration SQL exactly represents every historically committed credential, and whether unauthorized access occurred. This is not evidence of a production breach; excluded from confirmed product-defect totals.
 - Expected: production webhook credentials are generated and managed outside committed SQL, with known historical values invalidated.
 - Root cause: migration embeds operational credential material rather than provisioning it outside source control.
-- Proposed correction: separately authorize a private, boolean-only production comparison of current webhook configuration/trigger secret to known historical seeds. If any match, review and execute coordinated rotation of the server and trigger secret. Do not rewrite old migration history as a substitute for rotation or alter production secrets in this batch.
+- Proposed correction: complete a private equality-only comparison covering current application configuration and the installed trigger credential. Available Vercel tools retrieve values rather than compare privately, so they were not used to retrieve/decrypt the credential. If a historical value remains active, review the coordinated rotation plan in RELEASE_REVIEW.md; execution requires separate approval.
 - Regression/verification needed: old bearer rejected, replacement accepted only for verified events, trigger producer and server remain compatible, no real email triggered. STAB-012 independently restricts replay and payload forgery but does not rotate this credential.
-- Status: needs verification / founder decision on a scoped production credential check and conditional coordinated rotation. No production secret was revealed, compared, rotated or modified.
+- Status: **blocked — application-side comparison has no safe available path.** Overall historical credential still active: UNKNOWN; trigger/application consistent: UNKNOWN; rotation required: UNKNOWN. Database-side historical match: NO within the retained-history scope. No production credential was revealed, hashed in output, rotated or modified; comparison was server-side/read-only and no webhook/email was triggered.
 
 ## STAB-012 — P1 — Replayed notifications resend email and trust forged payload content
 
