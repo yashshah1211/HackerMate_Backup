@@ -48,6 +48,7 @@ import {
   Textarea,
 } from "@/components/system";
 import { cn } from "@/lib/utils";
+import { compareMessageTime, mergeMessageHistory, olderMessageFilter } from "@/lib/chatHistory";
 
 type Message = {
   id: string;
@@ -340,6 +341,18 @@ function ChatThreadSession({
 }: Props) {
   const [messages, setMessages] = useState<Message[]>([]);
   const messagesRef = useRef<Message[]>([]);
+  const historyCursor = useRef<Message | null>(null);
+  const historyReads = useRef(0);
+  const historyGeneration = useRef(0);
+  const historyEvents = useRef(new Map<string, Message | null>());
+  const finishHistoryRead = () => {
+    if (--historyReads.current === 0) historyEvents.current.clear();
+  };
+  const applyHistoryPage = (page: Message[]) => {
+    const events = new Map(historyEvents.current);
+    setMessages(current => mergeMessageHistory(current, page, events).filter(message =>
+      !clearedAtRef.current || compareMessageTime(message.created_at, clearedAtRef.current) > 0));
+  };
   useEffect(() => {
     messagesRef.current = messages;
   }, [messages]);
@@ -489,6 +502,9 @@ function ChatThreadSession({
   }, []);
 
   async function loadMessages() {
+    const generation = historyGeneration.current;
+    ++historyReads.current;
+    try {
     const { data: conversation, error: convError } = await supabase
       .from("conversations")
       .select("type")
@@ -538,7 +554,8 @@ function ChatThreadSession({
       console.error("[chatThread] Error loading participant cleared timestamp:", myPartError);
     }
 
-    const currentClearedAt = participantData?.cleared_at || null;
+    // A clear acknowledged while this read was pending is newer than its snapshot.
+    const currentClearedAt = clearedAtRef.current || participantData?.cleared_at || null;
     setClearedAt(currentClearedAt);
     clearedAtRef.current = currentClearedAt;
 
@@ -546,16 +563,21 @@ function ChatThreadSession({
       .from("messages")
       .select("*")
       .eq("conversation_id", conversationId)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false });
 
     if (currentClearedAt) {
       query = query.gt("created_at", currentClearedAt);
     }
 
-    const { data, error } = await query.range(0, 29);
+    const { data, error } = await query.limit(30);
+
+    if (error) console.error("Error loading messages:", error);
+
+    if (!mountedRef.current) return;
+    if (generation !== historyGeneration.current) { setLoading(false); return; }
 
     if (error) {
-      console.error(error);
       if (!mountedRef.current) return;
       setLoadError(error.message || "Messages could not be loaded.");
       setLoading(false);
@@ -565,7 +587,8 @@ function ChatThreadSession({
     setLoadError(null);
 
     const fetchedMessages = [...(data || [])].reverse();
-    setMessages(fetchedMessages);
+    historyCursor.current = data?.at(-1) ?? null;
+    applyHistoryPage(fetchedMessages);
     setHasMore(data ? data.length === 30 : false);
 
     const messageIds = fetchedMessages.map((m) => m.id);
@@ -586,10 +609,12 @@ function ChatThreadSession({
     }
 
     if (senderIds.length > 0) {
-      const { data: profileData } = await supabase
+      const { data: profileData, error: profileError } = await supabase
         .from("profiles")
         .select("id, full_name, avatar_url")
         .in("id", senderIds);
+
+      if (profileError) console.error("Error loading message profiles:", profileError);
 
       if (profileData) {
         setProfiles((prev) => {
@@ -603,6 +628,13 @@ function ChatThreadSession({
     }
 
     setLoading(false);
+    } catch (error) {
+      console.error("Error loading message history:", error);
+      if (mountedRef.current) {
+        setLoadError("Messages could not be loaded.");
+        setLoading(false);
+      }
+    } finally { finishHistoryRead(); }
   }
 
   async function ensureProfile(userId: string) {
@@ -683,7 +715,7 @@ function ChatThreadSession({
           if (!active) return;
           const newMsg = payload.new as Message;
           const activeClearedAt = clearedAtRef.current;
-          if (activeClearedAt && new Date(newMsg.created_at) <= new Date(activeClearedAt)) return;
+          if (activeClearedAt && compareMessageTime(newMsg.created_at, activeClearedAt) <= 0) return;
           const isMine = newMsg.sender_id === currentUserId;
           if (!isMine) {
             supabase.rpc("mark_conversation_read", {
@@ -692,9 +724,8 @@ function ChatThreadSession({
               if (readErr) console.error("Error marking incoming message read:", readErr);
             });
           }
-          setMessages((prev) =>
-            prev.some((m) => m.id === newMsg.id) ? prev : [...prev, newMsg]
-          );
+          if (historyReads.current) historyEvents.current.set(newMsg.id, newMsg);
+          setMessages(prev => mergeMessageHistory(prev, [newMsg], new Map()));
           ensureProfile(newMsg.sender_id);
         }
       )
@@ -709,6 +740,7 @@ function ChatThreadSession({
         (payload) => {
           if (!active) return;
           const updatedMsg = payload.new as Message;
+          if (historyReads.current) historyEvents.current.set(updatedMsg.id, updatedMsg);
           setMessages((prev) =>
             prev.map((m) => (m.id === updatedMsg.id ? updatedMsg : m))
           );
@@ -726,6 +758,7 @@ function ChatThreadSession({
           if (!active) return;
           const oldMsg = payload.old as { id?: string };
           if (oldMsg?.id) {
+            if (historyReads.current) historyEvents.current.set(oldMsg.id, null);
             setMessages((prev) => prev.filter((m) => m.id !== oldMsg.id));
           }
         }
@@ -860,32 +893,38 @@ function ChatThreadSession({
 
   const handleScroll = async (e: React.UIEvent<HTMLDivElement>) => {
     const target = e.currentTarget;
-    if (target.scrollTop === 0 && hasMore && !isLoadingMoreRef.current && messages.length > 0) {
+    if (target.scrollTop === 0 && hasMore && !isLoadingMoreRef.current && !loading && historyCursor.current) {
       isLoadingMoreRef.current = true;
       setLoadingMore(true);
       const prevScrollHeight = target.scrollHeight;
-      const currentOffset = messages.length;
+      const cursor = historyCursor.current;
+      const generation = historyGeneration.current;
+      ++historyReads.current;
+      try {
 
       let query = supabase
         .from("messages")
         .select("*")
         .eq("conversation_id", conversationId)
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
+        .or(olderMessageFilter(cursor));
 
       if (clearedAt) {
         query = query.gt("created_at", clearedAt);
       }
 
-      const { data: moreData, error } = await query.range(currentOffset, currentOffset + 29);
+      const { data: moreData, error } = await query.limit(30);
+      if (error) console.error("Error loading older messages:", error);
+      if (!mountedRef.current || generation !== historyGeneration.current) return;
 
-      if (error) {
-        console.error(error);
-      } else if (moreData) {
+      if (!error && moreData) {
         if (moreData.length < 30) {
           setHasMore(false);
         }
+        historyCursor.current = moreData.at(-1) ?? cursor;
         const olderMessages = [...moreData].reverse();
-        setMessages((prev) => [...olderMessages, ...prev]);
+        applyHistoryPage(olderMessages);
 
         const moreIds = olderMessages.map((m) => m.id);
         fetchReactionsForMessages(moreIds);
@@ -895,10 +934,12 @@ function ChatThreadSession({
         ).filter((id) => !profiles[id]);
 
         if (newSenderIds.length > 0) {
-          const { data: newProfileData } = await supabase
+          const { data: newProfileData, error: profileError } = await supabase
             .from("profiles")
             .select("id, full_name, avatar_url")
             .in("id", newSenderIds);
+
+          if (profileError) console.error("Error loading history profiles:", profileError);
 
           if (newProfileData) {
             setProfiles((prev) => {
@@ -918,8 +959,13 @@ function ChatThreadSession({
           }
         });
       }
-      isLoadingMoreRef.current = false;
-      setLoadingMore(false);
+      } catch (error) {
+        console.error("Error loading older messages:", error);
+      } finally {
+        finishHistoryRead();
+        isLoadingMoreRef.current = false;
+        if (mountedRef.current) setLoadingMore(false);
+      }
     }
   };
 
@@ -1400,6 +1446,8 @@ function ChatThreadSession({
     if (error) {
       console.error("Error clearing chat:", error);
     } else {
+      ++historyGeneration.current;
+      historyCursor.current = null;
       setClearedAt(nowStr);
       clearedAtRef.current = nowStr;
       setMessages([]);

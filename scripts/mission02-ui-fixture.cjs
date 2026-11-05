@@ -25,8 +25,8 @@ async function mount(t, kind, options = {}) {
     from(table) {
       const q = { table, operation: 'select', filters: [], columns: '', single: false };
       const query = { select(columns) { q.columns = columns; return this; }, eq(...args) { q.filters.push(args); return this; },
-        in(...args) { q.filters.push(args); return this; }, or() { return this; }, gt() { return this; }, lt() { return this; },
-        order() { return this; }, range() { return this; }, limit() { return this; }, neq() { return this; }, is() { return this; },
+        in(...args) { q.filters.push(args); return this; }, or(value) { q.or = value; return this; }, gt(...args) { q.filters.push(args); return this; }, lt(...args) { q.filters.push(args); return this; },
+        order(...args) { (q.orders ||= []).push(args); return this; }, range(...args) { q.range = args; return this; }, limit(value) { q.limit = value; return this; }, neq() { return this; }, is() { return this; },
         insert(value) { q.operation = 'insert'; q.value = value; return this; }, update(value) { q.operation = 'update'; q.value = value; return this; },
         delete() { q.operation = 'delete'; return this; }, maybeSingle() { q.single = true; return this; }, single() { q.single = true; return this; },
         then(resolve, reject) {
