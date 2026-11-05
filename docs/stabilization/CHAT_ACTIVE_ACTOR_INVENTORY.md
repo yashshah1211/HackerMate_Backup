@@ -45,4 +45,3 @@ Before extending the participant predicate, read-only catalog inspection confirm
 ## Final review: hybrid inbox authorization
 
 Installed conversation constraints permit type dm with non-null team_id (type check accepts dm/team only; no coherence check). An active member can insert that shape under existing conversations_insert. Independent native proof seeded legitimate synthetic participants/message, then removed membership: helper denies but definer inbox still previews. Add the same current-access predicate to inbox my_dms (already inventoried conversation/participant joins). Preserve every returned field, blocked-user filter, clear boundary and ordering. Do not claim an observed hybrid production row or customer exploit; no customer rows were queried.
-
