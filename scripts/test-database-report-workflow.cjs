@@ -50,9 +50,12 @@ exit "$FIXTURE_EXIT"
   } finally { rmSync(dir, { recursive: true, force: true }); }
 }
 
-test('workflow remains manually triggered', () => {
-  assert.match(workflow, /workflow_dispatch:/);
-  assert.doesNotMatch(workflow, /schedule:|cron:/);
+test('daily Founder Brief schedule and manual recovery trigger are both configured', () => {
+  assert.match(workflow, /^on:\n  schedule:\n(?:    #[^\n]*\n)*    - cron: '37 3 \* \* \*'/m);
+  assert.equal((workflow.match(/^\s+- cron:/gm) || []).length, 1, 'only one daily report schedule');
+  assert.match(workflow, /^  workflow_dispatch:/m);
+  assert.match(workflow, /cancel-in-progress: false/);
+  assert.match(workflow, /github\.repository == 'yashshah1211\/HackerMate_Backup' && github\.ref == 'refs\/heads\/main'/);
 });
 test('intended provider acceptance succeeds without claiming delivery', () => run({ ok: true }));
 test('default site and accepted dispatch survive bookkeeping failures', () => run({ site: '', ok: true,
