@@ -6,8 +6,9 @@ import { AnimatePresence, motion } from "motion/react";
 import { BellOff, Check, CheckCheck } from "lucide-react";
 import { supabase, subscribeWithRetry } from "@/lib/supabase";
 import { relativeTime } from "@/lib/time";
-import { Segmented, Sheet, SkeletonRows, Tape, type TapeTone } from "@/components/system";
+import { Segmented, Sheet, SkeletonRows, Tape } from "@/components/system";
 import { cn } from "@/lib/utils";
+import { classifyNotification, matchesNotificationFilter, type NotificationFilter as Filter } from "@/lib/notificationClassification";
 
 export interface NotificationItem {
   id: string;
@@ -21,19 +22,6 @@ interface NotificationDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   onCountChange?: (count: number) => void;
-}
-
-type Filter = "all" | "unread" | "teams" | "connections";
-
-/** Same keyword classification as V1, mapped onto V2 tape tones. */
-function classify(message: string): { label: string; tone: TapeTone } {
-  const lower = message.toLowerCase();
-  if (lower.includes("connection") || lower.includes("connect")) return { label: "Connection", tone: "info" };
-  if (lower.includes("invite") || lower.includes("invited")) return { label: "Invite", tone: "accent" };
-  if (lower.includes("joined") || lower.includes("join")) return { label: "Team", tone: "ok" };
-  if (lower.includes("hackathon") || lower.includes("hack") || lower.includes("deadline")) return { label: "Hackathon", tone: "hack" };
-  if (lower.includes("mentioned") || lower.includes("message")) return { label: "Mention", tone: "proj" };
-  return { label: "Activity", tone: "neutral" };
 }
 
 /**
@@ -166,13 +154,9 @@ export default function NotificationDrawer({ isOpen, onClose, onCountChange }: N
 
   const filtered = useMemo(
     () =>
-      notifications.filter((n) => {
-        const l = n.message.toLowerCase();
-        if (filter === "unread") return !n.is_read;
-        if (filter === "teams") return l.includes("team") || l.includes("joined") || l.includes("invite");
-        if (filter === "connections") return l.includes("connect") || l.includes("connection");
-        return true;
-      }),
+      notifications
+        .map((n) => ({ ...n, classification: classifyNotification(n.message) }))
+        .filter((n) => matchesNotificationFilter(filter, n.is_read, n.classification)),
     [notifications, filter],
   );
 
@@ -249,7 +233,7 @@ export default function NotificationDrawer({ isOpen, onClose, onCountChange }: N
         <ul className="divide-y divide-line">
           <AnimatePresence initial={false}>
             {filtered.map((item) => {
-              const meta = classify(item.message);
+              const meta = item.classification;
               return (
                 <motion.li key={item.id} layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                   <div

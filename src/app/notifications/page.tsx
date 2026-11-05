@@ -17,10 +17,10 @@ import {
   Segmented,
   SkeletonRows,
   Tape,
-  type TapeTone,
 } from "@/components/system";
 import { relativeTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
+import { classifyNotification, matchesNotificationFilter, type NotificationClassification, type NotificationFilter as Filter } from "@/lib/notificationClassification";
 
 type Notification = {
   id: string;
@@ -29,8 +29,6 @@ type Notification = {
   is_read: boolean;
   created_at: string;
 };
-
-type Filter = "all" | "unread" | "teams" | "connections";
 
 /* ── helpers ────────────────────────────────────────────── */
 
@@ -42,17 +40,6 @@ function isToday(dateString: string) {
     d.getMonth() === now.getMonth() &&
     d.getFullYear() === now.getFullYear()
   );
-}
-
-/** Same keyword classification + tones as the shell inbox drawer. */
-function classify(message: string): { label: string; tone: TapeTone } {
-  const lower = message.toLowerCase();
-  if (lower.includes("connection") || lower.includes("connect")) return { label: "Connection", tone: "info" };
-  if (lower.includes("invite") || lower.includes("invited")) return { label: "Invite", tone: "accent" };
-  if (lower.includes("joined") || lower.includes("join")) return { label: "Team", tone: "ok" };
-  if (lower.includes("hackathon") || lower.includes("hack") || lower.includes("deadline")) return { label: "Hackathon", tone: "hack" };
-  if (lower.includes("mentioned") || lower.includes("message")) return { label: "Mention", tone: "proj" };
-  return { label: "Activity", tone: "neutral" };
 }
 
 /* ── component ──────────────────────────────────────────── */
@@ -224,13 +211,9 @@ async function resolveNotificationLink(n: Notification, userInvites: any[]): Pro
   const unreadCount = notifications.filter((n) => !n.is_read).length;
 
   // Client-side view filter (same buckets as the inbox drawer).
-  const filtered = notifications.filter((n) => {
-    const l = n.message.toLowerCase();
-    if (filter === "unread") return !n.is_read;
-    if (filter === "teams") return l.includes("team") || l.includes("joined") || l.includes("invite");
-    if (filter === "connections") return l.includes("connect") || l.includes("connection");
-    return true;
-  });
+  const filtered = notifications
+    .map((n) => ({ ...n, classification: classifyNotification(n.message) }))
+    .filter((n) => matchesNotificationFilter(filter, n.is_read, n.classification));
   const todayNotifs = filtered.filter((n) => isToday(n.created_at));
   const earlierNotifs = filtered.filter((n) => !isToday(n.created_at));
 
@@ -344,11 +327,11 @@ function NotifRow({
   n,
   markAsRead,
 }: {
-  n: Notification;
+  n: Notification & { classification: NotificationClassification };
   markAsRead: (id: string) => void;
 }) {
   const router = useRouter();
-  const meta = classify(n.message);
+  const meta = n.classification;
   const lower = n.message.toLowerCase();
   const isInviteNotif = lower.includes("invited") || lower.includes("invite");
   const targetLink = n.link || (isInviteNotif ? "/invites" : null);
