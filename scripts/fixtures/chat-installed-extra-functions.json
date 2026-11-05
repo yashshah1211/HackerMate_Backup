@@ -1,0 +1,28 @@
+[
+  {
+    "signature": "is_conversation_participant(uuid)",
+    "owner": "postgres",
+    "prosecdef": true,
+    "proconfig": [
+      "search_path=public, pg_temp"
+    ],
+    "acl": "{postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+    "anon_exec": false,
+    "auth_exec": true,
+    "service_exec": true,
+    "definition": "CREATE OR REPLACE FUNCTION public.is_conversation_participant(conv_id uuid)\n RETURNS boolean\n LANGUAGE sql\n STABLE SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$ select exists ( select 1 from conversation_participants where conversation_id = conv_id and user_id = auth.uid() ); $function$\n"
+  },
+  {
+    "signature": "toggle_message_pin(uuid)",
+    "owner": "postgres",
+    "prosecdef": true,
+    "proconfig": [
+      "search_path=public, pg_temp"
+    ],
+    "acl": "{postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+    "anon_exec": false,
+    "auth_exec": true,
+    "service_exec": true,
+    "definition": "CREATE OR REPLACE FUNCTION public.toggle_message_pin(p_message_id uuid)\n RETURNS boolean\n LANGUAGE plpgsql\n SECURITY DEFINER\n SET search_path TO 'public', 'pg_temp'\nAS $function$\r\ndeclare\r\n  v_conv_id uuid;\r\n  v_current_status boolean;\r\nbegin\r\n  -- Get conversation_id and check access\r\n  select conversation_id, is_pinned into v_conv_id, v_current_status\r\n  from public.messages\r\n  where id = p_message_id;\r\n\r\n  if v_conv_id is null then\r\n    raise exception 'Message not found';\r\n  end if;\r\n\r\n  if not public.can_access_conversation(v_conv_id) then\r\n    raise exception 'Access denied to pin this message';\r\n  end if;\r\n\r\n  update public.messages\r\n  set is_pinned = not v_current_status\r\n  where id = p_message_id;\r\n\r\n  return not v_current_status;\r\nend;\r\n$function$\n"
+  }
+]

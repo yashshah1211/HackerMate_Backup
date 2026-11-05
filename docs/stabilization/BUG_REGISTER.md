@@ -278,3 +278,26 @@ Baseline `7fc7acc83dc4585c2624ec047f2c34c1dff312a6`. New IDs do not reuse Missio
 - Fix: serialize mutations per task; require id/team_id-scoped returned row; authoritative read after commit rather than replaying old patch; shared request sequence rejects obsolete reloads. No optimistic state requiring destructive rollback, automatic mutation retry or global last-writer guarantee.
 - Regression: controlled server commit order, zero/error/throw outcomes, deliberate retry, both read/ack races; actual browser stored-state order and queued work cancellation after route unmount. Original ordering/zero/throw tests fail; expanded focused 36/36 and browser 2/2 pass.
 - Status: corrected locally and independently re-reviewed. Different clients retain existing last-writer semantics; ambiguous external commit outcomes remain a separate acceptance limit.
+
+## Post-release acceptance — deployed baseline46d7fcd
+
+Fresh read-only catalogs confirm Mission03 migration20261105132849 installed and task/link/document actor/grant boundaries intact. Historical pre-release statuses above do not describe current deployment. No live customer exploit attempted.
+
+### STAB-026 — P2 — Resource deletion acknowledgment (separate PR #120)
+
+Reserved by https://github.com/yashshah1211/HackerMate_Backup/pull/120. Zero-row resource DELETE falsely removes the row locally; exact scoped returned-row correction and three regressions are isolated there. Not bundled into this security PR; not deployed.
+
+### STAB-027 — P1 — Suspended and revoked actors retain messaging authority
+
+- Installed helper/messages policy and definer inbox/setup/reaction/delete paths omit protected profile suspension; sends/receipts/pins inherit the helper. Direct conversation/participant writes and reaction DELETE also need a current actor boundary.
+- Native reproduction: banned actor reads/sends/previews/reacts/deletes and changes read/pin state. Stale team participant can react after removal; valid hybrid type=dm/team_id conversation leaks inbox previews after roster removal. No live private message read or authenticated mutation performed.
+- Fix: seven existing function guards and four restrictive messaging policies require current active profile/conversation authority. Preserve installed signatures, four-key reaction JSON/five-column schema, ownership/ACL/search_path, owner/member and service-role behavior. Migration20261105143908 is review-only.
+- Verification: final native21/21, independently repeated by both reviewers; final original-definition replay19cases7pass/12fail including parent. Existing nativeworkspace19, PR1038, broad1990, browser2, document concurrency, smoke, safe build and TypeScript pass. ESLint192errors/90warnings unchanged/no new diagnostic identities.
+- Status: corrected locally; production P1 unresolved. Full authorization acceptance NO-GO until explicitly approved application/release and live acceptance. See POST_RELEASE_MESSAGING_SECURITY_HANDOFF.md.
+
+### STAB-028 — P1 — Participant reassignment acquires private DM access
+
+- Reproduction: unfiltered UPDATE conversation_participants SET conversation_id=foreignDM moves own row under user_id-only UPDATE policy; subsequent helper/read gains private DM. WHERE/column RETURNING can hide this bypass through SELECT checks. Live catalogs confirm effective table UPDATE/allfivecolumns and no identity trigger; no production exploit attempted.
+- Fix: restrictive USING and WITH CHECK both use SQL STABLE can_access_conversation(conversation_id); pre-statement destination access fails. No column/grant/signature changes or all-column immutability claim. Active cleared_at update preserved.
+- Regression: exact unfiltered statement fails, helper remainsfalse and foreign messages count0. Independent proof before/after; final21/21 includes test and two independent passing reviews.
+- Status: review-only migration, production unresolved/P1 pending approval and verification. STAB-006 open; STAB-011 separately blocked.

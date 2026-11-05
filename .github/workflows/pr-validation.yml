@@ -73,6 +73,7 @@ jobs:
           export PATH="$mission03_pg_bin:$PATH"
           export PARTNER_TEST_PG_BIN="$mission03_pg_bin"
           node --test scripts/test-mission03-workspace-rls.cjs
+          node --test scripts/test-chat-active-actor-local.cjs
           python3 scripts/test-team-document-local.py
 
       - name: Run existing core-page query smoke against synthetic loopback fixtures

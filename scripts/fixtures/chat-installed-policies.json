@@ -1,0 +1,134 @@
+{
+  "columns": [
+    {
+      "name": "id",
+      "type": "uuid",
+      "nullable": "NO"
+    },
+    {
+      "name": "message_id",
+      "type": "uuid",
+      "nullable": "NO"
+    },
+    {
+      "name": "user_id",
+      "type": "uuid",
+      "nullable": "NO"
+    },
+    {
+      "name": "emoji",
+      "type": "text",
+      "nullable": "NO"
+    },
+    {
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "NO"
+    }
+  ],
+  "policies": [
+    {
+      "cmd": "UPDATE",
+      "qual": "(user_id = ( SELECT auth.uid() AS uid))",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "conversation_participants",
+      "permissive": "PERMISSIVE",
+      "policyname": "conversation_participants_update",
+      "schemaname": "public",
+      "with_check": "(user_id = ( SELECT auth.uid() AS uid))"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "can_access_conversation(conversation_id)",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "conversation_participants",
+      "permissive": "PERMISSIVE",
+      "policyname": "participants_read",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "INSERT",
+      "qual": null,
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "conversations",
+      "permissive": "PERMISSIVE",
+      "policyname": "conversations_insert",
+      "schemaname": "public",
+      "with_check": "((team_id IS NULL) OR is_team_member(team_id))"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "can_access_conversation(id)",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "conversations",
+      "permissive": "PERMISSIVE",
+      "policyname": "conversations_read",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "DELETE",
+      "qual": "(auth.uid() = user_id)",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "message_reactions",
+      "permissive": "PERMISSIVE",
+      "policyname": "message_reactions_delete",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "INSERT",
+      "qual": null,
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "message_reactions",
+      "permissive": "PERMISSIVE",
+      "policyname": "message_reactions_insert",
+      "schemaname": "public",
+      "with_check": "((auth.uid() = user_id) AND (EXISTS ( SELECT 1\n   FROM (((messages m\n     JOIN conversations c ON ((c.id = m.conversation_id)))\n     LEFT JOIN conversation_participants cp ON (((cp.conversation_id = c.id) AND (cp.user_id = auth.uid()))))\n     LEFT JOIN team_members tm ON (((tm.team_id = c.team_id) AND (tm.user_id = auth.uid()))))\n  WHERE ((m.id = message_reactions.message_id) AND ((cp.user_id IS NOT NULL) OR (tm.user_id IS NOT NULL))))))"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "(EXISTS ( SELECT 1\n   FROM (((messages m\n     JOIN conversations c ON ((c.id = m.conversation_id)))\n     LEFT JOIN conversation_participants cp ON (((cp.conversation_id = c.id) AND (cp.user_id = auth.uid()))))\n     LEFT JOIN team_members tm ON (((tm.team_id = c.team_id) AND (tm.user_id = auth.uid()))))\n  WHERE ((m.id = message_reactions.message_id) AND ((cp.user_id IS NOT NULL) OR (tm.user_id IS NOT NULL)))))",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "message_reactions",
+      "permissive": "PERMISSIVE",
+      "policyname": "message_reactions_select",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "(conversation_id IN ( SELECT cp.conversation_id\n   FROM conversation_participants cp\n  WHERE (cp.user_id = ( SELECT auth.uid() AS uid))\nUNION ALL\n SELECT c.id\n   FROM (conversations c\n     JOIN team_members tm ON ((tm.team_id = c.team_id)))\n  WHERE (tm.user_id = ( SELECT auth.uid() AS uid))\nUNION ALL\n SELECT c.id\n   FROM (conversations c\n     JOIN teams t ON ((t.id = c.team_id)))\n  WHERE (t.owner_id = ( SELECT auth.uid() AS uid))))",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "messages",
+      "permissive": "PERMISSIVE",
+      "policyname": "messages_read",
+      "schemaname": "public",
+      "with_check": null
+    }
+  ],
+  "constraints": [
+    "CHECK ((char_length(emoji) <= 16))",
+    "FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE",
+    "PRIMARY KEY (id)",
+    "FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE",
+    "UNIQUE (message_id, user_id)"
+  ]
+}
