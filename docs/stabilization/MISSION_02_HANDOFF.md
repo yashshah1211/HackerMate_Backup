@@ -1,8 +1,31 @@
 # Mission 02 — messaging, teams, workspaces and state integrity
 
-Base: `6e6b0e3b1fbb6b351112e011bed78e27033db258`. Branch: `stabilize/messaging-workspaces-20261105`. Isolated worktree: `stabilization-mission02-20261105`. Previous branch and original frontend remain untouched. PR #116 is confirmed merged at this base; Vercel reports its main deployment READY/production. Mission 02 does not merge or deploy.
+Original reproduction baseline: `6e6b0e3b1fbb6b351112e011bed78e27033db258`. Current integrated main: `cad50fafec5d9219f38fd95028198e9480582d7f` (PR #117). Branch: `stabilize/messaging-workspaces-20261105`. Isolated worktree: `stabilization-mission02-20261105`. Previous branch and original frontend remain untouched. Initial verification confirmed PR #116 merged and its deployment READY/production. Mission 02 does not merge or deploy the PR.
 
 Review: [Draft PR #118](https://github.com/yashshah1211/HackerMate_Backup/pull/118). Source/evidence head `247bb4ba7bae9efb66a2d2542506cd7122b7a1c8` passed [GitHub Actions run 42014251549](https://github.com/yashshah1211/HackerMate_Backup/actions/runs/42014251549). This documentation-only follow-up adds the references; PR checks are authoritative for the final head. Vercel lists zero deployments for the published source head.
+
+## Final integration gate — PR #117
+
+Fetched main and confirmed PR #117 is merged at `cad50fafec5d9219f38fd95028198e9480582d7f`. Merge commit `d42b05ae7c79e580647c8b734d97d5515b855fb7` has parents `db96d94` and `cad50fa`; all six Mission 02 commits remain reachable. The merge completed without conflicts. Only the four upstream files changed at this step; no source or test correction was necessary.
+
+- Combined PR workflow retains scripts/test-database-report-workflow.cjs, scripts/test-mission02-state.cjs and scripts/test-mission02-browser.cjs exactly once each. No gate was removed.
+- Founder Brief schedule is exactly `37 3 * * *` (09:07 IST), with one schedule, serialized execution, `cancel-in-progress: false`, main/repository restriction and `curl --retry 0` retained. The daily workflow, permanent claim helper, report route and dispatch helper match integrated main exactly. No live workflow dispatch or endpoint call occurred.
+- All five Mission 02 fixes and their source/regression files match `db96d94` byte-for-byte. Integration changes no product behavior beyond importing approved main.
+
+| Integration verification | Result |
+| --- | --- |
+| Windows application offline selection | 1,021 pass / 0 fail / 0 skipped |
+| Focused messaging plus daily-claim/Founder Brief selection | 31 pass / 0 fail / 0 skipped, including all 19 messaging/workspace checks |
+| Combined Linux selection including PR #117 shell runner | 1,051 pass / 0 fail / 0 skipped in new merged-head CI |
+| TypeScript | Pass after the safe build completed |
+| Auth + Mission 02 browser scenarios | 2 pass / 0 fail, both at 1440px and 390px |
+| Safe production build | Pass, 3 synthetic reads / zero writes; offline fonts/network guard |
+| Synthetic query smoke | Pass, 10 reads / zero writes |
+| ESLint | 193 errors / 90 warnings, no added diagnostics versus the prior final baseline |
+
+The imported workflow tests execute the real shell body with a temporary curl fixture and jq; their default destination string is production but the test must never reach actual curl/network. Local Windows lacks jq and the existing Ubuntu distribution lacks Linux Node/jq. No environment was provisioned, Docker started, test rewritten or shell result claimed locally; the complete Linux selection must pass in new-head GitHub CI. The local 1,021 count excludes only that platform-specific runner, not product assertions. An initial TypeScript invocation overlapped build regeneration of .next/types and failed with missing generated files; the sequential rerun passed without any source/configuration workaround.
+
+New CI: [run 42019542520](https://github.com/yashshah1211/HackerMate_Backup/actions/runs/42019542520), integration head `d42b05ae7c79e580647c8b734d97d5515b855fb7`, completed/success. Actual logs confirm 1,051 regressions with no failures/skips, including schedule/manual recovery, non-production rejection and no transport retry; 2 browser scenarios pass across desktop/mobile, synthetic smoke passes and all TypeScript/artifact steps succeed. This is new integrated-head evidence, not the earlier Mission 02 run. A subsequent documentation-only head must also have green PR checks; its exact final SHA/run is recorded in PR metadata and delivery. Existing production acceptance limitations below still apply. STAB-006 and STAB-011 remain open; PR #118 remains Draft/unmerged. Integration recommendation: **CONDITIONAL GO** for founder approval; no new code blocker was found.
 
 ## Reproduced defects and fixes
 

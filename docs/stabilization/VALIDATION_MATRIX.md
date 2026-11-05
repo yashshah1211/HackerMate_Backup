@@ -150,3 +150,22 @@ Exact runners: node --import ./qa/fixtures/rack-network-guard.mjs --test --test-
 All production application paths use synthetic adapters in verification. No real message/notification/email, production DB mutation, grant/RLS/secret/deployment setting change, merge or deploy. Native tests do not establish deployed Supabase/RLS equivalence. The permission bug is demonstrated UI authority reuse, not proof of backend RLS bypass. Server idempotency, live revocation and external delivery remain unverified. STAB-006/STAB-011 remain open separately. Hosted CI is reported only once the Draft PR's actual final-head run succeeds; use the linked PR checks/delivery record for final status.
 
 Hosted evidence: [Draft PR #118](https://github.com/yashshah1211/HackerMate_Backup/pull/118) / [Actions run 42014251549](https://github.com/yashshah1211/HackerMate_Backup/actions/runs/42014251549), source head `247bb4ba7bae9efb66a2d2542506cd7122b7a1c8`, completed/success. All steps pass on Linux/Node 22: TypeScript, 1,021 regressions, synthetic core smoke, existing auth plus Mission02 browser scenarios (both desktop/mobile), artifact render/upload. No production credentials are provided. Follow-up documentation only adds links/readability; final PR checks remain authoritative for its head. Vercel deployment query for the source head returned zero records.
+
+## Final integration with main / PR #117
+
+Current integration base: `cad50fafec5d9219f38fd95028198e9480582d7f`. Merge head: `d42b05ae7c79e580647c8b734d97d5515b855fb7`; original Mission 02 baseline6e6b0e3 remains the reproduction baseline. Both histories preserved; no conflicts. All Mission 02 source/tests equal pre-merge db96d94, and Founder Brief workflow/claim/route/dispatch equal main. Local assertions confirm all three required CI runners present once, exactly one `37 3 * * *` schedule, serialized main-only execution and `--retry 0`.
+
+| Integrated gate | Actual execution result |
+| --- | --- |
+| Combined Linux PR selection | 1,051 pass / 0 fail / 0 skipped, including30 database-report shell checks |
+| Local Windows application selection | 1,021 pass / 0 fail / 0 skipped |
+| Focused messaging + daily report claim/Founder Brief | 31 pass / 0 fail / 0 skipped, includes19 Mission 02 checks |
+| TypeScript | Pass after build; initial overlapping run failed only on generated .next/types being removed/recreated |
+| Safe production webpack build | Pass,3synthetic reads/zero writes, offline fonts/network guard |
+| Auth/Mission 02 browser | 2 pass / 0 fail,1440px and390px; zero external requests/page errors |
+| Synthetic core smoke | Pass,10reads/zero mutations |
+| ESLint | 193 errors / 90 warnings, zero new diagnostic texts/multiplicities versus prior Mission 02 final baseline |
+
+Actual new-head [CI run42019542520](https://github.com/yashshah1211/HackerMate_Backup/actions/runs/42019542520) completed/success on Linux/Node22; job logs explicitly confirm schedule/manual trigger, destination rejection and no retry tests,1051/1051 regressions,2/2 browser scenarios, smoke and all TypeScript/artifact steps. Do not substitute earlier run42014706513 for this evidence. Local existing Ubuntu has Bash but lacks Linux Node/jq, and Windows lacks jq; the platform-specific shell tests were executed unchanged in Linux CI with mock curl, not against any live destination. No skip was added to CI. Raw local logs: scratch/mission02/integration/.
+
+This documentation update contains no runtime changes. Final-head CI must also succeed and its exact SHA/run is reported in PR metadata/delivery. Remaining production acceptance limits and STAB-006/STAB-011 are unchanged. No production settings/data, messages/emails, manual dispatch, merge or deploy occurred.
