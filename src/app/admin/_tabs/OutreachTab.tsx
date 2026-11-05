@@ -93,7 +93,7 @@ export default function OutreachTab({
     try {
       const preview = await requestCatalogPreview();
       showToast(preview.message, "success");
-    } catch (err: unknown) {
+    } catch (err: any) {
       console.error("[Catalog preview] Request failed:", err);
       showToast(err instanceof Error ? err.message : "Catalog preview unavailable", "error");
     } finally {
