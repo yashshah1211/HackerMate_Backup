@@ -41,7 +41,7 @@ test("catalog preview GET requires founder/approved admin, calls dry run only, a
     const res = await route.GET(new NextRequest(url, { method: "GET" }));
     assert.equal(res.status, 200);
     assert.match(res.headers.get("cache-control"), /no-store/);
-    assert.match(res.headers.get("content-type"), /application\\/json/);
+    assert.match(res.headers.get("content-type"), /application\/json/);
     const body = await res.json();
     assert.deepEqual({ ...body }, result);
     assert.deepEqual(calls, ["auth", "catalog"]);
@@ -68,7 +68,7 @@ test("provider errors fail closed with JSON and no details or write-mode fallbac
     const { calls, route } = routeFixture(options);
     const res = await route.GET(new NextRequest(url));
     assert.equal(res.status, 503);
-    assert.match(res.headers.get("content-type"), /application\\/json/);
+    assert.match(res.headers.get("content-type"), /application\/json/);
     const body = await res.json();
     assert.match(body.error, /temporarily unavailable/);
     assert(!JSON.stringify(body).includes("Synthetic private service"));
@@ -80,11 +80,11 @@ test("UI requests the separate safe GET endpoint rather than the WAF-blocked scr
   const route = fs.readFileSync(path.join(__dirname, "../src/app/api/admin/hackathon-catalog-preview/route.ts"), "utf8");
   const client = fs.readFileSync(path.join(__dirname, "../src/lib/admin/catalogPreviewClient.ts"), "utf8");
   const UI = fs.readFileSync(path.join(__dirname, "../src/app/admin/_tabs/OutreachTab.tsx"), "utf8");
-  assert.match(route, /synchronizeCatalog\\(auth.supabaseAdmin, \\{ dryRun: true \\}\\)/);
-  assert.doesNotMatch(route, /reviewLegacyEvidenceBatch|mode:\\s*["']sync["']|\\.rpc\\(/);
-  assert.match(client, /\\/api\\/admin\\/hackathon-catalog-preview/);
-  assert.doesNotMatch(client, /fetch\\(["']\\/api\\/admin\\/scrape-unstop/);
-  assert.match(UI, /await requestCatalogPreview\\(\\)/);
+  assert.match(route, /synchronizeCatalog\(auth.supabaseAdmin, \{ dryRun: true \}\)/);
+  assert.doesNotMatch(route, /reviewLegacyEvidenceBatch|mode:\s*["']sync["']|\.rpc\(/);
+  assert.match(client, /\/api\/admin\/hackathon-catalog-preview/);
+  assert.doesNotMatch(client, /fetch\(["']\/api\/admin\/scrape-unstop/);
+  assert.match(UI, /await requestCatalogPreview\(\)/);
 });
 
 test("client parses a successful dry-run summary without sending a write request", async () => {
@@ -111,7 +111,7 @@ test("plain-text 403 Forbidden produces a useful error, not a JSON syntax error"
   await assert.rejects(
     () => requestCatalogPreview(async () => new Response("Forbidden", { status: 403,
       headers: { "Content-Type": "text/plain" } })),
-    /blocked by site security \\(HTTP 403\\)/
+    /blocked by site security \(HTTP 403\)/
   );
 });
 
