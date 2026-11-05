@@ -24,6 +24,32 @@ const examples = [
   ['Hackathon deadline changed', 'other', 'Hackathon', 'hack'],
   ['You were mentioned in a chat', 'other', 'Mention', 'proj'],
 ];
+// Exact TeamWorkspaceView producer envelopes, including arbitrary quoted titles.
+const taskMessages = [
+  title => `Ava assigned you to task "${title}" in team "Kernel Builders"`,
+  title => `Ava commented on task "${title}" in team "Kernel Builders"`,
+  title => `Ava moved your task "${title}" to "In Progress" in team "Kernel Builders"`,
+  title => `Ava updated your task "${title}" status to "Completed" in team "Kernel Builders"`,
+];
+const taskTitles = [
+  'Bob sent you a connection request',
+  'Your connection request was accepted',
+  'You have been invited to join',
+  'Handle "Your connection request was accepted"',
+];
+for (const message of taskMessages) for (const title of taskTitles) {
+  examples.push([message(title), 'teams', 'Team', 'ok']);
+}
+for (const [index, message] of taskMessages.entries()) {
+  examples.push([`Ava sent you a connection request: Looking for teammates for team formation. ${message(taskTitles[index])}`, 'connections', 'Connection', 'info']);
+}
+examples.push([`You have a new connection request: Looking for teammates. ${taskMessages[0](taskTitles[1])}`, 'connections', 'Connection', 'info']);
+for (const message of [
+  'Release notes mention "Your connection request was accepted"',
+  'A task named "Bob sent you a connection request" is on the roadmap',
+  'Ava assigned you to task "You have been invited to join" without team context',
+  'Ava moved your task "Your connection request was accepted" in team "Kernel Builders"',
+]) examples.push([message, 'other', 'Activity', 'neutral']);
 const rows = () => examples.map(([message, category, label, tone], index) => ({
   id: `00000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`,
   message, category, label, tone, is_read: index % 3 === 0,
