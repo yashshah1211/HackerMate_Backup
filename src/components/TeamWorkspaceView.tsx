@@ -979,13 +979,18 @@ export default function TeamWorkspaceView({
       confirmText: "Delete",
       cancelText: "Cancel",
       onConfirm: async () => {
-        const { error } = await supabase
+        const { data: deleted, error } = await supabase
           .from("team_links")
           .delete()
-          .eq("id", linkId);
+          .eq("id", linkId)
+          .eq("team_id", team.id)
+          .select("id")
+          .maybeSingle();
         if (error) {
           console.error(error);
           showToast(error.message, "error");
+        } else if (!deleted) {
+          showToast("Link could not be deleted. Refresh and verify your access.", "error");
         } else {
           showToast("Link deleted", "success");
           setLinks((prev) => prev.filter((l) => l.id !== linkId));
