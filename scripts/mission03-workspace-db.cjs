@@ -29,7 +29,7 @@ async function workspaceFixture() {
     db.sql(read('202610120002_team_document_revisions.sql'));
     // Prove the fix clears independent immutable-column privileges too.
     db.sql('GRANT UPDATE(created_by,team_id,id,created_at) ON team_tasks,team_links TO PUBLIC,anon,authenticated;');
-    const migrations = process.argv.includes('--baseline') ? [] : fs.readdirSync(path.join(db.ROOT, 'supabase/migrations')).filter(name => name.endsWith('_workspace_actor_boundaries.sql'));
+    const migrations = process.env.MISSION03_WORKSPACE_BASELINE === '1' ? [] : fs.readdirSync(path.join(db.ROOT, 'supabase/migrations')).filter(name => name.endsWith('_workspace_actor_boundaries.sql'));
     for (const file of migrations) db.sql(read(file));
     const as = (user, sql) => db.sql(`SET ROLE authenticated;SET request.jwt.claim.sub='${user}';${sql}`).split('\n').at(-1);
     const reset = () => db.sql(`TRUNCATE team_task_comments,team_documents,team_tasks,team_links,team_members,teams CASCADE;
