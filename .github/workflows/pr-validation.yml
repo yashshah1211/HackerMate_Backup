@@ -51,6 +51,7 @@ jobs:
             scripts/test-database-report-workflow.cjs \
             scripts/test-founder-brief.cjs \
             scripts/test-organizer-candidate-discovery.cjs \
+            scripts/test-scheduled-organizer-outreach.cjs \
             scripts/test-auth-return-paths.cjs \
             scripts/test-evaluator-generation-admission.cjs \
             scripts/test-feature-retirement.cjs \
