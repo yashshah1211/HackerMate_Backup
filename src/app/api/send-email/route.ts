@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
   let isModerationWarning = false;
   try {
     // Retain the existing moderation route's 403 response on failed profile lookup.
-    const authorization = await requireVerifiedProfile(req, { unauthenticatedStatus: 401 });
+    const authorization = await requireVerifiedProfile(req, { unauthenticatedStatus: 401, cookieFirst: true });
     if (authorization instanceof NextResponse) return authorization;
     const { user: authUser, supabaseUserClient: supabase } = authorization;
 
