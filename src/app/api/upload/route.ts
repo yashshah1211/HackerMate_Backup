@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
+import { requireVerifiedProfile } from "@/lib/admin/requireAdmin";
 import { getR2Client } from "@/lib/r2";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { validateMagicBytes } from "@/lib/mediaValidation";
@@ -25,31 +25,14 @@ const ALLOWED_TYPES = new Set([
 
 export async function POST(req: NextRequest) {
   try {
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll: () => req.cookies.getAll(),
-          setAll: () => {},
-        },
-      }
-    );
-
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const authorization = await requireVerifiedProfile(req, { unauthenticatedStatus: 401, lookupFailureStatus: 500 });
+    if (authorization instanceof NextResponse) return authorization;
 
     const formData = await req.formData();
-    const file = formData.get("file") as File | null;
+    const file = formData.get("file");
     const folder = (formData.get("folder") as string) || "chat";
 
-    if (!file) {
+    if (!file || typeof file === "string") {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
 

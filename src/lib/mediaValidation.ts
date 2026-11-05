@@ -48,11 +48,15 @@ export function validateMagicBytes(buffer: Buffer, claimedMime: string): { isVal
     return { isValid: mime.includes("wav"), detectedType: "audio/wav" };
   }
 
-  // MP3: ID3 or FF FB / FF F3
-  if (hex.startsWith("494433") || hex.startsWith("FFFB") || hex.startsWith("FFF3")) {
+  // ID3 or an MPEG audio frame header, including CRC and MPEG 2/2.5 variants.
+  // Check sync, reserved version/layer, bitrate and sampling-frequency bits.
+  const mpegFrame = buffer[0] === 0xFF && (buffer[1] & 0xE0) === 0xE0 &&
+    (buffer[1] & 0x18) !== 0x08 && (buffer[1] & 0x06) !== 0 &&
+    (buffer[2] & 0xF0) !== 0xF0 && (buffer[2] & 0x0C) !== 0x0C;
+  if (hex.startsWith("494433") || mpegFrame) {
     return { isValid: mime.includes("mpeg") || mime.includes("mp3"), detectedType: "audio/mpeg" };
   }
 
-  // Fallback: If buffer size is normal image/audio format
-  return { isValid: true };
+  // An allowlisted MIME claim is not evidence of a recognized media format.
+  return { isValid: false };
 }

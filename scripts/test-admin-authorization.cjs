@@ -93,7 +93,16 @@ function harness(options = {}) {
             timeWindow: { until: 'fixture-time' }, team_hackathons: [], messages_count_24h: 0,
           };
         },
-        generateDatabaseActivityPdf() { state.events.push(['pdf']); return Buffer.from('%PDF-FAKE fake-private-email@example.invalid'); },
+      },
+      // Rendering/metrics have dedicated founder-brief regressions. Keep this
+      // boundary suite focused on the real route's authorization and ordering.
+      '@/lib/admin/founderBrief': {
+        async fetchFounderMetrics() { state.events.push(['report-metrics']); return {}; },
+        buildFounderBrief() { state.events.push(['brief']); return { date: '2026-11-05' }; },
+        founderBriefEmailHtml() { return '<p>Synthetic founder brief</p>'; },
+      },
+      '@/lib/admin/founderBriefPdf': {
+        generateFounderBriefPdf() { state.events.push(['pdf']); return Buffer.from('%PDF-FAKE fake-private-email@example.invalid'); },
       },
     };
     const code = ts.transpileModule(fs.readFileSync(filename, 'utf8'), {
@@ -129,7 +138,7 @@ function request(route, { method = 'GET', token = 'fixture-session', cookie = fa
 }
 
 function assertNoPrivilegedWork(state) {
-  assert(!state.events.some(([event]) => ['service-client', 'maintenance', 'report-read', 'pdf', 'mutation'].includes(event)), JSON.stringify(state.events));
+  assert(!state.events.some(([event]) => ['service-client', 'maintenance', 'report-read', 'report-metrics', 'brief', 'pdf', 'mutation'].includes(event)), JSON.stringify(state.events));
 }
 
 const denied = [

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
+import { requireVerifiedProfile } from "@/lib/admin/requireAdmin";
 import { createPresignedUploadUrl } from "@/lib/r2";
 
 export const runtime = "nodejs";
@@ -22,32 +22,23 @@ const ALLOWED_TYPES = new Set([
 
 export async function POST(req: NextRequest) {
   try {
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll: () => req.cookies.getAll(),
-          setAll: () => {},
-        },
-      }
-    );
+    const authorization = await requireVerifiedProfile(req, { unauthenticatedStatus: 401, lookupFailureStatus: 500 });
+    if (authorization instanceof NextResponse) return authorization;
 
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    let body: unknown;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
     }
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return NextResponse.json({ error: "Invalid upload request" }, { status: 400 });
+    }
+    const { contentType, folder = "chat" } = body as { contentType?: unknown; folder?: unknown };
 
-    const body = await req.json();
-    const { contentType, folder = "chat", filename } = body;
-
-    if (!contentType || !ALLOWED_TYPES.has(contentType.toLowerCase())) {
+    if (typeof contentType !== "string" || !ALLOWED_TYPES.has(contentType.toLowerCase())) {
       return NextResponse.json(
-        { error: `Unsupported media content type: ${contentType}` },
+        { error: "Unsupported media content type" },
         { status: 400 }
       );
     }

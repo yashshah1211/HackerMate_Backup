@@ -53,6 +53,7 @@ function setup(options = {}) {
             const history = filters.some(([key, value]) => key === 'or' && value.includes('email_outcome_unknown'));
             rows = history ? options.history || [] : options.leads || [options.lead || lead];
           } else if (table === 'profiles') rows = [profile];
+          else if (table === 'notifications') rows = [{ id: '00000000-0000-4000-8000-000000000003', user_id: '00000000-0000-4000-8000-000000000002', message: 'A team invitation', link: '/teams/fixture' }];
           else if (table === 'hackathons') rows = [{ id: 'fixture-event', name: 'Synthetic', type: 'native', organizer_id: 'fixture-admin' }];
           else if (table === 'hackathon_announcements') rows = [{ id: 'fixture-announcement', sent_at: null }];
           else if (table === 'hackathon_registrations') rows = options.emptyParticipants ? [] : [{ profiles: profile }, { profiles: { ...profile, id: 'fixture-user-2', email: 'second@example.invalid' } }];
@@ -320,7 +321,7 @@ test('analytics sample exposes events without inventing rates', async () => {
 });
 for (const [route, body, headers] of [
   ['send-email', { senderId: 'fixture-admin', recipientId: profile.id, type: 'connection_request' }, {}],
-  ['webhooks/notification', { recipientEmail: profile.email, message: 'A team invitation', link: '/teams/fixture' }, { Authorization: 'Bearer offline-notification' }],
+  ['webhooks/notification', { notificationId: '00000000-0000-4000-8000-000000000003', recipientId: '00000000-0000-4000-8000-000000000002', recipientEmail: profile.email, message: 'A team invitation', link: '/teams/fixture' }, { Authorization: 'Bearer offline-notification' }],
 ]) for (const [label, options] of [ ['missing configuration', { env: { RESEND_API_KEY: '' } }], ['invalid acknowledgment', { provider: () => json({}) }], ['accepted', { provider: () => json({ id: 'fixture' }) }] ]) {
   test(`${route}: ${label} contract`, async () => {
     const h = setup(options); const result = await h.call(route, body, headers);

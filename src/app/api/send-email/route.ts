@@ -1,56 +1,26 @@
 import { dispatchEmail, dispatchHttpStatus, dispatchResponse } from "@/lib/emailDispatch";
 import { NextRequest, NextResponse } from "next/server";
-import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 import { recordEmailSendSuccess } from "@/lib/admin/emailBudgetGuard";
 import { renderHackerMateEmail } from "@/lib/emailTemplate";
-import { requireAdmin } from "@/lib/admin/requireAdmin";
+import { requireAdmin, requireVerifiedProfile } from "@/lib/admin/requireAdmin";
 import { ModerationError, moderationFailure, moderationTarget } from "@/lib/admin/moderationTarget";
 import { WARNING_LIMIT } from "@/lib/admin/moderationClient";
 
 export async function POST(req: NextRequest) {
   let isModerationWarning = false;
   try {
-    // ── Auth gate & Admin client ──────────────────────────────────────────
+    // Retain the existing moderation route's 403 response on failed profile lookup.
+    const authorization = await requireVerifiedProfile(req, { unauthenticatedStatus: 401, cookieFirst: true });
+    if (authorization instanceof NextResponse) return authorization;
+    const { user: authUser, supabaseUserClient: supabase } = authorization;
+
+    // Create the privileged client only after identity and suspension checks.
     const supabaseAdmin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
       { auth: { persistSession: false, autoRefreshToken: false } }
     );
-
-    // Build a server-side Supabase client that reads the caller's JWT from
-    // the request cookies, exactly like middleware does.
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll: () => req.cookies.getAll(),
-          // This is a read-only context; we don't need to set cookies.
-          setAll: () => {},
-        },
-      }
-    );
-
-    const { data: { user: cookieUser } } = await supabase.auth.getUser();
-    let authUser = cookieUser;
-
-    // Dual-auth: if cookies did not yield an active session, check Authorization Bearer header
-    if (!authUser) {
-      const authHeader = req.headers.get("Authorization") || req.headers.get("authorization");
-      if (authHeader && authHeader.startsWith("Bearer ")) {
-        const token = authHeader.replace("Bearer ", "").trim();
-        const { data: tokenUserData, error: tokenErr } = await supabaseAdmin.auth.getUser(token);
-        if (!tokenErr && tokenUserData?.user) {
-          authUser = tokenUserData.user;
-        }
-      }
-    }
-
-    if (!authUser) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    // ── End auth gate ──────────────────────────────────────────────────────
 
     const body = await req.json();
     const { senderId, recipientId, type, teamId, warningMessage } = body;

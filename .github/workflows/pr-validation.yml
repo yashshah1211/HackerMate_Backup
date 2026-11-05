@@ -2,8 +2,9 @@ name: Pull Request Validation
 
 # Offline checks only: TypeScript, OAuth return paths, evaluator admission,
 # team matching, partner presentation, discovery navigation, authorization and
-# certificate verification with synthetic fixtures. No live DB, AI, email, browser, deployment,
-# deployed SQL/RLS, or end-to-end verification is performed.
+# certificate verification with synthetic fixtures, query smoke and isolated
+# desktop/mobile account-guard Chromium checks. No live DB, AI, email, deployment,
+# deployed SQL/RLS, or production end-to-end verification is performed.
 on:
   pull_request:
     branches:
@@ -37,7 +38,12 @@ jobs:
         run: npm run typecheck -- --incremental false --pretty false
       - name: Run offline regression selection
         run: |
-          node --test --test-concurrency=1 \
+          node --import ./qa/fixtures/rack-network-guard.mjs --test --test-concurrency=1 \
+            scripts/test-stabilization-boundaries.cjs \
+            scripts/test-stabilization-ppt-access.cjs \
+            scripts/test-stabilization-email-access.cjs \
+            scripts/test-stabilization-notification-replay.cjs \
+            scripts/test-admin-authorization.cjs \
             scripts/test-daily-report-claim.cjs \
             scripts/test-founder-brief.cjs \
             scripts/test-organizer-candidate-discovery.cjs \
@@ -55,6 +61,15 @@ jobs:
             scripts/test-partner-discovery-navigation.cjs \
             scripts/test-partner-authorization.cjs \
             scripts/test-certificate-verification-page.cjs
+
+      - name: Run existing core-page query smoke against synthetic loopback fixtures
+        run: node scripts/run-stabilization-smoke.cjs
+
+      - name: Install Chromium for account-boundary regressions
+        run: npx playwright install --with-deps chromium
+
+      - name: Verify account guard in desktop and mobile Chromium with external network blocked
+        run: node --import ./qa/fixtures/rack-network-guard.mjs --test scripts/test-stabilization-browser.cjs
 
       - name: Render Founder Brief review artifacts without production data
         run: node scripts/render-founder-brief-preview.cjs

@@ -20,21 +20,19 @@ export type AuthCookieUpdate = { name: string; value: string; options: CookieOpt
 // Shared identity/profile boundary. This never creates a service-role client.
 export async function requireVerifiedProfile(
   req?: NextRequest,
-  options: { unauthenticatedStatus?: 401; lookupFailureStatus?: 500; onCookies?: (cookies: AuthCookieUpdate[]) => void } = {}
+  options: { unauthenticatedStatus?: 401; lookupFailureStatus?: 500; cookieFirst?: boolean; onCookies?: (cookies: AuthCookieUpdate[]) => void } = {}
 ): Promise<VerifiedProfileAuthResult | NextResponse> {
   const authHeader = req?.headers?.get("Authorization");
   let token: string | undefined;
   if (authHeader && authHeader.startsWith("Bearer ")) {
-    token = authHeader.replace("Bearer ", "");
+    token = authHeader.replace("Bearer ", "").trim();
   }
 
-  let user: User | null = null;
-  let supabaseUserClient: SupabaseClient | null = null;
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-  // 1. Try Bearer token if provided
-  if (token) {
+  async function authenticateBearer() {
+    if (!token) return null;
     try {
       const tokenClient = createClient(url, anonKey, {
         global: { headers: { Authorization: `Bearer ${token}` } },
@@ -42,17 +40,16 @@ export async function requireVerifiedProfile(
       const { data: userData, error: authError } = await tokenClient.auth.getUser(token);
       if (authError) console.error("[requireAdmin] Token authentication failed:", options.unauthenticatedStatus ? { code: authError.code, status: authError.status } : authError);
       if (!authError && userData?.user) {
-        user = userData.user;
-        supabaseUserClient = tokenClient;
+        return { user: userData.user, supabaseUserClient: tokenClient };
       }
     } catch (e) {
       console.error("[requireAdmin] Token auth error:", options.unauthenticatedStatus ? "Authentication exception" : e);
     }
+    return null;
   }
 
-  // 2. Fallback to cookies
-  if (!user) {
-    supabaseUserClient = createServerClient(
+  async function authenticateCookies() {
+    const supabaseUserClient = createServerClient(
       url,
       anonKey,
       {
@@ -69,12 +66,20 @@ export async function requireVerifiedProfile(
       const { data: userData, error: authError } = await supabaseUserClient.auth.getUser();
       if (authError) console.error("[requireAdmin] Cookie authentication failed:", options.unauthenticatedStatus ? { code: authError.code, status: authError.status } : authError);
       if (!authError && userData?.user) {
-        user = userData.user;
+        return { user: userData.user, supabaseUserClient };
       }
     } catch (e) {
       console.error("[requireAdmin] Cookie auth error:", options.unauthenticatedStatus ? "Authentication exception" : e);
     }
+    return null;
   }
+
+  // send-email historically gives a valid cookie identity precedence. Keep
+  // bearer-first behavior for all other existing callers of this boundary.
+  const identity = options.cookieFirst
+    ? await authenticateCookies() ?? await authenticateBearer()
+    : await authenticateBearer() ?? await authenticateCookies();
+  const user = identity?.user, supabaseUserClient = identity?.supabaseUserClient;
 
   if (!user || !user.email || !supabaseUserClient) {
     return NextResponse.json(
@@ -93,7 +98,7 @@ export async function requireVerifiedProfile(
       .maybeSingle();
 
     if (profileError) {
-      console.error("[requireAdmin] Admin profile lookup failed:", options.lookupFailureStatus ? { code: profileError.code } : profileError);
+      console.error("[requireAdmin] Admin profile lookup failed:", profileError);
       return NextResponse.json({ error: options.lookupFailureStatus ? "Unable to verify access." : "Forbidden: Unable to verify administrator access." }, { status: options.lookupFailureStatus ?? 403 });
     }
 
@@ -107,7 +112,7 @@ export async function requireVerifiedProfile(
     const isFounder = user.email.toLowerCase().trim() === "yashshah7117@gmail.com";
     return { user, supabaseUserClient, isAdmin: profile.role === "admin" || isFounder };
   } catch (e) {
-    console.error("[requireAdmin] Admin profile lookup error:", options.lookupFailureStatus ? "Lookup exception" : e);
+    console.error("[requireAdmin] Admin profile lookup error:", e);
     return NextResponse.json({ error: options.lookupFailureStatus ? "Unable to verify access." : "Forbidden: Unable to verify administrator access." }, { status: options.lookupFailureStatus ?? 403 });
   }
 }
