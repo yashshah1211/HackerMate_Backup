@@ -14,7 +14,7 @@ const script = workflow.split(marker)[1].split('\n').map(line => line.replace(/^
 const accepted = { success: true, dispatch: { status: 'accepted', attempted: true, intendedRecipientAccepted: true, sandbox: false } };
 const sensitive = 'synthetic-private-response-marker';
 
-function run({ body = JSON.stringify(accepted), status = '200', curlExit = 0, site = 'https://fixture.invalid', ok = false }) {
+function run({ body = JSON.stringify(accepted), status = '200', curlExit = 0, site = 'https://www.hackermate.in', ok = false, expectCurl = true }) {
   const dir = mkdtempSync(join(tmpdir(), 'database-report-workflow-'));
   try {
     writeFileSync(join(dir, 'body'), body);
@@ -41,11 +41,15 @@ exit "$FIXTURE_EXIT"
     assert.equal(logs.includes('successfully delivered'), false);
     if (ok) assert.match(logs, /accepted by email provider; delivery not confirmed/);
     else { assert.match(logs, /::error::/); assert.doesNotMatch(logs, /accepted by email provider;/); }
-    const args = readFileSync(join(dir, 'args'), 'utf8').trimEnd().split('\n');
-    assert.equal(args.includes('POST'), true);
-    assert.equal(args.includes('Authorization: Bearer synthetic-bearer-secret'), true);
-    assert.equal(args.at(-1), `${site || 'https://www.hackermate.in'}/api/cron/database-activity-report`);
-    assert.equal(args.some(arg => /retry/.test(arg)), false);
+    if (expectCurl) {
+      const args = readFileSync(join(dir, 'args'), 'utf8').trimEnd().split('\n');
+      assert.equal(args.includes('POST'), true);
+      assert.equal(args.includes('Authorization: Bearer synthetic-bearer-secret'), true);
+      assert.equal(args.at(-1), `${site || 'https://www.hackermate.in'}/api/cron/database-activity-report`);
+      assert.equal(args.some(arg => /retry/.test(arg)), false);
+    } else {
+      assert.equal(readdirSync(dir).includes('args'), false, 'invalid destination must not invoke curl');
+    }
     assert.equal(readdirSync(dir).some(name => name.startsWith('tmp.')), false, 'response file cleaned up');
   } finally { rmSync(dir, { recursive: true, force: true }); }
 }
@@ -57,6 +61,7 @@ test('daily Founder Brief schedule and manual recovery trigger are both configur
   assert.match(workflow, /cancel-in-progress: false/);
   assert.match(workflow, /github\.repository == 'yashshah1211\/HackerMate_Backup' && github\.ref == 'refs\/heads\/main'/);
 });
+test('non-production destination is rejected before any network call', () => run({ site: 'https://fixture.invalid', expectCurl: false }));
 test('intended provider acceptance succeeds without claiming delivery', () => run({ ok: true }));
 test('default site and accepted dispatch survive bookkeeping failures', () => run({ site: '', ok: true,
   body: JSON.stringify({ ...accepted, accounting: { status: 'failed' }, bookkeeping: 'failed', message: sensitive }) }));
