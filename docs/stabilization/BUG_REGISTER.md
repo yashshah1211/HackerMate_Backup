@@ -3,7 +3,7 @@
 Baseline: `652d1ef` (latest `origin/main` fetched 2026-11-05). Branch: `stabilize/full-codebase-20261105`.
 Only demonstrated defects enter this register. Local fixture verification does not establish deployed RLS or production health.
 
-Confirmed code-level defects: **P0 0 / P1 16 / P2 8 / P3 0**. Twenty-three corrected in code; STAB-006 remains unresolved. Mission03 corrections include an unapplied permission migration, so production vulnerabilities are not claimed closed. STAB-011 is an additional P1 credential risk needing production verification, excluded from confirmed-defect totals. Severity describes demonstrated code paths, not proof of a deployed breach. Mission03 baseline is main `7fc7acc`; prior fixes from merged PRs #116–118 are preserved. See MISSION_03_HANDOFF.md for current evidence and acceptance gates.
+Confirmed code-level defects: **P0 0 / P1 16 / P2 9 / P3 0**. Twenty-four corrected in code including the unmerged STAB-026 follow-up; STAB-006 remains unresolved. Mission03 migration20261105132849 was applied in the founder-approved release; fresh live acceptance is distinguished in MISSION_03_PRODUCTION_ACCEPTANCE.md. STAB-011 is an additional P1 credential risk needing safe verification, excluded from confirmed-defect totals. Severity describes demonstrated code paths, not proof of a deployed breach. Current deployed baseline46d7fcd preserves Missions01–03.
 
 | Priority | Issue | Evidence | Local outcome |
 | --- | --- | --- | --- |
@@ -278,3 +278,11 @@ Baseline `7fc7acc83dc4585c2624ec047f2c34c1dff312a6`. New IDs do not reuse Missio
 - Fix: serialize mutations per task; require id/team_id-scoped returned row; authoritative read after commit rather than replaying old patch; shared request sequence rejects obsolete reloads. No optimistic state requiring destructive rollback, automatic mutation retry or global last-writer guarantee.
 - Regression: controlled server commit order, zero/error/throw outcomes, deliberate retry, both read/ack races; actual browser stored-state order and queued work cancellation after route unmount. Original ordering/zero/throw tests fail; expanded focused 36/36 and browser 2/2 pass.
 - Status: corrected locally and independently re-reviewed. Different clients retain existing last-writer semantics; ambiguous external commit outcomes remain a separate acceptance limit.
+
+### STAB-026 — P2 — Resource deletion claims success without an affected row
+
+- Found during read-only post-release acceptance of46d7fcd. Source handler handleDeleteLink uses DELETE byid with no returned row and treats error=null as deletion success. Native policies can deny a removed/noncreator/suspended actor with0affected rows and no database error.
+- Reproduction: actual mounted TeamWorkspaceView, synthetic team_links row, DELETE returns data=null/error=null. Confirmation shows success and removes the resource locally. No live production DELETE was attempted; this is a confirmed source/UI persistence defect, not an installed authorization bypass or proof of a live user incident.
+- Minimal correction in separate unmerged follow-up: id+team_id scope, SELECT returnedid/maybeSingle; only confirmed affected row permits success/removal. A zero result retains the resource and requests refresh/access verification; actual errors remain logged.
+- Regression:3mounted cases for zero, explicit42501 and valid deleted row; final focused39/39 plus TypeScript pass. Before: zero falsely removed row; other cases also failed newly asserted scope/projection. Existing valid owner/creator database behavior is unchanged.
+- Status: corrected only on fix/workspace-link-delete-ack-20261105; separate Draft PR/CI required. Deployed release still contains this P2 issue. See MISSION_03_PRODUCTION_ACCEPTANCE.md and controlled plan for remaining live acceptance gates. STAB-006 and STAB-011 remain open separately.

@@ -140,3 +140,24 @@ test('chat history: rejected older read unlocks retry at the same cursor',async 
   await f.flush(scroll);assert(f.state.errors.some(args=>args.includes(error)));
   await f.flush(scroll);assert.equal(reads,3);assert.equal(cursors[0],cursors[1]);assert(f.text().includes('History 41!'));
 });
+
+for(const outcome of ['zero','denied','deleted'])test(`resource deletion: ${outcome} acknowledgment preserves honest state`,async t=>{
+  const error={code:'42501',message:'Synthetic resource deletion denied'};
+  const f=await mount(t,'workspace',{onQuery:q=>{
+    if(q.table!=='team_links')return;
+    if(q.operation==='select')return{data:[{id:'link-one',team_id:'team-one',title:'Synthetic resource',url:'https://example.invalid',category:'document',created_by:'me',hackathon_id:null}],error:null};
+    if(q.operation==='delete')return{data:outcome==='deleted'?{id:'link-one'}:null,error:outcome==='denied'?error:null};
+  }});
+  await f.render({initialTab:'resources'});
+  await f.flush(()=>f.element(e=>e.props.label==='Delete link Synthetic resource').onClick());
+  await f.flush(()=>{void f.state.confirmations[0].onConfirm();});
+  const q=f.state.queries.find(q=>q.table==='team_links'&&q.operation==='delete');
+  if(outcome==='deleted'){
+    assert(!f.text().includes('Synthetic resource'));assert(f.state.toasts.some(args=>args[1]==='success'));
+  }else{
+    assert(f.text().includes('Synthetic resource'));assert(!f.state.toasts.some(args=>args[1]==='success'));
+    assert(f.state.toasts.some(args=>args[1]==='error'));
+  }
+  if(outcome==='denied')assert(f.state.errors.some(args=>args.includes(error)));
+  assert.deepEqual(q.filters,[['id','link-one'],['team_id','team-one']]);assert.equal(q.columns,'id');
+});
