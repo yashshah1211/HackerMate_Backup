@@ -2,8 +2,8 @@ name: Daily Database Activity PDF Digest
 
 on:
   schedule:
-    # Daily 09:00 IST, while legacy Vercel Cron stays disabled.
-    - cron: '30 3 * * *'
+    # Daily 09:07 IST; re-register the missed schedule without enabling Vercel cron.
+    - cron: '37 3 * * *'
   workflow_dispatch: # Manual run remains available but report endpoint is single-send guarded
 
 permissions:

@@ -45,6 +45,7 @@ jobs:
             scripts/test-stabilization-notification-replay.cjs \
             scripts/test-admin-authorization.cjs \
             scripts/test-daily-report-claim.cjs \
+            scripts/test-database-report-workflow.cjs \
             scripts/test-founder-brief.cjs \
             scripts/test-organizer-candidate-discovery.cjs \
             scripts/test-auth-return-paths.cjs \
