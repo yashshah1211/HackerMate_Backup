@@ -326,7 +326,11 @@ async function compressImageToWebP(file: File, maxDimension = 1600, quality = 0.
   });
 }
 
-export default function ChatThread({
+export default function ChatThread(props: Props) {
+  return <ChatThreadSession key={`${props.currentUserId}:${props.conversationId}`} {...props} />;
+}
+
+function ChatThreadSession({
   conversationId,
   currentUserId,
   knownProfiles = {},
@@ -342,7 +346,18 @@ export default function ChatThread({
 
   const [profiles, setProfiles] = useState<Record<string, SenderProfile>>(knownProfiles);
   const [reactions, setReactions] = useState<Record<string, Reaction[]>>({});
-  const [input, setInput] = useState("");
+  const [input, setInputState] = useState("");
+  const inputRevision = useRef(0);
+  const sendingRef = useRef(false);
+  const mountedRef = useRef(false);
+  const setInput = useCallback((value: React.SetStateAction<string>) => {
+    ++inputRevision.current;
+    setInputState(value);
+  }, []);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [uploadingMedia, setUploadingMedia] = useState(false);
@@ -391,8 +406,20 @@ export default function ChatThread({
   const [isRecording, setIsRecording] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordingRequestRef = useRef(false);
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
+  useEffect(() => () => {
+    if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+    const recorder = mediaRecorderRef.current;
+    if (recorder) {
+      recorder.ondataavailable = null;
+      recorder.onstop = null;
+      if (recorder.state !== "inactive") recorder.stop();
+      recorder.stream.getTracks().forEach(track => track.stop());
+    }
+    audioChunksRef.current = [];
+  }, []);
 
   // Typing indicators state
   const [typingUsers, setTypingUsers] = useState<Record<string, { fullName: string; timerId: NodeJS.Timeout }>>({});
@@ -408,6 +435,9 @@ export default function ChatThread({
 
   // Staged Attachment Preview State
   const [stagedImage, setStagedImage] = useState<{ file: File; previewUrl: string } | null>(null);
+  useEffect(() => () => {
+    if (stagedImage) URL.revokeObjectURL(stagedImage.previewUrl);
+  }, [stagedImage]);
 
   // Drag-and-drop & Emoji picker state
   const [isDraggingOver, setIsDraggingOver] = useState(false);
@@ -526,10 +556,12 @@ export default function ChatThread({
 
     if (error) {
       console.error(error);
+      if (!mountedRef.current) return;
       setLoadError(error.message || "Messages could not be loaded.");
       setLoading(false);
       return;
     }
+    if (!mountedRef.current) return;
     setLoadError(null);
 
     const fetchedMessages = [...(data || [])].reverse();
@@ -626,7 +658,9 @@ export default function ChatThread({
 
   useEffect(() => {
     if (!conversationId) return;
+    let active = true;
     Promise.resolve().then(() => {
+      if (!active) return;
       loadMessages();
       loadParticipants();
     });
@@ -646,6 +680,7 @@ export default function ChatThread({
           filter: `conversation_id=eq.${conversationId}`,
         },
         (payload) => {
+          if (!active) return;
           const newMsg = payload.new as Message;
           const activeClearedAt = clearedAtRef.current;
           if (activeClearedAt && new Date(newMsg.created_at) <= new Date(activeClearedAt)) return;
@@ -672,6 +707,7 @@ export default function ChatThread({
           filter: `conversation_id=eq.${conversationId}`,
         },
         (payload) => {
+          if (!active) return;
           const updatedMsg = payload.new as Message;
           setMessages((prev) =>
             prev.map((m) => (m.id === updatedMsg.id ? updatedMsg : m))
@@ -687,6 +723,7 @@ export default function ChatThread({
           filter: `conversation_id=eq.${conversationId}`,
         },
         (payload) => {
+          if (!active) return;
           const oldMsg = payload.old as { id?: string };
           if (oldMsg?.id) {
             setMessages((prev) => prev.filter((m) => m.id !== oldMsg.id));
@@ -702,6 +739,7 @@ export default function ChatThread({
           filter: `conversation_id=eq.${conversationId}`,
         },
         (payload) => {
+          if (!active) return;
           const newReaction = payload.new as Reaction;
           // Discard reactions belonging to other conversations without triggering re-renders or profile lookups
           if (!newReaction?.message_id || !messagesRef.current.some((m) => m.id === newReaction.message_id)) {
@@ -729,6 +767,7 @@ export default function ChatThread({
           filter: `conversation_id=eq.${conversationId}`,
         },
         (payload) => {
+          if (!active) return;
           const updatedReaction = payload.new as Reaction;
           if (!updatedReaction?.message_id || !messagesRef.current.some((m) => m.id === updatedReaction.message_id)) {
             return;
@@ -754,6 +793,7 @@ export default function ChatThread({
           filter: `conversation_id=eq.${conversationId}`,
         },
         (payload) => {
+          if (!active) return;
           const oldReaction = payload.old as { id?: string; message_id?: string; user_id?: string; emoji?: string };
           if (oldReaction?.message_id && !messagesRef.current.some((m) => m.id === oldReaction.message_id)) {
             return;
@@ -773,6 +813,7 @@ export default function ChatThread({
         }
       )
       .on("broadcast", { event: "typing" }, ({ payload }) => {
+        if (!active) return;
         if (!payload || payload.userId === currentUserId) return;
         const typerId = payload.userId;
         const typerName = payload.fullName || "Someone";
@@ -799,6 +840,7 @@ export default function ChatThread({
     const unsubscribe = subscribeWithRetry(channel);
 
     return () => {
+      active = false;
       unsubscribe();
       channelRef.current = null;
     };
@@ -1043,9 +1085,6 @@ export default function ChatThread({
     }
 
     setSafetyError(null);
-    if (stagedImage) {
-      URL.revokeObjectURL(stagedImage.previewUrl);
-    }
     const previewUrl = URL.createObjectURL(file);
     setStagedImage({ file, previewUrl });
   };
@@ -1113,8 +1152,14 @@ export default function ChatThread({
 
   // Voice Note Recorder handlers
   const startVoiceRecording = async () => {
+    if (recordingRequestRef.current || mediaRecorderRef.current?.state === "recording") return;
+    recordingRequestRef.current = true;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (!mountedRef.current) {
+        stream.getTracks().forEach(track => track.stop());
+        return;
+      }
       audioChunksRef.current = [];
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
@@ -1140,8 +1185,11 @@ export default function ChatThread({
       }, 1000);
     } catch (err) {
       console.error("Microphone permission error:", err);
+      if (!mountedRef.current) return;
       setSafetyError("Microphone access denied or unavailable.");
       setTimeout(() => setSafetyError(null), 4000);
+    } finally {
+      recordingRequestRef.current = false;
     }
   };
 
@@ -1167,6 +1215,7 @@ export default function ChatThread({
     }
 
     mediaRecorderRef.current.onstop = async () => {
+      if (!mountedRef.current) return;
       const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
       mediaRecorderRef.current?.stream.getTracks().forEach((track) => track.stop());
       setIsRecording(false);
@@ -1195,6 +1244,7 @@ export default function ChatThread({
         }
 
         const { publicUrl } = await uploadRes.json();
+        if (!mountedRef.current) return;
 
         const voicePayload = `__VOICE__::${JSON.stringify({ url: publicUrl, duration: finalSeconds })}`;
 
@@ -1216,7 +1266,7 @@ export default function ChatThread({
   };
 
   async function sendMessage() {
-    if (isBlocked) return;
+    if (isBlocked || sendingRef.current) return;
     const content = input.trim();
     const hasStaged = !!stagedImage;
 
@@ -1228,6 +1278,8 @@ export default function ChatThread({
       return;
     }
 
+    sendingRef.current = true;
+    const revision = inputRevision.current;
     setSending(true);
     setSafetyError(null);
 
@@ -1236,6 +1288,7 @@ export default function ChatThread({
       if (stagedImage) {
         setUploadingMedia(true);
         const compressedBlob = await compressImageToWebP(stagedImage.file);
+        if (!mountedRef.current) return;
 
         const formData = new FormData();
         formData.append("file", compressedBlob, "image.webp");
@@ -1252,6 +1305,7 @@ export default function ChatThread({
         }
 
         const { publicUrl } = await uploadRes.json();
+        if (!mountedRef.current) return;
         const imagePayload = `__IMAGE__::${JSON.stringify({ url: publicUrl, name: stagedImage.file.name })}`;
 
         const { error: sendErr } = await supabase.rpc("send_message_with_mentions", {
@@ -1266,8 +1320,7 @@ export default function ChatThread({
           throw new Error(sendErr.message || "Failed to send image message");
         }
 
-        URL.revokeObjectURL(stagedImage.previewUrl);
-        setStagedImage(null);
+        setStagedImage(current => current?.previewUrl === stagedImage.previewUrl ? null : current);
         setUploadingMedia(false);
       }
 
@@ -1296,19 +1349,23 @@ export default function ChatThread({
         });
 
         if (error) {
+          console.error("[chatThread] Failed to send text message:", error);
           throw new Error(error.message);
         }
       }
 
-      setInput("");
-      setReplyingTo(null);
-      setMentionIds([]);
-      setShowMentions(false);
+      if (inputRevision.current === revision) {
+        setInputState("");
+        setMentionIds([]);
+        setShowMentions(false);
+      }
+      setReplyingTo(current => current?.id === replyingTo?.id ? null : current);
     } catch (err: unknown) {
       console.error("Send error:", err);
       setSafetyError(err instanceof Error ? err.message : "Failed to send message");
       setTimeout(() => setSafetyError(null), 5000);
     } finally {
+      sendingRef.current = false;
       setSending(false);
       setUploadingMedia(false);
     }
@@ -2072,7 +2129,6 @@ export default function ChatThread({
             <IconButton
               label="Remove attachment"
               onClick={() => {
-                URL.revokeObjectURL(stagedImage.previewUrl);
                 setStagedImage(null);
               }}
             >

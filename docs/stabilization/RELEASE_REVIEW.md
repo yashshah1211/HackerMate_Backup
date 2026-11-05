@@ -1,5 +1,7 @@
 # PR #116 release-readiness review
 
+Historical review: PR#116 was subsequently founder-approved and merged as6e6b0e3b1fbb6b351112e011bed78e27033db258; production deployment is READY. Earlier keep-Draft instructions below describe that review's original decision point. Current independent review and release recommendation for the new branch are in [Mission02 handoff](MISSION_02_HANDOFF.md). STAB-006/STAB-011 remain open.
+
 Review base: `652d1ef0a34ef6b6bfbab480677892a153100343`. Initial reviewed head: `9d4c2159067dfbe60d83467897ac699e04a78623`. Review covers the entire PR and the follow-up fixes below. **Keep Draft and unmerged pending founder approval and the production dependency evidence below.** No production data, credentials or deployment settings were changed.
 
 ## Standards — independent reviewer

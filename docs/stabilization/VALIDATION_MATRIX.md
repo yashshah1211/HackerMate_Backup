@@ -123,3 +123,49 @@ The native fixture provisions its own privileges and has no real pg_net extensio
 - Existing production project rhryjrbebfrrfhtyyzbs, PostgreSQL17.6: scripts/notification-release-preflight.sql executed in BEGIN READ ONLY/ROLLBACK. **All18 booleans true.** Live table/column grants, app_settings PK/RLS, service role and installed notification trigger/pg_net metadata now verified at this point in time. No inserts/updates/deletes, grant changes or trigger invocation occurred.
 - Credential comparison queried only existing server-side migration statements and app_secrets within READ ONLY; secrets/hashes were never returned or included as query literals. Database historical matchNO; application comparison unavailable safely, so overallSTAB-011 activeUNKNOWN/consistentUNKNOWN/rotationUNKNOWN and statusblocked. Installed trigger reads the expected secret key; this does not prove that the application environment agrees. Full limitations and conditional rotation plan: RELEASE_REVIEW.md.
 - Production OAuth/RLS journeys, real worker/provider delivery and storage publication remain untested; no test traffic to webhook/email endpoints. STAB-006 remains unresolved. No production configuration/credentials/records changed; no merge or deployment.
+
+## Mission02 — final local evidence
+
+Base6e6b0e3b1fbb6b351112e011bed78e27033db258, new isolated branch stabilize/messaging-workspaces-20261105. PR#116 is confirmed merged and READY in production by repository/deployment metadata, not by a new live user journey.
+
+| Gate | Actual result |
+| --- | --- |
+| Initial component reproduction | 7tests/0pass/7fail before target fixes; separate owner-route check1fail before route fix |
+| Existing team baseline | 185pass/0fail |
+| Reviewer regressions before correction | Recorder/late permission/preview3fail; new-reply1fail; unread test evidence strengthened |
+| Final focused mounted components | 19pass/0fail/0skip, rerun after split into12chat/6workspace/1unread |
+| Updated exact PR offline selection | 1,021pass/0fail/0skip |
+| Existing team/member/document/invite/moderation selection | 434pass/0fail/0skip |
+| Full existing offline qualifier | 1,990pass/0fail/0skip |
+| TypeScript | Pass, no suppression |
+| Production webpack build | Pass,3synthetic reads/zero writes; offline fonts/network guard |
+| Existing guard + new Mission02 Chromium | 2tests pass, both1440px/390px; zero external requests/page errors |
+| Native document concurrency/permission suite | Pass in fresh local PostgreSQL18; competing writers, conflict/reviewed override, concurrent creation, anonymous/removed member denial and finally cleanup |
+| Core query smoke | Pass,10synthetic reads/zero mutations |
+| ESLint | Baseline195errors/91warnings → final193errors/90warnings; no new diagnostic texts or multiplicities after location-frame normalization |
+| Independent review | Both axes re-reviewed corrections; Spec reviewer independently executed19/19final focused checks |
+
+Exact runners: node --import ./qa/fixtures/rack-network-guard.mjs --test --test-concurrency=1 scripts/test-mission02-state.cjs; PR workflow's explicit selection; existing team-request-lifecycle/team-owner-review/team-creation/team-document/invite-handoff/team-activity/my-teams-applications/dashboard-join-requests/team-discovery/organizer-workspace/admin-moderation/connection-email-dedup tests; node scripts/qualify-aggregator.cjs; npm run typecheck -- --incremental false --pretty false; node qa/rack-qualification.cjs build; node --import ./qa/fixtures/rack-network-guard.mjs --test --test-concurrency=1 scripts/test-stabilization-browser.cjs scripts/test-mission02-browser.cjs; python scripts/test-team-document-local.py; node scripts/run-stabilization-smoke.cjs; eslint . --format json. Raw logs and JSON remain ignored under scratch/mission02, including baseline, failing-before, review-before and final runs. Counts overlap.
+
+All production application paths use synthetic adapters in verification. No real message/notification/email, production DB mutation, grant/RLS/secret/deployment setting change, merge or deploy. Native tests do not establish deployed Supabase/RLS equivalence. The permission bug is demonstrated UI authority reuse, not proof of backend RLS bypass. Server idempotency, live revocation and external delivery remain unverified. STAB-006/STAB-011 remain open separately. Hosted CI is reported only once the Draft PR's actual final-head run succeeds; use the linked PR checks/delivery record for final status.
+
+Hosted evidence: [Draft PR #118](https://github.com/yashshah1211/HackerMate_Backup/pull/118) / [Actions run 42014251549](https://github.com/yashshah1211/HackerMate_Backup/actions/runs/42014251549), source head `247bb4ba7bae9efb66a2d2542506cd7122b7a1c8`, completed/success. All steps pass on Linux/Node 22: TypeScript, 1,021 regressions, synthetic core smoke, existing auth plus Mission02 browser scenarios (both desktop/mobile), artifact render/upload. No production credentials are provided. Follow-up documentation only adds links/readability; final PR checks remain authoritative for its head. Vercel deployment query for the source head returned zero records.
+
+## Final integration with main / PR #117
+
+Current integration base: `cad50fafec5d9219f38fd95028198e9480582d7f`. Merge head: `d42b05ae7c79e580647c8b734d97d5515b855fb7`; original Mission 02 baseline6e6b0e3 remains the reproduction baseline. Both histories preserved; no conflicts. All Mission 02 source/tests equal pre-merge db96d94, and Founder Brief workflow/claim/route/dispatch equal main. Local assertions confirm all three required CI runners present once, exactly one `37 3 * * *` schedule, serialized main-only execution and `--retry 0`.
+
+| Integrated gate | Actual execution result |
+| --- | --- |
+| Combined Linux PR selection | 1,051 pass / 0 fail / 0 skipped, including30 database-report shell checks |
+| Local Windows application selection | 1,021 pass / 0 fail / 0 skipped |
+| Focused messaging + daily report claim/Founder Brief | 31 pass / 0 fail / 0 skipped, includes19 Mission 02 checks |
+| TypeScript | Pass after build; initial overlapping run failed only on generated .next/types being removed/recreated |
+| Safe production webpack build | Pass,3synthetic reads/zero writes, offline fonts/network guard |
+| Auth/Mission 02 browser | 2 pass / 0 fail,1440px and390px; zero external requests/page errors |
+| Synthetic core smoke | Pass,10reads/zero mutations |
+| ESLint | 193 errors / 90 warnings, zero new diagnostic texts/multiplicities versus prior Mission 02 final baseline |
+
+Actual new-head [CI run42019542520](https://github.com/yashshah1211/HackerMate_Backup/actions/runs/42019542520) completed/success on Linux/Node22; job logs explicitly confirm schedule/manual trigger, destination rejection and no retry tests,1051/1051 regressions,2/2 browser scenarios, smoke and all TypeScript/artifact steps. Do not substitute earlier run42014706513 for this evidence. Local existing Ubuntu has Bash but lacks Linux Node/jq, and Windows lacks jq; the platform-specific shell tests were executed unchanged in Linux CI with mock curl, not against any live destination. No skip was added to CI. Raw local logs: scratch/mission02/integration/.
+
+This documentation update contains no runtime changes. Final-head CI must also succeed and its exact SHA/run is reported in PR metadata/delivery. Remaining production acceptance limits and STAB-006/STAB-011 are unchanged. No production settings/data, messages/emails, manual dispatch, merge or deploy occurred.

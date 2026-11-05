@@ -39,6 +39,7 @@ jobs:
       - name: Run offline regression selection
         run: |
           node --import ./qa/fixtures/rack-network-guard.mjs --test --test-concurrency=1 \
+            scripts/test-mission02-state.cjs \
             scripts/test-stabilization-boundaries.cjs \
             scripts/test-stabilization-ppt-access.cjs \
             scripts/test-stabilization-email-access.cjs \
@@ -70,7 +71,7 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Verify account guard in desktop and mobile Chromium with external network blocked
-        run: node --import ./qa/fixtures/rack-network-guard.mjs --test scripts/test-stabilization-browser.cjs
+        run: node --import ./qa/fixtures/rack-network-guard.mjs --test --test-concurrency=1 scripts/test-stabilization-browser.cjs scripts/test-mission02-browser.cjs
 
       - name: Render Founder Brief review artifacts without production data
         run: node scripts/render-founder-brief-preview.cjs

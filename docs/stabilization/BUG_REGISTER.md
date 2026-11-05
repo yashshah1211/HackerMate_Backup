@@ -3,7 +3,7 @@
 Baseline: `652d1ef` (latest `origin/main` fetched 2026-11-05). Branch: `stabilize/full-codebase-20261105`.
 Only demonstrated defects enter this register. Local fixture verification does not establish deployed RLS or production health.
 
-Confirmed code-level defects: **P0 0 / P1 8 / P2 6 / P3 0**. Thirteen resolved locally; STAB-006 remains unresolved. STAB-011 is an additional P1 credential risk needing production verification, excluded from confirmed-defect totals. Severity describes impact of demonstrated code paths, not proof of a deployed breach.
+Confirmed code-level defects: **P0 0 / P1 11 / P2 8 / P3 0**. Eighteen resolved in code; STAB-006 remains unresolved. STAB-011 is an additional P1 credential risk needing production verification, excluded from confirmed-defect totals. Severity describes impact of demonstrated code paths, not proof of a deployed breach. Mission02 verification is synthetic/local unless explicitly identified as hosted CI; prior fixes are preserved from merged PR#116.
 
 | Priority | Issue | Evidence | Local outcome |
 | --- | --- | --- | --- |
@@ -179,3 +179,58 @@ Second batch adds three confirmed P1 fixes (STAB-008/009/012) and one P2 fix (ST
 - Minimal fix: throw/log actual query failures before UI currentness checks; retain sequence checks around every state update.
 - Regression: exact old error logged, newer verified UI remains authorized, no verification notice replaces it; desktop/mobile guard regression remains passing.
 - Status: fixed locally and independently re-reviewed.
+
+## Mission02 — messaging, teams and workspace state
+
+Baseline6e6b0e3b1fbb6b351112e011bed78e27033db258 (PR#116 merged). Branch stabilize/messaging-workspaces-20261105. Seven original component regressions failed before fixes; a separate baseline route test also failed. Nineteen final focused checks pass. Reviewer-discovered cleanup/reply gaps were reproduced and corrected before publication. See MISSION_02_HANDOFF.md for full evidence and limitations.
+
+### STAB-016 — P1 — Chat state and stale loads cross identity boundaries
+
+- Files: src/components/chatThread.tsx.
+- Actual/reproduction: mount conversationone, delay its message query, switch totwo, resolveone; one's private message replaces two. A private draft also survives the switch; changing currentUserId with the same conversation similarly reuses state.
+- Expected: thread/account identity owns its messages, draft, block state, recipient, reactions and subscriptions; old work cannot publish into the current UI or mark old incoming events read after teardown.
+- Root cause: one component instance owns all state across prop identities; asynchronous loads/realtime callbacks have no session boundary.
+- Minimal fix: keyed inner session by user+conversation; mounted/active checks before committing an old load or processing a torn-down subscription. Same-identity rerenders retain drafts.
+- Independent review correction: key-driven unmount exposed missing microphone/timer/preview cleanup. Three failing regressions reproduced active recorder, late permission stream and preview leaks; cleanup now stops recorder/tracks/timer, detaches callbacks, rejects late acquisition, revokes previews and blocks stale media completion before send RPC.
+- Regression: delayed old read, thread/account switch, same-account preservation, late event after unsubscribe, active/pending recorder and preview lifecycle; real desktop/mobile Chromium.
+- Status: fixed locally, independently re-reviewed. This does not certify server RLS or all pagination/realtime ordering paths.
+
+### STAB-017 — P1 — Concurrent composer sends duplicate writes and erase newer intent
+
+- Files: src/components/chatThread.tsx.
+- Actual/reproduction: press Enter twice before the pending RPC settles; two send_message_with_mentions calls occur. Type a new draft while the first send is pending; successful completion empties it. A reply selected during the pending send was also cleared by the first attempted fix (independently reproduced).
+- Expected: one outstanding composer submission; completion clears only the captured draft/reply, and a rejected write retains the draft for deliberate recovery.
+- Root cause: disabled button/state flag does not exclude keyboard reentry; unconditional completion clears editable state created after the request began.
+- Minimal fix: synchronous ref lock acquired before asynchronous work, released in finally; draft revision and reply identity checks before clearing. Preserve replacement staged attachments and log actual text-write errors.
+- Regression: repeated same-tick Enter, newer draft, newer reply, actual rejected persistence and subsequent deliberate retry; browser keyboard flow. No automatic retry or backend idempotency protocol added.
+- Status: fixed locally and independently re-reviewed. Ambiguous network outcomes still require reconciliation; this is not an exactly-once server guarantee.
+
+### STAB-018 — P2 — Failed read receipt clears unread state
+
+- Files: src/app/messages/page.tsx.
+- Actual/reproduction: mark_conversation_read returns42501; the handler discards the error and immediately clears the unread badge.
+- Expected: change local unread state only after acknowledgment; log the real failure and show an error.
+- Root cause: resolved RPC promise is treated as success without checking its error field.
+- Minimal fix: check/catch error before updating conversation unreadCount; retain existing RPC/response contracts.
+- Regression: mounted production page asserts actual error logging and the current DOM unread badge. Independent review strengthened this assertion from historical JSX to committed DOM.
+- Status: fixed locally. Production notification/read-receipt transport not invoked.
+
+### STAB-019 — P2 — Workspace deletion reports success after zero affected rows
+
+- Files: src/components/TeamWorkspaceView.tsx.
+- Actual/reproduction: synthetic RLS/stale-record response has data:null,error:null; UI reports Task deleted and removes the task, although no deletion was acknowledged.
+- Expected: success only after the exact scoped row is returned; missing/denied record remains visible with an error.
+- Root cause: DELETE checks only error, not whether any row matched.
+- Minimal fix: retain id predicate, add team_id, select returnedid/maybeSingle, and require a row before success/removal.
+- Regression: zero row, actual42501, successful returnedid and exact team/id/column query assertions; desktop/mobile failed-deletion journey.
+- Status: fixed locally. No grants/RLS/schema changed and no production mutation performed.
+
+### STAB-020 — P1 — Workspace state outlives its team/task authority
+
+- Files: src/app/teams/[id]/workspace/page.tsx and src/components/TeamWorkspaceView.tsx.
+- Actual/reproduction: open owned teamone, navigate to teamtwo where caller is neither owner nor member: isOwner remains true and the private workspace subtree renders. Separately, open taskone then tasktwo and resolve one's delayed comments last: wrong-task comments replace the current discussion.
+- Expected: each route independently verifies ownership/membership from a fresh deny-by-default state; each selected task accepts only its latest active comment request.
+- Root cause: route component state reused across team IDs, owner flag only set true; comment load and realtime paths lack cleanup/request ordering.
+- Minimal fix: key workspace content by route team ID; assign owner boolean on every verified load. Comment effect uses primitive task ID, active/request sequence, one shared read path, cleanup and typed rows. No server-side authority was expanded.
+- Regression: actual route rendering proves previous owner cannot enter another workspace; task switches, same-task out-of-order realtime loads and late callbacks after unsubscribe; real desktop/mobile route gate.
+- Status: fixed locally and independently re-reviewed. The UI reproduction does not prove a database RLS bypass; live membership revocation/account lifecycle remain separate integration coverage limits.
