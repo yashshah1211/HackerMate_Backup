@@ -1,5 +1,7 @@
 # Stabilization progress
 
+Latest batch: Mission02 on stabilize/messaging-workspaces-20261105, base6e6b0e3. PR#116 is merged and its production deployment is READY; entries below concerning its earlier Draft status are historical. Mission02 handoff: MISSION_02_HANDOFF.md.
+
 ## Scope and safety decisions
 
 - Mission dated 2026-11-05: stabilize existing workflows without features, redesign, production mutations, real emails/cron/outreach, deployment or infrastructure changes.
@@ -136,3 +138,18 @@ Release recommendation: code-levelGO; overall mergeCONDITIONAL GO only with foun
 3. Address existing ESLint debt in the same touched behavior boundaries after regression evidence:195errors/91warnings baseline, including161explicit-any,14effect-state,6purity,2immutability errors. Prioritize typed auth/query/result boundaries and unsafe state mutation over cosmetic/literal cleanup. Do not blanket-disable rules, bulk-refactor, or assume a lint diagnostic proves a user-visible defect. All successful PR/source checks must remain intact.
 
 No new feature/redesign or unrelated lint sweep is included in PR#116. The next batch starts with focused reproductions and an explicit scoped plan, with separate reviewable commits rather than widening the current release review.
+
+## Mission02 — 2026-11-05
+
+Verified remote main6e6b0e3b1fbb6b351112e011bed78e27033db258, PR#116 merged, and Vercel deployment dpl_9k87wDctecE3PAkcDj2erc2Mu14b READY/production for that SHA. Created isolated worktree stabilization-mission02-20261105 and new branch stabilize/messaging-workspaces-20261105 from that exact base. Previous worktree and original frontend were not reset or edited. Installed673exact-lockfile packages without lifecycle scripts; no environment files copied.
+
+- Investigated real chat/message, workspace route/task/comment, membership/RPC and existing document implementations. Confirmed five bounded defect areas STAB-016–020. Initial7component regressions failed; separate previous-owner route check also failed. Root causes and exact changes are in BUG_REGISTER.md/MISSION_02_HANDOFF.md.
+- Implemented keyed chat identity and teardown, synchronous composer exclusion and conditional completion, honest unread acknowledgment, row-confirmed team-scoped task deletion, and route/task scope isolation. No public endpoint, SQL migration, grant/RLS or provider configuration changed.
+- Independent Standards and Spec reviewers found recorder lifecycle/new-reply gaps in initial corrections. Added failing synthetic regressions, fixed resource cleanup and reply CAS, strengthened unread evidence to current DOM. Both re-reviewed without another blocker; Spec reviewer independently ran19/19focused checks.
+- Final local checks: focused19; updatedPR1,021; existing team/document/invite/moderation434; broader offline1,990 all pass/zero skips. TypeScript and isolated production build pass; build3synthetic reads/zero writes. Existing and new Chromium2scenarios pass at1440/390px with no external requests/page errors. Native document concurrency/permissions pass in a disposable local PostgreSQL18 cluster with cleanup. Core synthetic smoke10reads/zero writes passes. Counts overlap.
+- ESLint baseline195errors/91warnings; final193/90, zero introduced diagnostic texts/multiplicities when shifted location frames are normalized. Removed comments any/effect-state and owner unused-variable diagnostics; other debt retained. No blanket suppression/configuration change or uncontrolled autofix.
+- Regressions split into chat12checks, workspace6 and unread1, with one explicit aggregator and one browser scenario. Existing PR checks preserved; Mission02 tests added.
+- Production safety: no real messages, email, notifications, DB writes, auth activity or configuration changes. Previous session's preview tracking-off/main-only evidence retained; connector summary omits this setting and current browser automation is disabled, so no new dashboard settings inspection is claimed. Verify non-main publication has no deployment; no deploy/merge action allowed.
+- STAB-006 remains open and contract-preserved; STAB-011 remains blocked on safe application-side equality verification. Unverified server/external transport and live membership/account transition limits are retained, not described as production acceptance.
+
+Recommendation: CONDITIONAL GO after actual hosted CI and founder review. Publish focused commits/Draft PR and wait for its final-head CI. Final PR/run links and source hashes are recorded in delivery metadata; local success alone is not hosted validation. No merge/deploy authorized.

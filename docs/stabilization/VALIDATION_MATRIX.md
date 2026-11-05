@@ -123,3 +123,28 @@ The native fixture provisions its own privileges and has no real pg_net extensio
 - Existing production project rhryjrbebfrrfhtyyzbs, PostgreSQL17.6: scripts/notification-release-preflight.sql executed in BEGIN READ ONLY/ROLLBACK. **All18 booleans true.** Live table/column grants, app_settings PK/RLS, service role and installed notification trigger/pg_net metadata now verified at this point in time. No inserts/updates/deletes, grant changes or trigger invocation occurred.
 - Credential comparison queried only existing server-side migration statements and app_secrets within READ ONLY; secrets/hashes were never returned or included as query literals. Database historical matchNO; application comparison unavailable safely, so overallSTAB-011 activeUNKNOWN/consistentUNKNOWN/rotationUNKNOWN and statusblocked. Installed trigger reads the expected secret key; this does not prove that the application environment agrees. Full limitations and conditional rotation plan: RELEASE_REVIEW.md.
 - Production OAuth/RLS journeys, real worker/provider delivery and storage publication remain untested; no test traffic to webhook/email endpoints. STAB-006 remains unresolved. No production configuration/credentials/records changed; no merge or deployment.
+
+## Mission02 — final local evidence
+
+Base6e6b0e3b1fbb6b351112e011bed78e27033db258, new isolated branch stabilize/messaging-workspaces-20261105. PR#116 is confirmed merged and READY in production by repository/deployment metadata, not by a new live user journey.
+
+| Gate | Actual result |
+| --- | --- |
+| Initial component reproduction | 7tests/0pass/7fail before target fixes; separate owner-route check1fail before route fix |
+| Existing team baseline | 185pass/0fail |
+| Reviewer regressions before correction | Recorder/late permission/preview3fail; new-reply1fail; unread test evidence strengthened |
+| Final focused mounted components | 19pass/0fail/0skip, rerun after split into12chat/6workspace/1unread |
+| Updated exact PR offline selection | 1,021pass/0fail/0skip |
+| Existing team/member/document/invite/moderation selection | 434pass/0fail/0skip |
+| Full existing offline qualifier | 1,990pass/0fail/0skip |
+| TypeScript | Pass, no suppression |
+| Production webpack build | Pass,3synthetic reads/zero writes; offline fonts/network guard |
+| Existing guard + new Mission02 Chromium | 2tests pass, both1440px/390px; zero external requests/page errors |
+| Native document concurrency/permission suite | Pass in fresh local PostgreSQL18; competing writers, conflict/reviewed override, concurrent creation, anonymous/removed member denial and finally cleanup |
+| Core query smoke | Pass,10synthetic reads/zero mutations |
+| ESLint | Baseline195errors/91warnings → final193errors/90warnings; no new diagnostic texts or multiplicities after location-frame normalization |
+| Independent review | Both axes re-reviewed corrections; Spec reviewer independently executed19/19final focused checks |
+
+Exact runners: node --import ./qa/fixtures/rack-network-guard.mjs --test --test-concurrency=1 scripts/test-mission02-state.cjs; PR workflow's explicit selection; existing team-request-lifecycle/team-owner-review/team-creation/team-document/invite-handoff/team-activity/my-teams-applications/dashboard-join-requests/team-discovery/organizer-workspace/admin-moderation/connection-email-dedup tests; node scripts/qualify-aggregator.cjs; npm run typecheck -- --incremental false --pretty false; node qa/rack-qualification.cjs build; node --import ./qa/fixtures/rack-network-guard.mjs --test --test-concurrency=1 scripts/test-stabilization-browser.cjs scripts/test-mission02-browser.cjs; python scripts/test-team-document-local.py; node scripts/run-stabilization-smoke.cjs; eslint . --format json. Raw logs and JSON remain ignored under scratch/mission02, including baseline, failing-before, review-before and final runs. Counts overlap.
+
+All production application paths use synthetic adapters in verification. No real message/notification/email, production DB mutation, grant/RLS/secret/deployment setting change, merge or deploy. Native tests do not establish deployed Supabase/RLS equivalence. The permission bug is demonstrated UI authority reuse, not proof of backend RLS bypass. Server idempotency, live revocation and external delivery remain unverified. STAB-006/STAB-011 remain open separately. Hosted CI is reported only once the Draft PR's actual final-head run succeeds; use the linked PR checks/delivery record for final status.
