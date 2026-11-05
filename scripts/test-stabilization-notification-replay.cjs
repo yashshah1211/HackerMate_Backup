@@ -8,7 +8,7 @@ const USER = '00000000-0000-4000-8000-000000000002';
 const BODY = { notificationId: ID, recipientId: USER, recipientEmail: 'target@example.invalid', recipientName: 'Fixture', message: 'Synthetic team invitation', link: '/invites' };
 
 function fixture(options = {}) {
-  const state = { claims: new Map(), sends: [], logs: [], reads: [] };
+  const state = { claims: options.claims || new Map(), sends: [], logs: [], reads: [] };
   const db = { from(table) {
     let operation = 'read', payload, single = false; const filters = [];
     const query = { select() { return this; }, eq(...args) { filters.push(args); return this; },
@@ -22,6 +22,7 @@ function fixture(options = {}) {
               if (options.claimError) return { data: null, error: { code: '42501', message: 'Synthetic claim denied' } };
               if (state.claims.has(payload.key)) return { data: null, error: { code: '23505' } };
               state.claims.set(payload.key, { ...payload }); rows = [{ key: payload.key }];
+              if (options.claimAcknowledgmentLost) throw Error('Synthetic reservation committed but acknowledgment lost');
             } else {
               rows = [...state.claims.values()].filter(row => filters.every(([key, value]) => row[key] === value));
               if (operation === 'update') {
@@ -99,4 +100,49 @@ test('Notification integrity: recipient/content come from the stored event/profi
 });
 test('Notification integrity: wrong secret does no database/provider work', async () => {
   const f = fixture(); assert.equal((await f.call(BODY, 'wrong')).status, 401); assert.equal(f.state.reads.length + f.state.sends.length, 0);
+});
+
+test('Notification reconciliation: persist receipt and original reservation identity after acceptance', async () => {
+  const f = fixture(); assert.equal((await f.call()).status, 200);
+  const outcome = JSON.parse([...f.state.claims.values()][0].value);
+  assert.equal(outcome.status, 'accepted');
+  assert.equal(outcome.providerId, 'synthetic-provider-receipt');
+  assert.equal(outcome.providerStatus, 200); assert.equal(outcome.attempted, true);
+  assert.equal(outcome.intendedRecipientAccepted, true); assert.equal(outcome.sandbox, false);
+  assert.match(outcome.nonce, /^[0-9a-f-]{36}$/); assert(Number.isFinite(Date.parse(outcome.reservedAt)));
+  assert(!JSON.stringify(outcome).includes(BODY.recipientEmail), 'No recipient/content in the reservation ledger');
+});
+
+test('Notification crash boundary: committed reservation with lost acknowledgment stays held without a dispatch', async () => {
+  const f = fixture({ claimAcknowledgmentLost: true });
+  assert.equal((await f.call()).status, 503); assert.equal(f.state.sends.length, 0);
+  const restarted = fixture({ claims: f.state.claims });
+  assert.equal((await restarted.call()).status, 409); assert.equal(restarted.state.sends.length, 0);
+  assert.equal(JSON.parse([...f.state.claims.values()][0].value).status, 'reserved');
+});
+
+test('Notification crash boundary: accepted provider with unfinished bookkeeping stays held across handler restart', async () => {
+  const f = fixture({ outcomeError: true });
+  assert.equal((await f.call()).status, 200); assert.equal(f.state.sends.length, 1);
+  assert.equal(JSON.parse([...f.state.claims.values()][0].value).status, 'reserved');
+  const restarted = fixture({ claims: f.state.claims });
+  assert.equal((await restarted.call()).status, 409); assert.equal(restarted.state.sends.length, 0);
+});
+
+test('Notification reconciliation: sandbox receipt remains held and never claims intended-recipient acceptance', async () => {
+  const f = fixture({ env: { RESEND_FROM_EMAIL: 'onboarding@resend.dev', RESEND_SANDBOX_RECIPIENT: 'sandbox@example.invalid' } });
+  const response = await f.call(); assert.equal(response.status, 200); assert.equal((await response.json()).success, false);
+  const outcome = JSON.parse([...f.state.claims.values()][0].value);
+  assert.equal(outcome.sandbox, true); assert.equal(outcome.intendedRecipientAccepted, false);
+  assert.equal(outcome.providerId, 'synthetic-provider-receipt'); assert.equal((await f.call()).status, 409);
+});
+
+test('Notification crash boundary: in-flight provider request cannot be overtaken or released', async () => {
+  let release; const providerWait = new Promise(resolve => { release = resolve; });
+  const f = fixture({ providerWait }), pending = f.call();
+  try {
+    for (let i = 0; i < 100 && !f.state.sends.length; i++) await new Promise(resolve => setImmediate(resolve));
+    assert.equal(f.state.sends.length, 1);
+    assert.equal((await f.call()).status, 409); assert.equal(f.state.sends.length, 1);
+  } finally { release(); await pending; }
 });

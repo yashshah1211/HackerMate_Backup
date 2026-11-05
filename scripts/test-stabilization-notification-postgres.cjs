@@ -2,6 +2,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { spawnSync } = require('node:child_process');
 const { test } = require('node:test');
 const { createFixture, quote } = require('./hustle-phase2-local-db.cjs');
 const { harness, ROOT } = require('./ppt-vision-harness.cjs');
@@ -33,24 +34,58 @@ test('notification reservation uses actual PostgreSQL PK, concurrent INSERT, dur
       };
     } };
     const { claimNotificationEmail: claim, finishNotificationEmail: finish } = harness().load('src/lib/notificationEmailClaim.ts');
+    const outcome = (status, attempted) => ({ status, attempted, sandbox: false, intendedRecipientAccepted: status === 'accepted', retrySafe: false, reason: 'Synthetic',
+      ...(status === 'accepted' ? { providerId: 'synthetic-provider-receipt', providerStatus: 200 } : {}) });
     const id = n => '00000000-0000-4000-8000-' + String(n).padStart(12, '0');
     const claims = await Promise.all([claim(client, id(31)), claim(client, id(31)), claim(client, id(31))]);
     check(claims.filter(row => row.status === 'reserved').length === 1, 'one concurrent first writer');
     check(claims.filter(row => row.status === 'duplicate').length === 2, 'two concurrent duplicates');
     const winner = claims.find(row => row.status === 'reserved');
-    check(await finish(client, winner, 'accepted', true) === 'recorded', 'acceptance stored');
+    check(await finish(client, winner, outcome('accepted', true)) === 'recorded', 'acceptance stored');
     check((await claim(client, id(31))).status === 'duplicate', 'acceptance permanently prevents resend');
     const ambiguous = await claim(client, id(32));
-    check(await finish(client, ambiguous, 'unknown', true) === 'recorded', 'unknown outcome stored');
+    check(await finish(client, ambiguous, outcome('unknown', true)) === 'recorded', 'unknown outcome stored');
     check((await claim(client, id(32))).status === 'duplicate', 'unknown outcome permanently prevents resend');
     const neverAttempted = await claim(client, id(33));
-    check(await finish(client, neverAttempted, 'not_dispatched', false) === 'recorded', 'never-attempted claim released');
+    check(await finish(client, neverAttempted, outcome('not_dispatched', false)) === 'recorded', 'never-attempted claim released');
     const replacement = await claim(client, id(33));
     check(replacement.status === 'reserved', 'configuration recovery can reserve');
-    check(await finish(client, neverAttempted, 'not_dispatched', false) === 'failed', 'old reservation cannot delete new owner');
+    check(await finish(client, neverAttempted, outcome('not_dispatched', false)) === 'failed', 'old reservation cannot delete new owner');
     check((await claim(client, id(33))).status === 'duplicate', 'new reservation survived stale release');
+
+    // A genuinely terminated Node worker cannot release its committed reservation.
+    // A fresh helper VM then sees only durable PostgreSQL state.
+    const crashWorker = `
+      const assert = require('node:assert/strict');
+      const { spawnSync } = require('node:child_process');
+      const { harness } = require('./scripts/ppt-vision-harness.cjs');
+      const { quote } = require('./scripts/hustle-phase2-local-db.cjs');
+      const config = JSON.parse(process.argv[1]);
+      function sql(input) {
+        const result = spawnSync(config.psql, ['-h','127.0.0.1','-p',String(config.port),'-U','fixture_owner','-d','hustle_phase2_fixture','-X','-w','-At','-v','ON_ERROR_STOP=1'],
+          { input, encoding: 'utf8', windowsHide: true });
+        assert.equal(result.status, 0, result.stderr); return result.stdout.trim();
+      }
+      assert.equal(sql("SELECT current_setting('hm.fixture_only')='hustle-phase2'"), 't');
+      const client = { from(table) { assert.equal(table, 'app_settings'); return { async insert(row) {
+        sql('SET ROLE service_role; INSERT INTO app_settings(key,value) VALUES('+quote(row.key)+','+quote(row.value)+');');
+        return { error: null };
+      } }; } };
+      harness().load('src/lib/notificationEmailClaim.ts').claimNotificationEmail(client, config.id).then(result => {
+        assert.equal(result.status, 'reserved'); process.exit(42);
+      }).catch(error => { console.error(error); process.exit(1); });
+    `;
+    const workerEnv = {};
+    for (const name of ['SystemRoot','WINDIR','PATH','TEMP','TMP']) if (process.env[name]) workerEnv[name] = process.env[name];
+    const bin = process.env.PARTNER_TEST_PG_BIN || (process.platform === 'win32' ? 'C:\\Program Files\\PostgreSQL\\18\\bin' : '');
+    const worker = spawnSync(process.execPath, ['-e', crashWorker, JSON.stringify({ port: db.port, id: id(34), psql: path.join(bin, process.platform === 'win32' ? 'psql.exe' : 'psql') })],
+      { cwd: ROOT, env: workerEnv, encoding: 'utf8', windowsHide: true, timeout: 20000 });
+    check(worker.status === 42, 'Node worker terminated immediately after durable reservation: ' + worker.stderr);
+    check((await harness().load('src/lib/notificationEmailClaim.ts').claimNotificationEmail(client, id(34))).status === 'duplicate', 'fresh handler cannot resend after worker loss');
+    const persisted = JSON.parse(db.sql(`SELECT value FROM app_settings WHERE key=${quote('notification:email:' + id(31))};`));
+    check(persisted.providerId === 'synthetic-provider-receipt' && persisted.nonce === winner.nonce && persisted.reservedAt === winner.reservedAt, 'receipt and reservation identity survive real SQL persistence');
     db.sql('REVOKE UPDATE ON app_settings FROM service_role;');
-    check(await finish(client, replacement, 'accepted', true) === 'failed', 'outcome permission failure visible');
+    check(await finish(client, replacement, outcome('accepted', true)) === 'failed', 'outcome permission failure visible');
     check((await claim(client, id(33))).status === 'duplicate', 'persistence failure cannot reauthorize send');
     console.log(`Native PostgreSQL: ${checks} notification reservation assertions passed; synthetic cluster only.`);
   } finally { await db.close(); }

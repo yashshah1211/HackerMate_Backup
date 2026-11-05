@@ -140,7 +140,7 @@ export async function POST(req: NextRequest) {
         : "Notification email could not be reserved. No email was dispatched." }, { status: claim.status === "duplicate" ? 409 : 503 });
     }
     const dispatch = await dispatchEmail({ from: process.env.RESEND_FROM_EMAIL || "", to: recipientEmail, subject: subject, html });
-    const bookkeeping = await finishNotificationEmail(supabaseAdmin, claim, dispatch.status, dispatch.attempted);
+    const bookkeeping = await finishNotificationEmail(supabaseAdmin, claim, dispatch);
     const accounting = dispatch.status === "accepted" ? await recordEmailSendSuccess(supabaseAdmin, "notifications", 1) : { status: "not_required" };
     return NextResponse.json({ ...dispatchResponse(dispatch), accounting, bookkeeping }, { status: dispatchHttpStatus(dispatch) });
 
