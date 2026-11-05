@@ -3,7 +3,7 @@
 Baseline: `652d1ef` (latest `origin/main` fetched 2026-11-05). Branch: `stabilize/full-codebase-20261105`.
 Only demonstrated defects enter this register. Local fixture verification does not establish deployed RLS or production health.
 
-Code-level findings: **P0 0 / P1 5 / P2 2 / P3 0**. Six resolved locally; one P1 enforcement gap requires integration/consumer verification. Severity describes potential impact of the demonstrated code path, not proof of a deployed exploit.
+Confirmed code-level defects: **P0 0 / P1 8 / P2 3 / P3 0**. Ten resolved locally; STAB-006 remains unresolved. STAB-011 is an additional P1 credential risk needing production verification, excluded from confirmed-defect totals. Severity describes impact of demonstrated code paths, not proof of a deployed breach.
 
 | Priority | Issue | Evidence | Local outcome |
 | --- | --- | --- | --- |
@@ -12,6 +12,8 @@ Code-level findings: **P0 0 / P1 5 / P2 2 / P3 0**. Six resolved locally; one P1
 | 3 | STAB-004, P1 | Unrecognized HTML accepted as advertised audio; reaches mocked storage | Fixed; handler returns 400, no write |
 | 4 | STAB-001, P1 | Profile permission failure renders protected dashboard children | Fixed; actual error logged, verification notice |
 | 5 | STAB-002, P1 | In-flight profile success restores children after sign-out | Fixed; stale result ignored, current account recovery preserved |
+
+Second batch adds three confirmed P1 fixes (STAB-008/009/012) and one P2 fix (STAB-010). The only remaining confirmed P0/P1 defect is STAB-006; the separate STAB-011 credential review requires an authorized production check. No P0 breach was established.
 
 ## STAB-001 — P1 — Account guard grants access after failed profile verification
 
@@ -90,3 +92,59 @@ Code-level findings: **P0 0 / P1 5 / P2 2 / P3 0**. Six resolved locally; one P1
 - Minimal fix: mock current metrics/brief/PDF boundaries while retaining real route and requireAdmin. Extend no-privileged-work assertion to metrics/brief calls. Keep dedicated founder-brief and daily claim regressions real.
 - Regression: all existing 75 authorization tests, founder-brief/claim suites and broader run; no assertions removed or weakened.
 - Status: fixed. Existing 75 authorization tests pass as part of the 965-test broader run; dedicated founder-brief/claim tests pass. No assertion removed or weakened.
+
+## STAB-008 — P1 — PPT history and deletion bypass active-account verification
+
+- Feature/files: `src/app/api/teams/[id]/ppt-evaluations/route.ts`, GET and DELETE.
+- Actual: a suspended owner/admin can list private evaluation history or delete it using the service-role path. A getUser response containing both a user and an auth error is accepted. Missing/unknown/mismatched profiles and failed authorization queries can authorize by another successful branch.
+- Expected: verify error-free identity, matching protected active profile, existing team and successful authorization reads before disclosing/deleting evaluations. Retain active owner/member/admin permissions.
+- Evidence: focused actual-handler regressions fail on baseline for both methods; suspended DELETE reaches the mocked database mutation. Permission-error fixtures log no actual error before the fix. HTTP regression now verifies suspended GET/DELETE 403 and active scoped access.
+- Root cause: discarded auth/query errors; profile projection omits suspension; duplicated authorization blocks both lack the same checks.
+- Minimal fix: shared local read/delete authorization function checks all errors, matching profile identity and `is_banned === false`; team/membership checks retain their existing role semantics. No grants/RLS/schema changes.
+- Regression: both methods × suspended owner/admin, absent/unknown/mismatched profile, rejected identity, failed profile/membership/team read, unrelated caller, missing team; active owner/member/admin compatibility. Real loopback HTTP check.
+- Status: fixed locally; covered by final 66-test boundary selection and existing result-authority tests. Production sessions/RLS not exercised.
+
+## STAB-009 — P1 — Suspended callers can dispatch non-warning notification emails
+
+- Feature/files: `src/app/api/send-email/route.ts`.
+- Actual: suspended/unknown accounts can send connection-request email; suspended admins can send onboarding nudges. Cookie getUser errors with a user payload are ignored. Provider quota is consumed through a service-role client.
+- Expected: active protected profile and error-free verified identity before service-role creation, rate-limit RPC or email dispatch; preserve sender and relationship checks.
+- Evidence: real-handler fixtures reproduce dispatch for suspended/unknown/rejected identities. Baseline access selection: 31 failures / 17 passes out of 48 (combined PPT/email tests).
+- Root cause: custom identity-only cookie/bearer gate omits account suspension and ignores cookie auth errors. Only moderation warnings used the protected account helper.
+- Minimal fix: use existing requireVerifiedProfile for every email type before privileged work. Keep cookie/bearer transports, moderation 403 lookup-failure behavior, rate limits and relationship checks.
+- Regression: connection and onboarding flows × missing/banned/unknown/error profile, rejected/signed-out identity; zero provider and rate-limit calls on denial; active cookie/bearer compatibility; existing moderation suite unchanged.
+- Status: fixed locally. Real providers/configuration unchanged; all emails in verification mocked.
+
+## STAB-010 — P2 — PPT deletion reports success when no evaluation was deleted
+
+- Feature/files: DELETE in `src/app/api/teams/[id]/ppt-evaluations/route.ts`.
+- Actual: nonexistent/already-deleted evaluation IDs return `{success:true,deletedId}` even when the scoped DELETE matches zero rows.
+- Expected: successful response only for a returned deleted row; missing scoped record is 404; permission failure remains an error.
+- Evidence: baseline focused test expects 404 but receives 200 with the original row unchanged. HTTP test now deletes once (200), repeats (404), and confirms no remaining row.
+- Root cause: handler checks only database error, never whether any row matched.
+- Minimal fix: select returned ID from the existing team/id-scoped deletion with maybeSingle; preserve 200 success shape for an actual deletion.
+- Regression: nonexistent/repeated deletion, exact team/id filters, database error logging and successful deletion.
+- Status: fixed locally.
+
+## STAB-011 — P1 risk — Historical migration seeds a static notification webhook credential
+
+- Feature/file: secret seeding in `supabase/migrations/202608030002_re_enable_offline_email_notifications.sql`; earlier migrations also contain placeholder/default webhook credentials. Values are intentionally not reproduced here.
+- Confirmed fact: tracked SQL contains a fixed bearer credential and upserts it into app_secrets. Anyone with access to that source can know the seeded value.
+- Unverified: whether production still uses the historical value, whether it was already rotated, and whether an unauthorized party accessed or used it. This is not evidence of a production breach; excluded from confirmed product-defect totals.
+- Expected: production webhook credentials are generated and managed outside committed SQL, with known historical values invalidated.
+- Root cause: migration embeds operational credential material rather than provisioning it outside source control.
+- Proposed correction: separately authorize a private, boolean-only production comparison of current webhook configuration/trigger secret to known historical seeds. If any match, review and execute coordinated rotation of the server and trigger secret. Do not rewrite old migration history as a substitute for rotation or alter production secrets in this batch.
+- Regression/verification needed: old bearer rejected, replacement accepted only for verified events, trigger producer and server remain compatible, no real email triggered. STAB-012 independently restricts replay and payload forgery but does not rotate this credential.
+- Status: needs verification / founder decision on a scoped production credential check and conditional coordinated rotation. No production secret was revealed, compared, rotated or modified.
+
+## STAB-012 — P1 — Replayed notifications resend email and trust forged payload content
+
+- Feature/files: `src/app/api/webhooks/notification/route.ts`, new `src/lib/notificationEmailClaim.ts`.
+- Actual: repeat/concurrent calls for the same notification dispatch multiple emails. A request after an ambiguous provider outcome can send again. Arbitrary recipient email/content from the request is trusted without checking the stored event/profile.
+- Expected: one attempt per stored notification; ambiguous/accepted/rejected attempts cannot automatically resend. Verified stored event and active recipient determine content/address. Only a proven never-attempted dispatch may release its reservation for safe configuration recovery.
+- Evidence: pre-fix real-handler replay/integrity selection has 15 failures / 2 passes out of 17. Concurrent identical requests call the mocked provider three times. Existing trigger SQL already sends notificationId and recipientId; old fixture payload was missing those real producer fields.
+- Root cause: notification ID ignored; no atomic durable reservation; shared bearer authorization treated as sufficient authority for recipient/content.
+- Minimal fix: read the exact notification and active recipient, use canonical stored content/address, then reserve a namespaced app_settings key with INSERT against its existing primary key. Retain every attempted outcome permanently; conditionally release only a never-attempted claim using its unique reservation value. Log persistence errors without inviting another dispatch. No schema/permission migration or provider configuration change.
+- Regression: repeated/concurrent calls; accepted/rejected/unknown outcomes; claim/outcome/release errors; configuration recovery; wrong event/recipient/ban/query errors; payload substitution; wrong bearer. Native PostgreSQL proves primary-key concurrency and reservation compare-and-set semantics.
+- Post-fix evidence: final 66 focused checks pass (PPT/email/replay combined); native PG18 fixture passes 12 real SQL assertions, with fresh synthetic cluster and finally cleanup. Existing email reliability checks retain their assertions and now provide the IDs present in the actual trigger payload.
+- Status: fixed locally. Live app_settings grants and real producer/provider delivery remain deployment verification gates; no live email, secret change or production record mutation was performed.

@@ -40,6 +40,9 @@ jobs:
         run: |
           node --import ./qa/fixtures/rack-network-guard.mjs --test --test-concurrency=1 \
             scripts/test-stabilization-boundaries.cjs \
+            scripts/test-stabilization-ppt-access.cjs \
+            scripts/test-stabilization-email-access.cjs \
+            scripts/test-stabilization-notification-replay.cjs \
             scripts/test-admin-authorization.cjs \
             scripts/test-daily-report-claim.cjs \
             scripts/test-founder-brief.cjs \

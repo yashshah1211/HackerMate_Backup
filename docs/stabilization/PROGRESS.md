@@ -59,9 +59,45 @@ Full application coverage is an ongoing program, not established by this first b
 | `docs/stabilization/PROGRESS.md` | Decisions, plan, batch report and handoff |
 | `docs/stabilization/SURFACE_INVENTORY.md` | Enumerate all 56 pages, 51 route handlers, middleware/delegated boundaries and nine workflows |
 
-## Handoff and next batch
+## First-batch handoff (historical)
 
 - Branch: `stabilize/full-codebase-20261105`; base `652d1ef`. No staging, commits, pushes, Draft PRs, merges or deployment performed. User runs git staging/commit/push under AGENTS rules; publishing a Draft PR needs a pushed branch.
 - Next priority: STAB-006. User requires usage verification before contract changes. Known image/voice callers migrated in `c7a5e76`. Vercel is now connected; project/repository/production commit were verified. Dashboard Request Logs/CDN Requests found no presign traffic in the displayed retained hour, with a populated HTTP control query. Hobby retention rejects seven-day history, so infrequent external usage remains unknown. Preserve the successful contract pending longer-term archive or consumer inventory evidence. See `PRESIGN_USAGE.md`.
 - Then extend real route/session/browser coverage across the remaining inventory, review warning-only Sentry instrumentation configuration with runtime evidence, and work through provider/SQL/live-integration coverage gaps. Warnings and historical issue #104 are not treated as newly proven defects.
 - The app is not certified production-ready by this batch. No independent hosted-CI run, real OAuth, email delivery, external storage upload or production RLS validation is claimed.
+
+## Second remediation batch — 2026-11-05
+
+User accepted the STAB-006 investigation, explicitly preserved its API contract, and authorized continued autonomous fixes, focused commits and Draft PRs. No production databases, deployment settings or provider configuration may be changed; no merge/deploy is authorized.
+
+- Reproduced and fixed STAB-008 (P1 PPT read/delete account gate), STAB-009 (P1 email account gate), STAB-010 (P2 false deletion success), and STAB-012 (P1 replay/notification integrity).
+- Additional STAB-011 tracks a historical seeded credential requiring a separately authorized production check/conditional rotation. No live credential value was inspected or changed. It is a risk needing verification, not a claimed production breach.
+- Before fixes: access selection 17 pass / 31 fail / 48; replay/integrity selection 2 pass / 15 fail / 17. Final focused selection: 66 checks including a new real localhost HTTP sequence. Native PostgreSQL reservation fixture: 12 assertions pass with concurrent independent SQL connections and unconditional cleanup.
+- Existing regression selection: 264 pass / 0 fail; final exact PR offline selection: 992 pass / 0 fail / 0 skipped. Full aggregator selection rerun: 1,990 pass / 0 fail / 0 skipped. Counts overlap.
+- Existing PPT Chromium verification: both 390px and 1440px pass; synthetic providers only, zero external requests/mutations. Synthetic core smoke: all eight summary checks pass, 10 reads / zero writes. Final production webpack build passes with offline fonts and three synthetic DB reads / zero mutations. TypeScript passes.
+- Full lint comparison is recorded in VALIDATION_MATRIX.md. Existing any-typing errors in touched legacy handlers were retained; no assertions, checks or type errors were suppressed. Two temporary presign credential-inspection scripts were removed after their sanitized evidence was captured; they contained no embedded credentials and caused scratch-only lint diagnostics.
+- Changes use existing architecture: protected account helper, local team authorization, existing app_settings primary key reservation, existing provider boundary. No schema, RLS, grant, production data or external provider configuration changes.
+- Before publishing, inspected Vercel settings read-only: Preview Branch Tracking is **off**; Production tracks exactly **main**; there are no custom environments. No settings were changed. Publishing this non-main review branch therefore does not require enabling or triggering a Vercel deployment.
+- First-batch changes were committed locally as `b521228` after an explicit staging audit. Second-batch source/tests are grouped into focused commits; their final hashes and Draft PR link are recorded in the delivery report.
+
+Focused source commits: `f6a10e1` (PPT account gate and actual deletion), `56c1984` (email active-account gate), `22a7f2e` (canonical notification and durable replay protection). The following documentation/CI commit adds all three new boundary suites to the existing PR gate and records the full evidence. All staged paths were explicitly audited; unrelated original frontend `.kiro/` remains untouched.
+
+| Second-batch file | Purpose |
+| --- | --- |
+| `src/app/api/teams/[id]/ppt-evaluations/route.ts` | Shared active-account/team authorization; return actual deleted row ID |
+| `scripts/test-stabilization-ppt-access.cjs` | 32 pure route checks plus real localhost HTTP sequence |
+| `src/app/api/send-email/route.ts` | Verify protected account before privileged email work |
+| `scripts/test-stabilization-email-access.cjs` | 16 identity/suspension/transport regressions |
+| `src/app/api/webhooks/notification/route.ts` | Stored event/recipient authority; reserve before sending |
+| `src/lib/notificationEmailClaim.ts` | Existing-table atomic reservation, permanent attempted outcomes, conditional safe release |
+| `scripts/test-stabilization-notification-replay.cjs` | 17 provider-mocked replay/concurrency/integrity regressions |
+| `scripts/test-stabilization-notification-postgres.cjs` | 12 actual SQL assertions in a fresh disposable cluster |
+| `scripts/test-email-reliability.cjs` | Existing fixture now matches IDs supplied by the actual trigger; assertions retained |
+| `.github/workflows/pr-validation.yml` | Include new pure/HTTP boundary suites in existing offline gate |
+| `docs/stabilization/BUG_REGISTER.md` | Four verified fixes, preserved STAB-006 and credential review risk |
+| `docs/stabilization/VALIDATION_MATRIX.md` | Exact passing/failing counts and live limits |
+| `docs/stabilization/PROGRESS.md` | Batch decisions, file/commit inventory and production safeguards |
+
+Final second-batch lint: **195 errors / 91 warnings**, identical to the first batch, zero new diagnostics by file/rule/message/severity. Five existing `no-explicit-any` diagnostics remain across the three legacy handlers; new helper/tests have no diagnostics. No type/lint rule was disabled to obtain these results.
+
+Remaining P0/P1 work: confirmed STAB-006 remains unresolved by instruction; STAB-011 needs a founder-authorized production credential verification/conditional rotation plan. Continue investigating the remaining application surface without treating either as permission to modify production.

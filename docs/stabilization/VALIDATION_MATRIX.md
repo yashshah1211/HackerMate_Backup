@@ -63,3 +63,26 @@ The exact final PR offline selection is the explicit list in `.github/workflows/
 - Follow-up presign investigation: current callers/history verified. Vercel is now connected; project/repository/production base commit confirmed. Runtime-event queries and dashboard HTTP Request Logs/CDN Requests returned no presign matches in the displayed retained hour; a populated HTTP control succeeded. Seven-day query rejected by one-hour Hobby retention. External usage outside that window remains unknown. Successful contract preserved; no application changes or new test runs in this documentation-only follow-up. Details: `PRESIGN_USAGE.md`.
 
 Final static comparison: baseline 540 lint inputs, final 543; 196/92 errors/warnings became 195/91. No new diagnostics by file/rule/message/severity. All nine changed/new JS/TS files have zero errors and zero warnings. `git diff --check` passes.
+
+## Second batch verification
+
+| Gate | Before | Verified after |
+| --- | --- | --- |
+| PPT/email active-account boundaries | 17 pass / 31 fail / 48 | Included in 66 passing focused checks and 992 passing PR checks |
+| Notification replay/integrity | 2 pass / 15 fail / 17 | All 17 pass; accepted/rejected/unknown/concurrent attempts authorize at most one provider request |
+| HTTP runtime | No dedicated regression | Suspended GET/DELETE 403; active GET/DELETE 200; repeated DELETE 404; database/auth providers synthetic |
+| Native PostgreSQL reservation | No regression | 12 assertions pass in one test: actual PK concurrency, permanent outcomes and conditional release |
+| Existing related regressions | Earlier baseline suites pass except newly reproduced defects | 264 pass / 0 fail; includes unchanged moderation assertions, email reliability, dedup, result authority and scheduled claim tests |
+| Exact PR offline selection | 926 passing first-batch selection | 992 pass / 0 fail / 0 skipped, adds the three new boundary files |
+| Full aggregator offline selection | 1,990 passing | 1,990 pass / 0 fail / 0 skipped, rerun after code changes |
+| PPT Chromium | Existing fixture suite | 2 viewport journeys pass (390/1440), no external application requests or live mutations |
+| Core query smoke | Existing synthetic adapter | 8 summaries pass; 10 reads, zero mutations |
+| TypeScript | First batch pass | Pass, exit 0 |
+| Full ESLint | 195 errors / 91 warnings after first batch | 195 errors / 91 warnings, zero added diagnostics; five existing any-typing errors remain in touched legacy handlers |
+| Production build | First batch pass | Pass, exit 0, 3 synthetic reads / 0 writes; offline fonts/loopback guard |
+
+Commands/evidence: `scripts/test-stabilization-ppt-access.cjs`, `scripts/test-stabilization-email-access.cjs`, `scripts/test-stabilization-notification-replay.cjs`, `scripts/test-stabilization-notification-postgres.cjs`; ignored raw logs under `scratch/stabilization/batch2-*`. Native runner reads only the existing app_settings CREATE TABLE statement (not its seeds), uses a fresh localhost PG18 cluster and synthetic IDs, and closes/deletes it in finally. No production DB or email provider is used.
+
+The existing email reliability fixture now includes notificationId/recipientId and a canonical stored notification, matching the producer SQL. Its expected dispatch/failure assertions remain unchanged. The source changes preserve active owner/member/admin roles and successful response fields; failures that previously disclosed/deleted/sent without verified authority now deny access. A nonexistent scoped deletion returns 404.
+
+Production gates remain unverified: deployed app_settings service-role grants, a real webhook/notification transaction and delivered email. No deployment was performed. Historical seeded-credential activity/rotation is unverified; STAB-011 is not included in confirmed-defect totals. STAB-006 remains unresolved and its contract preserved.
