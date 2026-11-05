@@ -384,9 +384,14 @@ function MessagesContent() {
   }
 
   async function markConversationRead(convId: string) {
-    await supabase.rpc("mark_conversation_read", {
-      p_conversation_id: convId,
-    });
+    try {
+      const { error } = await supabase.rpc("mark_conversation_read", { p_conversation_id: convId });
+      if (error) throw error;
+    } catch (error) {
+      console.error("[Messages] Read receipt failed:", error);
+      showToast("Unable to mark this conversation as read.", "error");
+      return;
+    }
 
     setConversations((prev) =>
       prev.map((c) =>
