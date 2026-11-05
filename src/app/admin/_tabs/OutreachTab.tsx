@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { OrganizerLead } from "../_types";
 import { useNotification } from "@/context/NotificationContext";
+import { requestCatalogPreview } from "@/lib/admin/catalogPreviewClient";
 import { StatusBadge } from "../_components/StatusBadge";
 import {
   Mail,
@@ -90,18 +91,14 @@ export default function OutreachTab({
   async function handleScrapeUnstop() {
     setFetchingUnstop(true);
     try {
-      const res = await fetch("/api/admin/scrape-unstop", { method: "POST" });
-      const data = await res.json();
-      if (res.ok) {
-        showToast(data.message || "Catalog preview complete. No records or organizer emails changed.", "success");
-      } else {
-        showToast(data.error || "Catalog preview unavailable", "error");
-      }
-    } catch (err: any) {
-      console.error(err);
-      showToast(err.message || "Catalog preview unavailable", "error");
+      const preview = await requestCatalogPreview();
+      showToast(preview.message, "success");
+    } catch (err: unknown) {
+      console.error("[Catalog preview] Request failed:", err);
+      showToast(err instanceof Error ? err.message : "Catalog preview unavailable", "error");
+    } finally {
+      setFetchingUnstop(false);
     }
-    setFetchingUnstop(false);
   }
 
   function openPitchModal(lead: OrganizerLead) {
