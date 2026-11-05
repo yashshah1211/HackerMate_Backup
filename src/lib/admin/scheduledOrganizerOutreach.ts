@@ -92,10 +92,10 @@ async function reserve(db: SupabaseClient, key: string, detail: Record<string, s
   } catch { return "unavailable"; }
 }
 
-async function markClaim(db: SupabaseClient, key: string, status: string, at: Date): Promise<boolean> {
+async function markClaim(db: SupabaseClient, key: string, status: string, at: Date, leadId: string, providerId?: string): Promise<boolean> {
   try {
     const { data, error } = await db.from("app_settings")
-      .update({ value: JSON.stringify({ status, updated_at: at.toISOString() }) })
+      .update({ value: JSON.stringify({ status, lead_id: leadId, provider_id: providerId || null, updated_at: at.toISOString() }) })
       .eq("key", key).select("key");
     return !error && Array.isArray(data) && data.length === 1;
   } catch { return false; }
@@ -229,7 +229,7 @@ export async function runScheduledOrganizerOutreach(db: SupabaseClient, now = ne
     result.accepted += Number(dispatch.intendedRecipientAccepted);
     result.unknown += Number(dispatch.status === "unknown");
     result.rejected += Number(dispatch.status === "failed");
-    const outcomeRecorded = await markClaim(db, key, dispatch.status, new Date());
+    const outcomeRecorded = await markClaim(db, key, dispatch.status, new Date(), lead.id, dispatch.providerId);
     if (!outcomeRecorded) { result.status = "partial"; result.error = "Recipient claim outcome unavailable."; break; }
 
     if (dispatch.intendedRecipientAccepted || dispatch.status === "unknown") {
