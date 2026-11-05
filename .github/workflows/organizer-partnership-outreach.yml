@@ -1,0 +1,46 @@
+name: HackerMate Organizer Partnership Outreach
+
+# Bounded outreach to manually verified new organizer contacts already in CRM.
+# No catalog harvesting, no removed-lead resurrection and no automatic retries.
+on:
+  schedule:
+    # Daily at 10:47 IST (05:17 UTC), after the source/prospect preview.
+    - cron: '17 5 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hackermate-organizer-partnership-outreach-production
+  cancel-in-progress: false
+
+jobs:
+  outreach:
+    if: github.repository == 'yashshah1211/HackerMate_Backup' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - name: Invoke approved bounded outreach once (never retry)
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "$CRON_SECRET" ]; then
+            echo "::error::CRON_SECRET is not configured. No outreach initiated."
+            exit 1
+          fi
+          # Keep the destination fixed. Do not follow redirects or retry.
+          status=$(curl --silent --show-error --fail-with-body \
+            --retry 0 --max-time 150 --connect-timeout 10 \
+            --proto '=https' \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            -H "Cache-Control: no-cache" \
+            -o "$RUNNER_TEMP/outreach-result.json" -w '%{http_code}' \
+            'https://www.hackermate.in/api/cron/organizer-outreach')
+          test "$status" = "200"
+          jq -e '.status == "sent" or .status == "no_eligible" or .status == "duplicate"' \
+            "$RUNNER_TEMP/outreach-result.json" >/dev/null
+          jq '{status, eligible, attempted, accepted, unknown, rejected, deferred, held}' \
+            "$RUNNER_TEMP/outreach-result.json"
