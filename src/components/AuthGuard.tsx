@@ -51,8 +51,8 @@ export default function AuthGuard({
           .eq("id", user.id)
           .maybeSingle();
 
-        if (!isCurrent(id)) return;
         if (profileError) throw profileError;
+        if (!isCurrent(id)) return;
         if (!profile || profile.id !== user.id || typeof profile.is_banned !== "boolean") {
           throw new Error("Account status unavailable");
         }
@@ -103,9 +103,9 @@ export default function AuthGuard({
         authorizedUserId = user.id;
         setAuthorized(true);
       } catch (err) {
+        console.error("[AuthGuard] Profile verification error:", err);
         // Never fail-open to authorized=true, which bypasses bans, onboarding, and admin gates
         if (isCurrent(id)) {
-          console.error("[AuthGuard] Profile verification error:", err);
           authorizedUserId = null;
           setAuthorized(false);
           setAuthError("Unable to verify your account session. Please check your network connection.");

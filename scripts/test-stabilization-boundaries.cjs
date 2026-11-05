@@ -86,9 +86,11 @@ test('AuthGuard: stale failure cannot replace a newer verified session', async t
   const ui = await guard(t, { manual: true });
   await ui.emit('TOKEN_REFRESHED');
   await ui.complete(1, { data: ACTIVE, error: null });
-  await ui.complete(0, { data: null, error: { code: '42501', message: 'Old query failure' } });
+  const error = { code: '42501', message: 'Old query failure' };
+  await ui.complete(0, { data: null, error });
   assert(ui.text().includes('Protected fixture content'));
   assert(!ui.text().includes('Verification unavailable'));
+  assert(ui.logs.some(args => args.includes(error)), 'Stale query errors must still be logged');
 });
 test('AuthGuard: an older active response cannot overwrite a newer suspension', async t => {
   const ui = await guard(t, { manual: true });
@@ -163,6 +165,9 @@ for (const presign of [false, true]) {
   test(`Upload ${presign ? 'presign' : 'direct'}: active caller preserves response contract`, async () => {
     const h = upload(), response = await h.call(presign), body = await response.json();
     assert.equal(response.status, 200); assert(body.publicUrl); assert(body.key);
+    assert.deepEqual(Object.keys(body).sort(), presign ? ['key', 'publicUrl', 'uploadUrl'] : ['key', 'publicUrl', 'success']);
+    if (presign) assert.equal(body.uploadUrl, 'https://storage.example.invalid/fixture');
+    else assert.equal(body.success, true);
     assert(h.effects.includes(presign ? 'presign' : 'storage'));
     if (!presign) assert(h.effects.includes('moderation'));
   });
