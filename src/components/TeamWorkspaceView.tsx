@@ -781,8 +781,8 @@ export default function TeamWorkspaceView({
   };
 
   // Drag and Drop Handlers
-  // Serialize each task's mutations so an older request cannot commit after a
-  // newer edit. Other tasks remain independent. Zero-row RLS results are failures.
+  // Serialize per-task requests while their responses remain pending. This cannot
+  // order server commits after an ambiguous transport failure. Zero rows fail.
   const persistTask = (taskId: string, patch: Partial<Pick<Task, "status" | "assignee_id" | "due_date">>) => {
     const previous = taskWrites.current.get(taskId) ?? Promise.resolve(true);
     const write = previous.then(async () => {

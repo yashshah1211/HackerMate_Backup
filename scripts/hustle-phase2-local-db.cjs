@@ -46,7 +46,13 @@ async function createFixture() {
     const migration=fs.readdirSync(path.join(ROOT,'supabase/migrations')).find(f=>f.endsWith('_hustle_phase2_shortlist.sql'));
     sql(fs.readFileSync(path.join(ROOT,'supabase/migrations',migration),'utf8'));
     return {sql,asyncSql,close,port,ROOT,IDS,EVENT,quote};
-  } catch(error) { await close(); throw error; }
+  } catch(error) {
+    // Preserve startup evidence before finally-style cleanup removes this fake
+    // cluster. pg_ctl output is detached to avoid retained child pipe handles.
+    const log=path.join(temp,'postgres.log');
+    if(!started&&fs.existsSync(log))console.error('Disposable PostgreSQL startup log:\n'+fs.readFileSync(log,'utf8'));
+    await close(); throw error;
+  }
 }
 /** Clock substitution ONLY in a disposable fixture. Migration has no test clock. */
 function installClock(db, initial='2026-10-23T04:30:00Z') {
