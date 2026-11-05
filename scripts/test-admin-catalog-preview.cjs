@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-require-imports -- Isolated admin-route/client regressions. */
+/* eslint-disable @typescript-eslint/no-require-imports -- Isolated admin catalog boundary regressions. */
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -7,138 +7,177 @@ const { NextRequest, NextResponse } = require("next/server");
 const { harness } = require("./ppt-vision-harness.cjs");
 
 const url = "https://www.hackermate.in/api/admin/hackathon-catalog-preview";
-const result = { success: true, dryRun: true, checked: 3, discovered: 7, remaining: 4,
-  message: "Catalog: 3 source checks; preview only. No organizer emails sent." };
-function routeFixture({ email = "yashshah7117@gmail.com", denied = false, fails = false, badResult = false } = {}) {
-  const calls = [];
+const result = {
+  success: true, dryRun: true, snapshotOnly: true,
+  total: 170, withSourceMetadata: 142, archived: 10,
+  message: "Catalog snapshot: 170 saved listings, 142 with source metadata, 10 archived. No live source checks, changes or emails.",
+};
+
+function fixture({ email = "yashshah7117@gmail.com", denied = false, failure = false, invalidCount = false } = {}) {
+  const events = [];
+  const db = {
+    from(table) {
+      events.push(["read", table]);
+      assert.equal(table, "hackathons");
+      let kind = "all";
+      return {
+        select(columns, options) {
+          events.push(["select", columns, options]);
+          assert.equal(columns, "id");
+          assert.deepEqual({ ...options }, { count: "exact", head: true });
+          return this;
+        },
+        not(column, op, value) {
+          assert.deepEqual([column, op, value], ["source_metadata", "is", null]);
+          kind = "metadata";
+          return this;
+        },
+        eq(column, value) {
+          assert.deepEqual([column, value], ["archived", true]);
+          kind = "archived";
+          return this;
+        },
+        abortSignal(signal) {
+          assert(signal && typeof signal.addEventListener === "function");
+          return this;
+        },
+        then(resolve, reject) {
+          events.push(["count", kind]);
+          const count = kind === "metadata" ? result.withSourceMetadata : kind === "archived" ? result.archived : result.total;
+          return Promise.resolve({ count: invalidCount ? null : count, error: failure ? { message: "offline fixture error" } : null })
+            .then(resolve, reject);
+        },
+      };
+    },
+    rpc() { throw Error("Preview must never call an RPC writer"); },
+  };
   const h = harness({
     "@/lib/admin/requireAdmin": {
       async requireAdmin() {
-        calls.push("auth");
-        return denied ? NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-          : { user: { email }, supabaseAdmin: { fixture: true } };
+        events.push(["auth"]);
+        return denied
+          ? NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+          : { user: { email }, supabaseAdmin: db };
       },
     },
     "@/lib/hackathons/synchronize": {
-      async synchronizeCatalog(client, options) {
-        calls.push("catalog");
-        assert.equal(client.fixture, true);
-        assert.equal(options.dryRun, true, "writer mode must be impossible");
-        assert.equal(Object.hasOwn(options, "mode"), false);
-        if (fails) throw Error("Synthetic private service outage");
-        return badResult ? { ...result, dryRun: false } : result;
-      },
+      synchronizeCatalog() { throw Error("External source discovery is forbidden from dashboard preview"); },
     },
   });
   h.env.OUTREACH_ADMIN_EMAIL = "approved@example.org";
-  return { calls, route: h.load("src/app/api/admin/hackathon-catalog-preview/route.ts") };
+  return { events, route: h.load("src/app/api/admin/hackathon-catalog-preview/route.ts") };
 }
 
-test("catalog preview GET requires founder/approved admin, calls dry run only, and exposes summary not evidence", async () => {
+test("authorized GET fetches only three read-only catalog counts and no provider network requests", async () => {
   for (const email of ["yashshah7117@gmail.com", "approved@example.org"]) {
-    const { calls, route } = routeFixture({ email });
+    const { events, route } = fixture({ email });
     assert.equal(typeof route.POST, "undefined");
-    const res = await route.GET(new NextRequest(url, { method: "GET" }));
-    assert.equal(res.status, 200);
-    assert.match(res.headers.get("cache-control"), /no-store/);
-    assert.match(res.headers.get("content-type"), /application\/json/);
-    const body = await res.json();
-    assert.deepEqual({ ...body }, result);
-    assert.deepEqual(calls, ["auth", "catalog"]);
+    const response = await route.GET(new NextRequest(url));
+    assert.equal(response.status, 200);
+    assert.match(response.headers.get("cache-control"), /no-store/);
+    assert.match(response.headers.get("content-type"), /application\/json/);
+    assert.deepEqual({ ...(await response.json()) }, result);
+    assert.equal(events.filter(([name]) => name === "read").length, 3);
+    assert.equal(events.filter(([name]) => name === "count").length, 3);
+    assert.equal(events[0][0], "auth");
+    assert(events.every(([name]) => ["auth", "read", "select", "count"].includes(name)));
   }
 });
 
-test("unlisted administrator is forbidden before the catalog query", async () => {
-  const { calls, route } = routeFixture({ email: "other-admin@example.org" });
+test("unlisted admins are denied before querying the catalog", async () => {
+  const { events, route } = fixture({ email: "unlisted@example.org" });
   const res = await route.GET(new NextRequest(url));
   assert.equal(res.status, 403);
   assert.match((await res.json()).error, /restricted/);
-  assert.deepEqual(calls, ["auth"]);
+  assert.deepEqual(events, [["auth"]]);
 });
 
-test("middleware/identity denial stops work without exposing catalog data", async () => {
-  const { calls, route } = routeFixture({ denied: true });
+test("failed authentication prevents any privileged read", async () => {
+  const { events, route } = fixture({ denied: true });
   const res = await route.GET(new NextRequest(url));
   assert.equal(res.status, 401);
-  assert.deepEqual(calls, ["auth"]);
+  assert.deepEqual(events, [["auth"]]);
 });
 
-test("provider errors fail closed with JSON and no details or write-mode fallback", async () => {
-  for (const options of [{ fails: true }, { badResult: true }]) {
-    const { calls, route } = routeFixture(options);
+test("failed catalog counts or null counts report 503 without pretending the preview succeeded", async () => {
+  for (const options of [{ failure: true }, { invalidCount: true }]) {
+    const { route, events } = fixture(options);
     const res = await route.GET(new NextRequest(url));
     assert.equal(res.status, 503);
     assert.match(res.headers.get("content-type"), /application\/json/);
-    const body = await res.json();
-    assert.match(body.error, /temporarily unavailable/);
-    assert(!JSON.stringify(body).includes("Synthetic private service"));
-    assert.deepEqual(calls, ["auth", "catalog"]);
+    assert.match((await res.json()).error, /temporarily unavailable/);
+    assert.equal(events.filter(([name]) => name === "count").length, 3);
   }
 });
 
-test("UI requests the separate safe GET endpoint rather than the WAF-blocked scraper", async () => {
-  const route = fs.readFileSync(path.join(__dirname, "../src/app/api/admin/hackathon-catalog-preview/route.ts"), "utf8");
+test("dashboard preview is separate from the blocked route and cannot synchronize/write", () => {
+  const source = fs.readFileSync(path.join(__dirname, "../src/app/api/admin/hackathon-catalog-preview/route.ts"), "utf8");
   const client = fs.readFileSync(path.join(__dirname, "../src/lib/admin/catalogPreviewClient.ts"), "utf8");
   const UI = fs.readFileSync(path.join(__dirname, "../src/app/admin/_tabs/OutreachTab.tsx"), "utf8");
-  assert.match(route, /synchronizeCatalog\(auth.supabaseAdmin, \{ dryRun: true \}\)/);
-  assert.doesNotMatch(route, /reviewLegacyEvidenceBatch|mode:\s*["']sync["']|\.rpc\(/);
+  assert.match(source, /AbortSignal\.timeout\(9000\)/);
+  assert.match(source, /head: true/);
+  assert.doesNotMatch(source, /synchronizeCatalog|discoverSources|new SourceTransport|\.rpc\(|\.insert\(|\.update\(|\.delete\(/);
   assert.match(client, /\/api\/admin\/hackathon-catalog-preview/);
+  assert.match(client, /AbortSignal\.timeout\(12000\)/);
   assert.doesNotMatch(client, /fetch\(["']\/api\/admin\/scrape-unstop/);
   assert.match(UI, /await requestCatalogPreview\(\)/);
+  assert.match(UI, /setCatalogSnapshot\(preview\)/);
+  assert.match(UI, /Loading snapshot\.\.\./);
 });
 
-test("client parses a successful dry-run summary without sending a write request", async () => {
+test("client returns validated saved catalog snapshot with bounded GET request", async () => {
   const h = harness(), { requestCatalogPreview } = h.load("src/lib/admin/catalogPreviewClient.ts");
   let count = 0;
-  const p = await requestCatalogPreview(async (target, init) => {
+  const x = await requestCatalogPreview(async (target, init) => {
     count++;
     assert.equal(target, "/api/admin/hackathon-catalog-preview");
     assert.equal(init.method, "GET");
     assert.equal(init.cache, "no-store");
     assert.equal(init.credentials, "same-origin");
     assert.equal(init.body, undefined);
-    return new Response(JSON.stringify(result), { status: 200,
-      headers: { "Content-Type": "application/json" } });
+    assert(init.signal && typeof init.signal.addEventListener === "function");
+    return new Response(JSON.stringify(result), { status: 200, headers: { "content-type": "application/json" } });
   });
   assert.equal(count, 1);
-  assert.equal(p.checked, 3);
-  assert.equal(p.discovered, 7);
-  assert.match(p.message, /No organizer emails sent/);
+  assert.equal(x.snapshotOnly, true);
+  assert.equal(x.total, 170);
+  assert.equal(x.withSourceMetadata, 142);
+  assert.equal(x.archived, 10);
 });
 
-test("plain-text 403 Forbidden produces a useful error, not a JSON syntax error", async () => {
+test("a plain-text WAF 403 never becomes a JSON syntax exception", async () => {
   const h = harness(), { requestCatalogPreview } = h.load("src/lib/admin/catalogPreviewClient.ts");
-  await assert.rejects(
-    () => requestCatalogPreview(async () => new Response("Forbidden", { status: 403,
-      headers: { "Content-Type": "text/plain" } })),
-    /blocked by site security \(HTTP 403\)/
-  );
+  await assert.rejects(() => requestCatalogPreview(async () =>
+    new Response("Forbidden", { status: 403, headers: { "content-type": "text/plain" } })),
+    /blocked by site security \(HTTP 403\)/);
 });
 
-test("JSON access denial, HTML 500, and non-JSON 200 all avoid false success", async () => {
+test("client rejects JSON 403, HTML 500 and non-JSON 200 without false success", async () => {
   const h = harness(), { requestCatalogPreview } = h.load("src/lib/admin/catalogPreviewClient.ts");
-  await assert.rejects(
-    () => requestCatalogPreview(async () => new Response(JSON.stringify({ error: "Unauthorized" }),
-      { status: 403, headers: { "Content-Type": "application/json" } })),
-    /refresh your administrator session/
-  );
-  await assert.rejects(
-    () => requestCatalogPreview(async () => new Response("<html>bad gateway</html>",
-      { status: 500, headers: { "Content-Type": "text/html" } })),
-    /HTTP 500/
-  );
-  await assert.rejects(
-    () => requestCatalogPreview(async () => new Response("not JSON",
-      { status: 200, headers: { "Content-Type": "text/plain" } })),
-    /unexpected response/
-  );
+  await assert.rejects(() => requestCatalogPreview(async () =>
+    new Response(JSON.stringify({ error: "Unauthorized" }), { status: 403, headers: { "content-type": "application/json" } })),
+    /refresh your administrator session/);
+  await assert.rejects(() => requestCatalogPreview(async () =>
+    new Response("<html>failed</html>", { status: 500, headers: { "content-type": "text/html" } })),
+    /HTTP 500/);
+  await assert.rejects(() => requestCatalogPreview(async () =>
+    new Response("not JSON", { status: 200, headers: { "content-type": "text/plain" } })),
+    /unexpected response/);
 });
 
-test("JSON success without dryRun=true is rejected", async () => {
+test("client rejects previous slow-sync contract, conflicting totals, and missing snapshot flag", async () => {
   const h = harness(), { requestCatalogPreview } = h.load("src/lib/admin/catalogPreviewClient.ts");
-  await assert.rejects(
-    () => requestCatalogPreview(async () => new Response(JSON.stringify({ ...result, dryRun: false }),
-      { status: 200, headers: { "Content-Type": "application/json" } })),
-    /unexpected response/
-  );
+  const bad = [
+    { success: true, dryRun: true, checked: 3, discovered: 5 },
+    { ...result, snapshotOnly: false },
+    { ...result, withSourceMetadata: 500 },
+    { ...result, archived: 300 },
+    { ...result, total: null },
+    { ...result, dryRun: false },
+  ];
+  for (const data of bad) {
+    await assert.rejects(() => requestCatalogPreview(async () =>
+      new Response(JSON.stringify(data), { status: 200, headers: { "content-type": "application/json" } })),
+      /unexpected response/);
+  }
 });

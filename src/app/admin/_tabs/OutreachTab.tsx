@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { OrganizerLead } from "../_types";
 import { useNotification } from "@/context/NotificationContext";
-import { requestCatalogPreview } from "@/lib/admin/catalogPreviewClient";
+import { requestCatalogPreview, type CatalogPreviewSummary } from "@/lib/admin/catalogPreviewClient";
 import { StatusBadge } from "../_components/StatusBadge";
 import {
   Mail,
@@ -43,6 +43,7 @@ export default function OutreachTab({
   const { showToast, confirm } = useNotification();
 
   const [fetchingUnstop, setFetchingUnstop] = useState(false);
+  const [catalogSnapshot, setCatalogSnapshot] = useState<CatalogPreviewSummary | null>(null);
   const [sendingSummaryPdf, setSendingSummaryPdf] = useState(false);
 
   // Pitch Modal state
@@ -92,10 +93,11 @@ export default function OutreachTab({
     setFetchingUnstop(true);
     try {
       const preview = await requestCatalogPreview();
-      showToast(preview.message, "success");
+      setCatalogSnapshot(preview);
+      showToast("Saved catalog snapshot loaded. No live checks or emails.", "success");
     } catch (err: any) {
       console.error("[Catalog preview] Request failed:", err);
-      showToast(err instanceof Error ? err.message : "Catalog preview unavailable", "error");
+      showToast(err?.name === "TimeoutError" ? "Catalog snapshot timed out. No changes were made." : err instanceof Error ? err.message : "Catalog preview unavailable", "error");
     } finally {
       setFetchingUnstop(false);
     }
@@ -404,7 +406,7 @@ export default function OutreachTab({
               Unstop Hackathon Outreach
             </h3>
             <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-              Discover upcoming hackathons on Unstop, extract organizer contacts, and send partnership pitches.
+              Manage organizer partnerships and view the saved hackathon catalog. Live source checks run separately.
             </p>
           </div>
 
@@ -470,10 +472,21 @@ export default function OutreachTab({
               className="px-4 py-2 rounded-xl text-xs font-bold bg-[#B4F461] hover:bg-[#a3e64f] text-zinc-950 transition flex items-center gap-1.5 cursor-pointer shadow-sm shadow-[#B4F461]/10 disabled:opacity-50"
             >
               <Search className={`w-3.5 h-3.5 ${fetchingUnstop ? "animate-spin" : ""}`} />
-              <span>{fetchingUnstop ? "Checking sources..." : "Preview hackathon catalog"}</span>
+              <span>{fetchingUnstop ? "Loading snapshot..." : "Preview hackathon catalog"}</span>
             </button>
           </div>
         </div>
+
+        {catalogSnapshot && (
+          <div role="status" aria-live="polite" className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/30 px-4 py-3 text-xs text-zinc-700 dark:text-zinc-300">
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+              <span><strong className="text-zinc-950 dark:text-white">{catalogSnapshot.total}</strong> saved hackathons</span>
+              <span><strong className="text-zinc-950 dark:text-white">{catalogSnapshot.withSourceMetadata}</strong> with source metadata</span>
+              <span><strong className="text-zinc-950 dark:text-white">{catalogSnapshot.archived}</strong> archived</span>
+              <span className="text-zinc-500">Read-only snapshot; no live source scans or outreach emails.</span>
+            </div>
+          </div>
+        )}
 
         {/* Pipeline Stage Summary Funnel Bar */}
         <div className="flex items-center gap-1.5 overflow-x-auto p-1.5 bg-zinc-100 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800/80 rounded-2xl select-none">
