@@ -5,6 +5,12 @@ on:
     # Daily 09:07 IST; re-register the missed schedule without enabling Vercel cron.
     - cron: '37 3 * * *'
   workflow_dispatch: # Manual run remains available but report endpoint is single-send guarded
+  # One-time founder-authorized live verification on November 6. Remove after run.
+  # Only a main-branch workflow-file change with the guarded merge title triggers it.
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/daily-database-report.yml'
 
 permissions:
   contents: read
@@ -16,7 +22,7 @@ concurrency:
 jobs:
   send-database-activity-digest:
     name: Send Database Activity PDF Report
-    if: github.repository == 'yashshah1211/HackerMate_Backup' && github.ref == 'refs/heads/main'
+    if: github.repository == 'yashshah1211/HackerMate_Backup' && github.ref == 'refs/heads/main' && (github.event_name != 'push' || startsWith(github.event.head_commit.message, 'test(report): one-time Founder Brief delivery verification'))
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
