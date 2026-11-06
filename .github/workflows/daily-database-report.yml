@@ -27,14 +27,18 @@ jobs:
         run: |
           TARGET_URL="${SITE_URL:-https://www.hackermate.in}"
           test -n "$CRON_SECRET" || { echo "::error::Missing CRON_SECRET; no dispatch."; exit 1; }
+          # The apex domain redirects to www. curl's cross-host redirect loses
+          # the machine Authorization header, causing a 403 from requireAdmin.
+          # Normalize BOTH allowed input values to the canonical origin.
           case "$TARGET_URL" in
-            https://hackermate.in|https://www.hackermate.in) ;;
+            https://hackermate.in|https://www.hackermate.in)
+              TARGET_URL="https://www.hackermate.in" ;;
             *) echo "::error::Non-production destination refused."; exit 1 ;;
           esac
           RESPONSE_FILE=$(mktemp)
           trap 'rm -f "$RESPONSE_FILE"' EXIT
 
-          if ! HTTP_STATUS=$(curl -s -L --retry 0 --connect-timeout 15 --max-time 240 -o "$RESPONSE_FILE" -w "%{http_code}" -X POST \
+          if ! HTTP_STATUS=$(curl -sS --proto '=https' --max-redirs 0 --retry 0 --connect-timeout 15 --max-time 240 -o "$RESPONSE_FILE" -w "%{http_code}" -X POST \
             -H "Authorization: Bearer ${CRON_SECRET}" \
             -H "Content-Type: application/json" \
             "${TARGET_URL}/api/cron/database-activity-report"); then
@@ -43,7 +47,13 @@ jobs:
           fi
 
           if [ "$HTTP_STATUS" != "200" ]; then
-            echo "::error::Database report request returned HTTP ${HTTP_STATUS}; acceptance not confirmed."
+            if [[ "$HTTP_STATUS" == 3* ]]; then
+              echo "::error::Unexpected production redirect (HTTP ${HTTP_STATUS}); refused to forward Authorization. Check canonical domain."
+            elif [ "$HTTP_STATUS" = "401" ] || [ "$HTTP_STATUS" = "403" ]; then
+              echo "::error::Report authorization failed (HTTP ${HTTP_STATUS}); check that GitHub and Vercel CRON_SECRET match. No automatic resend."
+            else
+              echo "::error::Database report request returned HTTP ${HTTP_STATUS}; acceptance not confirmed."
+            fi
             exit 1
           fi
 
