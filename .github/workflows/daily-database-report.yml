@@ -22,7 +22,7 @@ concurrency:
 jobs:
   send-database-activity-digest:
     name: Send Database Activity PDF Report
-    if: github.repository == 'yashshah1211/HackerMate_Backup' && github.ref == 'refs/heads/main' && (github.event_name != 'push' || startsWith(github.event.head_commit.message, 'test(report): one-time Founder Brief delivery verification'))
+    if: github.repository == 'yashshah1211/HackerMate_Backup' && github.ref == 'refs/heads/main' && (github.event_name != 'push' || startsWith(github.event.head_commit.message, 'FounderBriefVerification20261106'))
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
