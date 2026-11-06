@@ -68,10 +68,8 @@ test('daily Founder Brief schedule and manual recovery trigger are both configur
   assert.match(workflow, /cancel-in-progress: false/);
   assert.match(workflow, /github\.repository == 'yashshah1211\/HackerMate_Backup' && github\.ref == 'refs\/heads\/main'/);
   // A colon-space inside an unquoted YAML 'if:' scalar makes the whole workflow invalid.
-  // The earlier temporary test trigger failed before the job could run.
   const condition = workflow.match(/^    if: (.*)$/m)?.[1] || '';
   assert.doesNotMatch(condition, /:\s/, 'unquoted if scalar must not contain colon followed by space');
-  assert.match(condition, /FounderBriefVerification20261106/, 'push delivery check requires specific title marker');
 });
 test('non-production destination is rejected before any network call', () => run({ site: 'https://fixture.invalid', expectCurl: false }));
 test('intended provider acceptance succeeds without claiming delivery', () => run({ ok: true }));
