@@ -45,7 +45,12 @@ exit "$FIXTURE_EXIT"
       const args = readFileSync(join(dir, 'args'), 'utf8').trimEnd().split('\n');
       assert.equal(args.includes('POST'), true);
       assert.equal(args.includes('Authorization: Bearer synthetic-bearer-secret'), true);
-      assert.equal(args.at(-1), `${site || 'https://www.hackermate.in'}/api/cron/database-activity-report`);
+      assert.equal(args.at(-1), 'https://www.hackermate.in/api/cron/database-activity-report',
+        'always use canonical origin; no apex redirect that strips Authorization');
+      assert.equal(args.includes('-L'), false, 'never follow cross-host redirects');
+      assert.equal(args.includes('--location'), false);
+      assert.equal(args.includes('--location-trusted'), false);
+      assert.equal(args[args.indexOf('--max-redirs') + 1], '0', 'redirects are forbidden');
       const retryIndex = args.indexOf('--retry');
       assert.notEqual(retryIndex, -1, 'curl must explicitly disable retries');
       assert.equal(args[retryIndex + 1], '0', 'no automatic resend on unknown outcome');
@@ -65,9 +70,10 @@ test('daily Founder Brief schedule and manual recovery trigger are both configur
 });
 test('non-production destination is rejected before any network call', () => run({ site: 'https://fixture.invalid', expectCurl: false }));
 test('intended provider acceptance succeeds without claiming delivery', () => run({ ok: true }));
+test('configured apex domain is normalized to canonical www without redirecting', () => run({ site: 'https://hackermate.in', ok: true }));
 test('default site and accepted dispatch survive bookkeeping failures', () => run({ site: '', ok: true,
   body: JSON.stringify({ ...accepted, accounting: { status: 'failed' }, bookkeeping: 'failed', message: sensitive }) }));
-for (const status of ['000', '201', '302', '401', '500']) {
+for (const status of ['000', '201', '302', '308', '401', '403', '500']) {
   test(`HTTP ${status} fails even with an accepted body`, () => run({ status }));
 }
 test('transport failure fails without retrying', () => run({ curlExit: 28 }));
