@@ -19,11 +19,12 @@ test('authenticated tracking route and atomic SQL behavior in isolated PostgreSQ
     for (const name of ['202607210001_organizer_leads.sql', '202607240001_add_open_tracking_to_organizer_leads.sql', '202607240002_add_last_sent_to_organizer_leads.sql']) {
       db.sql(fs.readFileSync(path.join(db.ROOT, 'supabase/migrations', name), 'utf8'));
     }
-    db.sql('GRANT SELECT, UPDATE ON organizer_leads TO service_role;');
+    db.sql('GRANT SELECT, UPDATE ON organizer_leads TO service_role; CREATE TABLE public.app_settings(key text PRIMARY KEY,value text NOT NULL); ALTER TABLE public.app_settings ENABLE ROW LEVEL SECURITY; GRANT SELECT,INSERT,UPDATE ON public.app_settings TO service_role;');
+    db.sql(fs.readFileSync(path.join(db.ROOT, 'supabase/migrations/20261107112640_idempotent_organizer_pitch.sql'), 'utf8'));
     const migration = fs.readdirSync(path.join(db.ROOT, 'supabase/migrations')).find(name => name.endsWith('_signed_organizer_email_open.sql'));
     assert(migration, 'Security migration must exist');
     db.sql(fs.readFileSync(path.join(db.ROOT, 'supabase/migrations', migration), 'utf8'));
-    const reset = (status, sent = true) => db.sql(`DELETE FROM organizer_leads;
+    const reset = (status, sent = true) => db.sql(`DELETE FROM public.app_settings; DELETE FROM organizer_leads;
       INSERT INTO organizer_leads(id,title,unstop_url,status,open_count,opened_at,updated_at,pitch_sent_at)
       VALUES('${ID}','Synthetic tracking fixture','https://event.example.invalid','${status}',0,NULL,'2000-01-01Z',${sent ? "'2000-01-01Z'" : 'NULL'});`);
     const snapshot = () => db.sql(`SELECT row_to_json(l) FROM organizer_leads l WHERE id='${ID}';`);
@@ -86,7 +87,13 @@ test('authenticated tracking route and atomic SQL behavior in isolated PostgreSQ
     await t.test('both real senders retain contact evidence when a proxy fetches before provider acceptance', async () => {
       // Query adapter enforces actual sender predicates in PostgreSQL, unlike the
       // broader provider mock. It accepts only this disposable fixture's table.
-      const sqlClient = { from(table) {
+      const sqlClient = { async rpc(name, args) {
+        let call;
+        if (name === 'claim_organizer_pitch') call = `public.claim_organizer_pitch(${db.quote(args.p_intent_id)}::uuid,${db.quote(args.p_lead_id)}::uuid,${db.quote(args.p_recipient)},${db.quote(args.p_fingerprint)},${db.quote(args.p_mode)},${args.p_repeat_of == null ? 'NULL' : db.quote(args.p_repeat_of)})`;
+        else { assert.equal(name, 'record_organizer_pitch'); call = `public.record_organizer_pitch(${db.quote(args.p_intent_id)}::uuid,${db.quote(args.p_event)},${args.p_recipient == null ? 'NULL' : db.quote(args.p_recipient)},${args.p_provider_id == null ? 'NULL' : db.quote(args.p_provider_id)})`; }
+        try { return { data: JSON.parse((await db.asyncSql(`SET ROLE service_role; SELECT ${call};`)).split(/\r?\n/).at(-1)), error: null }; }
+        catch { return { data: null, error: { code: 'P0001' } }; }
+      }, from(table) {
         assert.equal(table, 'organizer_leads');
         const filters = []; let payload, single = false, range;
         const column = value => { assert.match(value, /^[a-z_]+$/); return value; };
@@ -128,7 +135,7 @@ test('authenticated tracking route and atomic SQL behavior in isolated PostgreSQ
         Object.assign(sender.env, { EMAIL_OPEN_TRACKING_SECRET: SECRET, RESEND_FROM_EMAIL: 'sender@example.invalid' });
         if (mode === 'manual') {
           const response = await sender.load('src/app/api/admin/send-organizer-pitch/route.ts').POST(new NextRequest('http://localhost/api/admin/send-organizer-pitch', {
-            method: 'POST', body: JSON.stringify({ leadId: ID, recipientEmail: 'organizer@example.invalid', subject: 'Synthetic', contentHtml: '<p>Synthetic</p>' }),
+            method: 'POST', body: JSON.stringify({ intentId: MISSING, leadId: ID, recipientEmail: 'organizer@example.invalid', subject: 'Synthetic', contentHtml: '<p>Synthetic</p>' }),
           }));
           assert.equal((await response.json()).bookkeeping, 'recorded');
         } else {

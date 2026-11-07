@@ -4,12 +4,13 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const { harness } = require("./ppt-vision-harness.cjs");
+const { organizerClaimFixture } = require("./organizer-pitch-claim-fixture.cjs");
 
 const validUrl = "https://unstop.com/competitions/fixture-hackathon-12345";
 const nextUrl = "https://unstop.com/competitions/another-hackathon-12346";
 const now = new Date("2026-11-06T05:17:00Z");
 const originalLead = () => ({
-  id: "lead-a", title: "Fixture Hackathon", status: "new",
+  id: "00000000-0000-4000-8000-000000000661", title: "Fixture Hackathon", status: "new",
   organizer_email: "organizer@example.org", unstop_url: validUrl,
   last_sent_to: null, pitch_sent_at: null,
   notes: "[HACKERMATE_OUTREACH_APPROVED_V1]",
@@ -45,7 +46,16 @@ function setup(options = {}) {
     h.env.RESEND_FROM_EMAIL = options.sender || "HackerMate <team@hackermate.in>";
   }
 
+  const pitchClaims = organizerClaimFixture({ settings: state.claims,
+    readLead: id => state.leads.find(row => row.id === id),
+    outcomeError: () => options.claimOutcomeFailure,
+    writeLead: async (row, payload) => {
+      if (options.crmWriteFailure) return false;
+      Object.assign(row, payload); return true;
+    },
+  });
   const db = {
+    rpc: pitchClaims,
     from(table) {
       assert.ok(["app_settings", "organizer_leads"].includes(table));
       let action = "read", payload, id, status, email, nullTime, start, end, selected;
@@ -143,7 +153,7 @@ test("fresh verified lead sends one email and records provider acceptance; same 
   assert.match(state.sends[0].html, /co-branded partner page/);
   assert.equal(state.leads[0].status, "pitch_sent");
   assert.equal(state.counter, 1);
-  assert.equal(state.claims.size, 2);
+  assert.equal(state.claims.size, 4); // Daily + recipient + immutable intent + lead pointer.
   const second = await mod.runScheduledOrganizerOutreach(db, now);
   assert.equal(second.status, "no_eligible");
   assert.equal(state.sends.length, 1);
@@ -211,7 +221,7 @@ test("invalid event URLs and multiple contacts are never contacted", async () =>
 
 test("day limit is five, even when budget allows more", async () => {
   const leads = Array.from({ length: 9 }, (_, i) => ({
-    ...originalLead(), id: "lead-" + i, organizer_email: "organizer" + i + "@example.org",
+    ...originalLead(), id: "00000000-0000-4000-8000-" + String(700 + i).padStart(12,"0"), organizer_email: "organizer" + i + "@example.org",
     unstop_url: "https://unstop.com/competitions/fixture-" + (12345 + i),
   }));
   const { mod, db, state } = setup({ leads, allowedCount: 50 });

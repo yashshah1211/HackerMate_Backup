@@ -47,6 +47,8 @@ jobs:
             scripts/test-stabilization-email-access.cjs \
             scripts/test-email-open.cjs \
             scripts/test-email-reliability.cjs \
+            scripts/test-organizer-pitch.cjs \
+            scripts/test-organizer-pitch-ui.cjs \
             scripts/test-stabilization-notification-replay.cjs \
             scripts/test-notification-categories.cjs \
             scripts/test-admin-authorization.cjs \
@@ -85,6 +87,7 @@ jobs:
           node --test scripts/test-mission03-workspace-rls.cjs
           node --test scripts/test-chat-active-actor-local.cjs
           node --test scripts/test-email-open-local.cjs
+          node --test scripts/test-organizer-pitch-local.cjs
           node --test scripts/test-admin-hackathon-delete-local.cjs
           node --test scripts/test-organizer-lead-restore-local.cjs
           python3 scripts/test-team-document-local.py
@@ -96,7 +99,7 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Verify account guard in desktop and mobile Chromium with external network blocked
-        run: node --import ./qa/fixtures/rack-network-guard.mjs --test --test-concurrency=1 scripts/test-stabilization-browser.cjs scripts/test-mission02-browser.cjs scripts/test-notification-categories-browser.cjs scripts/test-admin-hackathon-browser.cjs scripts/test-organizer-lead-restore-browser.cjs
+        run: node --import ./qa/fixtures/rack-network-guard.mjs --test --test-concurrency=1 scripts/test-stabilization-browser.cjs scripts/test-mission02-browser.cjs scripts/test-notification-categories-browser.cjs scripts/test-admin-hackathon-browser.cjs scripts/test-organizer-lead-restore-browser.cjs scripts/test-organizer-pitch-browser.cjs
 
       - name: Render Founder Brief review artifacts without production data
         run: node scripts/render-founder-brief-preview.cjs
