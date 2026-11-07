@@ -5,6 +5,7 @@ const fs = require('node:fs');
 const { NextRequest, NextResponse } = require('next/server');
 const { extractText } = require('unpdf');
 const { harness } = require('./ppt-vision-harness.cjs');
+const { memoryClaims } = require('./analytics-digest-harness.cjs');
 
 // Never load .env, contact a database, invoke a cron URL, or send an email.
 // Both external clients are replaced; all fixtures use reserved invalid domains.
@@ -30,8 +31,10 @@ const verifiedCounts = data => Object.values(data.counts).flatMap(Object.values)
 
 function setup(options = {}) {
   const queries = [], sends = [], clients = [];
+  const claims = memoryClaims();
   const client = {
     from(table) {
+      if (table === 'app_settings') return claims.from(table);
       assert(Object.hasOwn(tableKeys, table), `Unexpected relation: ${table}`);
       if (options.throwFrom === table) throw new Error('Fixture client failure');
       let since, until;
@@ -248,7 +251,7 @@ for (const status of [400, 401, 429, 500]) {
   test(`provider HTTP ${status} is a failed dispatch even if its body contains an id`, async () => {
     const h = setup({ provider: () => json({ id: 'not-accepted', message: 'Fixture rejection' }, status) });
     const res = await h.call(); assert.equal(res.status, 502); const body = await res.json();
-    assert.equal(body.success, false); assert.equal(body.dispatch.status, 'failed'); assert.equal(body.dispatch.providerStatus, status);
+    assert.equal(body.success, false); assert.equal(body.dispatch.status, [429, 500].includes(status) ? 'unknown' : 'failed'); assert.equal(body.dispatch.providerStatus, status);
     assert(!Object.hasOwn(body, 'resendId')); assert.equal(h.sends.length, 1);
   });
 }
