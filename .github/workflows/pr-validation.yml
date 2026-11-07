@@ -62,6 +62,7 @@ jobs:
             scripts/test-database-report-workflow.cjs \
             scripts/test-analytics-digest-workflow.cjs \
             scripts/test-analytics-summary.cjs \
+            scripts/test-analytics-digest-claim.cjs \
             scripts/test-founder-brief.cjs \
             scripts/test-organizer-candidate-discovery.cjs \
             scripts/test-scheduled-organizer-outreach.cjs \
@@ -90,6 +91,7 @@ jobs:
           node --test scripts/test-chat-active-actor-local.cjs
           node --test scripts/test-email-open-local.cjs
           node --test scripts/test-organizer-pitch-local.cjs
+          node --import ./qa/fixtures/rack-network-guard.mjs --test scripts/test-analytics-digest-claim-local.cjs
           node --test scripts/test-admin-hackathon-delete-local.cjs
           node --test scripts/test-organizer-lead-restore-local.cjs
           python3 scripts/test-team-document-local.py
