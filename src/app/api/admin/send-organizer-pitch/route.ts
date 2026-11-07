@@ -2,6 +2,7 @@ import { recordEmailBookkeeping, dispatchEmail, dispatchHttpStatus, dispatchResp
 import { checkEmailBudget, recordEmailSendSuccess } from "@/lib/admin/emailBudgetGuard";
 import { NextRequest, NextResponse } from "next/server";
 import { requireOutreachAdmin } from "@/lib/admin/requireOutreachAdmin";
+import { organizerTrackingPixel } from "@/lib/emailOpenTracking";
 
 export async function POST(req: NextRequest) {
   try {
@@ -45,7 +46,7 @@ export async function POST(req: NextRequest) {
     if (!budget.allowedCount) return NextResponse.json({ success: false, error: "Outreach budget exhausted; no request sent." }, { status: 429 });
     const fromEmail = process.env.RESEND_FROM_EMAIL || "";
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.hackermate.in";
-    const trackingPixel = `<img src="${siteUrl}/api/webhooks/email-open?id=${leadId}" width="1" height="1" style="display:none; width:1px; height:1px; opacity:0;" alt="" />`;
+    const trackingPixel = organizerTrackingPixel(siteUrl, leadId);
     const finalHtml = fromEmail.toLowerCase().includes("onboarding@resend.dev") ? contentHtml : `${contentHtml}\n${trackingPixel}`;
 
     const dispatch = await dispatchEmail({ from: fromEmail, to: recipientEmail.trim(), subject, html: finalHtml,

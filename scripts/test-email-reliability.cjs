@@ -136,6 +136,38 @@ test('sandbox receipt never establishes intended-recipient contact', async () =>
   assert.equal(h.state.sends[0].to, 'sandbox@example.invalid');
 });
 const pitchBody = { leadId: lead.id, recipientEmail: lead.organizer_email, subject: 'Synthetic', contentHtml: '<p>Fixture</p>' };
+for (const mode of ['manual', 'automatic']) {
+  for (const configured of [true, false]) test(`${mode} pitch: signed tracking configuration preserves dispatch, recipients, quota and bookkeeping (${configured})`, async () => {
+    const id = '00000000-0000-4000-8000-000000000091';
+    const h = setup({ lead: { ...lead, id }, provider: () => json({ id: 'fixture-receipt' }),
+      env: { EMAIL_OPEN_TRACKING_SECRET: configured ? 'ab'.repeat(32) : undefined } });
+    if (mode === 'manual') await h.call('admin/send-organizer-pitch', { ...pitchBody, leadId: id });
+    else await h.load('src/lib/admin/autoSendPitches.ts').autoSendPitchEmailsForLeads(h.db);
+    assert.equal(h.state.sends.length, 1); assert.equal(h.state.sends[0].to, lead.organizer_email);
+    assert.equal(h.state.sends[0].from, 'Fixture <sender@example.invalid>');
+    assert.equal(h.state.sends[0].reply_to, 'contacthackermate@gmail.com');
+    assert.equal(h.state.sends[0].subject, mode === 'manual' ? pitchBody.subject : `Sponsorship & Hackathon Team Ecosystem Partnership — ${lead.title}`);
+    const html = h.state.sends[0].html;
+    assert.equal(html.includes('/api/webhooks/email-open'), configured);
+    if (configured) {
+      const url = new URL(html.match(/<img src="([^"]+)"/)[1].replaceAll('&amp;', '&'));
+      assert.equal(h.load('src/lib/emailOpenTracking.ts').verifiedOrganizerTrackingId(url.searchParams), id);
+    }
+    if (mode === 'manual') assert.equal(html.split('\n')[0], pitchBody.contentHtml);
+    assert.equal(h.state.stats.outreach_sent, 3);
+    assert(h.state.writes.some(w => w.table === 'organizer_leads' && w.payload?.status === 'pitch_sent'));
+  });
+  test(`${mode} sandbox pitch never includes a valid tracking capability`, async () => {
+    const id = '00000000-0000-4000-8000-000000000091';
+    const h = setup({ lead: { ...lead, id }, provider: () => json({ id: 'fixture-receipt' }), env: {
+      EMAIL_OPEN_TRACKING_SECRET: 'ab'.repeat(32), RESEND_FROM_EMAIL: 'Fixture <onboarding@resend.dev>', RESEND_SANDBOX_RECIPIENT: 'sandbox@example.invalid' } });
+    if (mode === 'manual') await h.call('admin/send-organizer-pitch', { ...pitchBody, leadId: id });
+    else await h.load('src/lib/admin/autoSendPitches.ts').autoSendPitchEmailsForLeads(h.db);
+    assert.equal(h.state.sends.length, 1); assert.equal(h.state.sends[0].to, 'sandbox@example.invalid');
+    assert(!h.state.sends[0].html.includes('/api/webhooks/email-open'));
+    assert(!h.state.writes.some(w => w.payload?.pitch_sent_at));
+  });
+}
 for (const [label, options] of [
   ['missing configuration', { env: { RESEND_API_KEY: '' } }],
   ['rejection', { provider: () => json({}, 422) }], ['invalid receipt', { provider: () => json({}) }],
@@ -192,10 +224,29 @@ test('a second pitch pass cannot immediately retry leads already selected in thi
   assert.equal(h.state.sends.length, 1);
 });
 test('automatic deduplication reads past a full history page', async () => {
-  const history = Array.from({ length: 100 }, (_, n) => ({ ...lead, id: `old-${n}`, organizer_email: `old-${n}@example.invalid` }));
-  history.push(lead);
+  const history = Array.from({ length: 100 }, (_, n) => ({ ...lead, id: `old-${n}`, organizer_email: `old-${n}@example.invalid`, pitch_sent_at: '2000-01-01T00:00:00Z' }));
+  history.push({ ...lead, pitch_sent_at: '2000-01-01T00:00:00Z' });
   const h = setup({ history }); await h.load('src/lib/admin/autoSendPitches.ts').autoSendPitchEmailsForLeads(h.db);
   assert.equal(h.state.sends.length, 0); assert.equal(h.state.reads.filter(r => r.table === 'organizer_leads').length, 3);
+});
+
+test('automatic outreach treats last-recipient-only history as contacted, on the same or another CRM row', async () => {
+  const historical = { ...lead, last_sent_to: lead.organizer_email };
+  for (const options of [{ lead: historical, history: [historical] },
+    { history: [{ ...historical, id: 'synthetic-old-row', organizer_email: 'previous@example.invalid' }] }]) {
+    const h = setup({ ...options, provider: () => json({ id: 'fixture' }) });
+    const result = await h.load('src/lib/admin/autoSendPitches.ts').autoSendPitchEmailsForLeads(h.db);
+    assert.equal(result.attempted, 0); assert.equal(result.blocked, undefined); assert.equal(h.state.sends.length, 0);
+  }
+});
+
+test('empty or whitespace last-recipient metadata does not suppress a never-contacted lead', async () => {
+  for (const value of ['', '   ']) {
+    const fresh = { ...lead, last_sent_to: value };
+    const h = setup({ lead: fresh, history: [fresh], provider: () => json({ id: 'fixture' }) });
+    const result = await h.load('src/lib/admin/autoSendPitches.ts').autoSendPitchEmailsForLeads(h.db);
+    assert.equal(result.sent, 1); assert.equal(result.bookkeepingFailed, 0); assert.equal(h.state.sends.length, 1);
+  }
 });
 
 const contactBody = { name: 'Fixture', email: 'fixture@example.invalid', subject: 'Synthetic inquiry', message: 'Completely synthetic offline inquiry.' };
@@ -233,15 +284,16 @@ test('unavailable daily-report sources are not fabricated as category zero count
 });
 for (const prior of [{ unknown: 1 }, { bookkeepingFailed: 1 }, { accounting: { status: 'failed' } }]) {
   test(`catalog cron sends no email, including prior uncertain dispatch: ${JSON.stringify(prior)}`, async () => {
-    let secondPass = 0;
+    let secondPass = 0, cleanupCalls = 0;
     const h = setup({ overrides: {
       '@/lib/hackathons/synchronize': { synchronizeCatalog: async () => ({ success: true, message: 'Catalog only' }) },
       '@/lib/admin/gmailInboxSync': { executeGmailInboxSync: async () => ({ skipped: true }) },
-      '@/lib/admin/autoSendPitches': { autoRemoveUnopenedPitchedLeads: async () => ({ removedCount: 0 }),
+      '@/lib/admin/autoSendPitches': { autoRemoveUnopenedPitchedLeads: async () => { cleanupCalls++; throw new Error('Dormant cleanup must stay disconnected'); },
         autoSendPitchEmailsForLeads: async () => { secondPass++; throw new Error('Unsafe repeated dispatch'); } },
     } });
     const response = await h.load('src/app/api/cron/auto-scrape-leads/route.ts').GET(new NextRequest('http://localhost/api/cron/auto-scrape-leads', { headers: { Authorization: 'Bearer offline-cron' } }));
     const body = await response.json(); assert.equal(response.status, 200); assert.equal(body.cronExecuted, true); assert.equal(Object.hasOwn(body, 'autoPitchResult'), false); assert.equal(secondPass, 0); assert.equal(h.state.sends.length, 0);
+    assert.equal(cleanupCalls, 0, 'Catalog cron must not remove legacy unsigned-email leads');
   });
 }
 for (const table of ['organizer_leads', 'daily_email_stats']) test(`manual pitch: ${table} read failure blocks dispatch`, async () => {

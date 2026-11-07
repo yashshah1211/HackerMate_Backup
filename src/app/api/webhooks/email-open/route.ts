@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { verifiedOrganizerTrackingId } from "@/lib/emailOpenTracking";
+
+export const runtime = "nodejs";
 
 // 1x1 Transparent GIF base64 string
 const TRANSPARENT_GIF_BUFFER = Buffer.from(
@@ -9,39 +12,17 @@ const TRANSPARENT_GIF_BUFFER = Buffer.from(
 
 export async function GET(req: NextRequest) {
   try {
-    const leadId = req.nextUrl.searchParams.get("id");
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const leadId = verifiedOrganizerTrackingId(req.nextUrl.searchParams);
 
-    if (leadId && uuidRegex.test(leadId)) {
+    if (leadId) {
       const supabaseAdmin = createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
+        process.env.SUPABASE_SERVICE_ROLE_KEY!,
+        { auth: { persistSession: false, autoRefreshToken: false } }
       );
 
-      // Fetch current lead record
-      const { data: lead } = await supabaseAdmin
-        .from("organizer_leads")
-        .select("id, status, open_count, opened_at")
-        .eq("id", leadId)
-        .single();
-
-      if (lead) {
-        const currentCount = lead.open_count || 0;
-        const updates: any = {
-          open_count: currentCount + 1,
-          opened_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
-
-        if (lead.status === "pitch_sent" || lead.status === "new") {
-          updates.status = "opened";
-        }
-
-        await supabaseAdmin
-          .from("organizer_leads")
-          .update(updates)
-          .eq("id", leadId);
-      }
+      const { error } = await supabaseAdmin.rpc("record_organizer_email_open", { p_lead_id: leadId });
+      if (error) console.error("[Email Open Webhook] Atomic tracking update failed:", error);
     }
   } catch (err) {
     console.error("[Email Open Webhook] Error tracking open event:", err);

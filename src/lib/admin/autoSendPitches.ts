@@ -1,5 +1,6 @@
 import { recordEmailBookkeeping, dispatchEmail } from "@/lib/emailDispatch";
 import { SupabaseClient } from "@supabase/supabase-js";
+import { organizerTrackingPixel } from "@/lib/emailOpenTracking";
 import {
   checkEmailBudget,
   recordEmailSendSuccess,
@@ -28,7 +29,7 @@ async function readPitchRows(client: SupabaseClient, history: boolean): Promise<
   for (let offset = 0; ; offset += 100) {
     let query = client.from("organizer_leads")
       .select("id, title, organizer_email, last_sent_to, pitch_sent_at, status").order("id");
-    query = history ? query.or("pitch_sent_at.not.is.null,status.eq.email_outcome_unknown")
+    query = history ? query.or("pitch_sent_at.not.is.null,last_sent_to.not.is.null,status.eq.email_outcome_unknown")
       : query.is("pitch_sent_at", null).not("organizer_email", "is", null);
     const { data, error } = await query.range(offset, offset + 99);
     if (error || !Array.isArray(data)) {
@@ -61,6 +62,9 @@ export async function autoSendPitchEmailsForLeads(supabaseAdmin: SupabaseClient,
 
   const pitchedEmailsSet = new Set<string>();
   (pitchedRows || []).forEach((row) => {
+    // Empty/whitespace legacy metadata is not contact evidence. A nonempty
+    // last recipient is evidence even when old send timestamps are missing.
+    if (!row.pitch_sent_at && row.status !== "email_outcome_unknown" && !row.last_sent_to?.trim()) return;
     if (row.organizer_email) row.organizer_email.split(",").forEach(email => pitchedEmailsSet.add(email.trim().toLowerCase()));
     if (row.last_sent_to) row.last_sent_to.split(",").forEach(email => pitchedEmailsSet.add(email.trim().toLowerCase()));
   });
@@ -70,7 +74,7 @@ export async function autoSendPitchEmailsForLeads(supabaseAdmin: SupabaseClient,
   const seenEmailsInRun = new Set<string>();
 
   for (const lead of (leads || [])) {
-    if (lead.pitch_sent_at || (lead.status && lead.status !== "new")) continue;
+    if (lead.pitch_sent_at || lead.last_sent_to?.trim() || (lead.status && lead.status !== "new")) continue;
 
     const email = lead.organizer_email?.trim().toLowerCase();
     const lastSent = lead.last_sent_to?.trim().toLowerCase();
@@ -175,7 +179,7 @@ Founder, HackerMate`;
           </div>
         `;
 
-        const trackingPixel = `<img src="${siteUrl}/api/webhooks/email-open?id=${lead.id}" width="1" height="1" style="display:none; width:1px; height:1px; opacity:0;" alt="" />`;
+        const trackingPixel = organizerTrackingPixel(siteUrl, lead.id);
         const finalHtml = fromEmail.toLowerCase().includes("onboarding@resend.dev") ? formattedHtml : `${formattedHtml}\n${trackingPixel}`;
 
         const dispatch = await dispatchEmail({ from: fromEmail, to: rawEmail, subject, html: finalHtml,
