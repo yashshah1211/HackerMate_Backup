@@ -3,6 +3,8 @@ import { fetchPlatformAnalytics, generateAnalyticsPdfBuffer, generateEmailHtml }
 import { createHash } from "node:crypto";
 import { analyticsDigestClaimClient, claimAnalyticsDigest, transitionAnalyticsDigest, logAnalyticsClaimError } from "@/lib/admin/analyticsDigestClaim";
 
+const DIGEST_RECIPIENT = "yashshah7117@gmail.com";
+
 async function handleAnalyticsSummary(req: NextRequest) {
   try {
     const authHeader = req.headers.get("Authorization");
@@ -40,8 +42,7 @@ async function handleAnalyticsSummary(req: NextRequest) {
       });
     }
 
-    const recipient = process.env.ADMIN_CONTACT_EMAIL || process.env.RESEND_SANDBOX_RECIPIENT || "yashshah7117@gmail.com";
-    const result = { recipient, pdfGenerated: true, analyticsSummary: analytics };
+    const result = { recipient: DIGEST_RECIPIENT, pdfGenerated: true, analyticsSummary: analytics };
     const resendApiKey = process.env.RESEND_API_KEY;
     if (!resendApiKey) {
       return NextResponse.json({
@@ -52,7 +53,7 @@ async function handleAnalyticsSummary(req: NextRequest) {
 
     const emailPayload = {
       from: process.env.RESEND_FROM_EMAIL || "HackerMate <onboarding@resend.dev>",
-      to: [recipient],
+      to: [DIGEST_RECIPIENT],
       subject: `📊 HackerMate Daily Platform Digest — ${todayStr} (database counts: ${analytics.databaseStatus})`,
       html: generateEmailHtml(analytics, todayStr),
       attachments: [{ filename, content: pdfBuffer.toString("base64") }],

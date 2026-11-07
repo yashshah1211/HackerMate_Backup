@@ -2,6 +2,13 @@ name: Daily Platform Database PDF Digest
 
 on:
   workflow_dispatch: # Allows manual trigger from GitHub Actions tab
+  schedule:
+    - cron: "10 7 * * *"
+      timezone: "Asia/Kolkata"
+
+concurrency:
+  group: analytics-digest
+  cancel-in-progress: false
 
 permissions:
   contents: read

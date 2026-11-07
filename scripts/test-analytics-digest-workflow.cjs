@@ -75,13 +75,23 @@ readonly -f curl
   } finally { rmSync(dir, { recursive: true, force: true }); }
 }
 
-test('workflow YAML remains manual only and secrets are passed through env', () => {
-  assert.deepEqual(Object.keys(workflow.on), ['workflow_dispatch']);
+test('workflow runs daily at 07:10 India time and still supports manual dispatch', () => {
+  assert.deepEqual(workflow.on, {
+    workflow_dispatch: null,
+    schedule: [{ cron: '10 7 * * *', timezone: 'Asia/Kolkata' }],
+  });
+  assert.deepEqual(workflow.concurrency, { group: 'analytics-digest', 'cancel-in-progress': false });
+  assert.deepEqual(Object.keys(workflow.jobs), ['send-analytics-digest']);
+  assert.equal(workflow.jobs['send-analytics-digest'].if, undefined);
+  assert.equal(step.if, undefined);
+  assert.equal(workflow.jobs['send-analytics-digest'].steps.length, 1, 'both triggers share one dispatch step');
+});
+
+test('the shared dispatch step passes secrets through env', () => {
   assert.equal(step.env.SITE_URL, '${{ secrets.SITE_URL }}');
   assert.equal(step.env.CRON_SECRET, '${{ secrets.CRON_SECRET }}');
   assert(!script.includes('${{'), 'no expression interpolation into executable shell');
   assert.equal(step.shell, 'bash');
-  assert.equal(workflow.jobs['send-analytics-digest'].steps.length, 1, 'no hidden second dispatch step');
 });
 test('actual workflow Bash has valid syntax', () => {
   const result = spawnSync(bash, ['--noprofile', '--norc', '-n'], { input: script, encoding: 'utf8' });
