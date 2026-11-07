@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin/requireAdmin";
 
+// Database messages/details can contain records or custom trigger text. Retain
+// the actual SQLSTATE for diagnostics without serializing those sensitive fields.
+function databaseErrorCode(error: unknown): string {
+  const code = error && typeof error === "object" && "code" in error ? error.code : null;
+  return typeof code === "string" && /^(?:[A-Z0-9]{5}|PGRST\d{3})$/.test(code) ? code : "unavailable";
+}
+
 export async function GET(req: NextRequest) {
   try {
     const authResult = await requireAdmin(req);
@@ -53,30 +60,41 @@ export async function POST(req: NextRequest) {
 
     const { user, supabaseAdmin } = authResult;
 
-    const body = await req.json();
-    const { hackathonId, action } = body; // action: 'approve' | 'reject' | 'delete'
-
-    if (!hackathonId || !action) {
-      return NextResponse.json({ error: "Missing hackathonId or action" }, { status: 400 });
+    let body: unknown;
+    try { body = await req.json(); }
+    catch { return NextResponse.json({ error: "Invalid JSON request body." }, { status: 400 }); }
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return NextResponse.json({ error: "Invalid hackathon action request." }, { status: 400 });
     }
+    const { hackathonId: rawId, action } = body as Record<string, unknown>;
+    if (typeof rawId !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawId)
+      || typeof action !== "string" || !["approve", "reject", "delete"].includes(action)) {
+      return NextResponse.json({ error: "A valid hackathon UUID and approve, reject, or delete action are required." }, { status: 400 });
+    }
+    const hackathonId = rawId.toLowerCase();
 
     // 1. DELETE ACTION
     if (action === "delete") {
-      // First delete any team_hackathons references
-      await supabaseAdmin.from("team_hackathons").delete().eq("hackathon_id", hackathonId);
-      // Delete hackathon_registrations references
-      await supabaseAdmin.from("hackathon_registrations").delete().eq("hackathon_id", hackathonId);
-
-      const { error: delErr } = await supabaseAdmin.from("hackathons").delete().eq("id", hackathonId);
+      // One database statement: existing FK cascades/SET NULL actions participate
+      // in the same transaction. Protected dependencies abort the whole delete.
+      const { data: deleted, error: delErr } = await supabaseAdmin.rpc("admin_delete_hackathon", { p_hackathon_id: hackathonId });
 
       if (delErr) {
-        console.error("[Admin Delete Hackathon Error]:", delErr);
-        return NextResponse.json({ error: "Failed to delete hackathon from database." }, { status: 500 });
+        const code = databaseErrorCode(delErr);
+        console.error("[Admin Delete Hackathon Error]:", { code });
+        return NextResponse.json({ error: code === "23503"
+          ? "Hackathon has protected related data and could not be deleted."
+          : "Failed to confirm hackathon deletion. Refresh before retrying." }, { status: code === "23503" ? 409 : 500 });
+      }
+      if (deleted === false) return NextResponse.json({ error: "Hackathon not found or no longer available." }, { status: 404 });
+      if (deleted !== true) {
+        console.error("[Admin Delete Hackathon Error]: Invalid database receipt.");
+        return NextResponse.json({ error: "Failed to confirm hackathon deletion. Refresh before retrying." }, { status: 500 });
       }
 
       return NextResponse.json({
         success: true,
-        message: "Hackathon permanently deleted from database.",
+        message: "Hackathon and its event-specific records permanently deleted. Teams and user accounts were preserved.",
       });
     }
 
@@ -88,9 +106,13 @@ export async function POST(req: NextRequest) {
       .from("hackathons")
       .select("id, ai_feedback")
       .eq("id", hackathonId)
-      .single();
+      .maybeSingle();
 
-    if (hErr || !hData) {
+    if (hErr) {
+      console.error("[Admin Hackathon Lookup Error]:", { code: databaseErrorCode(hErr) });
+      return NextResponse.json({ error: "Failed to verify hackathon." }, { status: 500 });
+    }
+    if (!hData) {
       return NextResponse.json({ error: "Hackathon not found." }, { status: 404 });
     }
 
@@ -112,11 +134,16 @@ export async function POST(req: NextRequest) {
       })
       .eq("id", hackathonId)
       .select()
-      .single();
+      .maybeSingle();
 
     if (updateError) {
-      console.error("[Admin Update Hackathon Status Error]:", updateError);
+      console.error("[Admin Update Hackathon Status Error]:", { code: databaseErrorCode(updateError) });
       return NextResponse.json({ error: "Failed to update hackathon status." }, { status: 500 });
+    }
+    if (!updatedHackathon) return NextResponse.json({ error: "Hackathon not found or no longer available." }, { status: 404 });
+    if (updatedHackathon.id !== hackathonId || updatedHackathon.status !== newStatus) {
+      console.error("[Admin Update Hackathon Status Error]: Invalid database receipt.");
+      return NextResponse.json({ error: "Failed to confirm hackathon status." }, { status: 500 });
     }
 
     return NextResponse.json({
@@ -124,8 +151,8 @@ export async function POST(req: NextRequest) {
       hackathon: updatedHackathon,
       message: `Hackathon successfully ${newStatus}!`,
     });
-  } catch (err: any) {
-    console.error("[Admin Hackathons POST Exception]:", err);
-    return NextResponse.json({ error: err.message || "Internal server error." }, { status: 500 });
+  } catch (err: unknown) {
+    console.error("[Admin Hackathons POST Exception]:", { code: databaseErrorCode(err) });
+    return NextResponse.json({ error: "Unable to confirm hackathon action. Refresh before retrying." }, { status: 500 });
   }
 }

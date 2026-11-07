@@ -1,0 +1,300 @@
+{
+  "capturedAt": "2026-11-07",
+  "source": "Read-only production pg_constraint metadata; projected fixture columns, not production data.",
+  "parentColumns": [
+    {
+      "name": "id",
+      "type": "uuid",
+      "nullable": "NO"
+    },
+    {
+      "name": "name",
+      "type": "text",
+      "nullable": "NO"
+    },
+    {
+      "name": "description",
+      "type": "text",
+      "nullable": "YES"
+    },
+    {
+      "name": "start_date",
+      "type": "date",
+      "nullable": "YES"
+    },
+    {
+      "name": "end_date",
+      "type": "date",
+      "nullable": "YES"
+    },
+    {
+      "name": "location",
+      "type": "text",
+      "nullable": "YES"
+    },
+    {
+      "name": "mode",
+      "type": "text",
+      "nullable": "YES"
+    },
+    {
+      "name": "prize_pool",
+      "type": "text",
+      "nullable": "YES"
+    },
+    {
+      "name": "website_url",
+      "type": "text",
+      "nullable": "YES"
+    },
+    {
+      "name": "tags",
+      "type": "ARRAY",
+      "nullable": "YES"
+    },
+    {
+      "name": "banner_url",
+      "type": "text",
+      "nullable": "YES"
+    },
+    {
+      "name": "created_at",
+      "type": "timestamp with time zone",
+      "nullable": "YES"
+    },
+    {
+      "name": "type",
+      "type": "character varying",
+      "nullable": "YES"
+    },
+    {
+      "name": "organizer_id",
+      "type": "uuid",
+      "nullable": "YES"
+    },
+    {
+      "name": "registration_start",
+      "type": "timestamp with time zone",
+      "nullable": "YES"
+    },
+    {
+      "name": "registration_end",
+      "type": "timestamp with time zone",
+      "nullable": "YES"
+    },
+    {
+      "name": "registration_status",
+      "type": "text",
+      "nullable": "YES"
+    },
+    {
+      "name": "college",
+      "type": "text",
+      "nullable": "YES"
+    },
+    {
+      "name": "max_participants",
+      "type": "integer",
+      "nullable": "YES"
+    },
+    {
+      "name": "currency",
+      "type": "text",
+      "nullable": "YES"
+    },
+    {
+      "name": "min_team_size",
+      "type": "integer",
+      "nullable": "YES"
+    },
+    {
+      "name": "max_team_size",
+      "type": "integer",
+      "nullable": "YES"
+    },
+    {
+      "name": "rounds_count",
+      "type": "integer",
+      "nullable": "YES"
+    },
+    {
+      "name": "rounds_info",
+      "type": "jsonb",
+      "nullable": "YES"
+    },
+    {
+      "name": "status",
+      "type": "text",
+      "nullable": "YES"
+    },
+    {
+      "name": "ai_feedback",
+      "type": "jsonb",
+      "nullable": "YES"
+    },
+    {
+      "name": "archived",
+      "type": "boolean",
+      "nullable": "NO"
+    },
+    {
+      "name": "source_metadata",
+      "type": "jsonb",
+      "nullable": "YES"
+    }
+  ],
+  "foreignKeys": [
+    {
+      "name": "event_organizers_hackathon_id_fkey",
+      "table": "event_organizers",
+      "target": "hackathons",
+      "deferrable": false,
+      "definition": "FOREIGN KEY (hackathon_id) REFERENCES hackathons(id) ON DELETE CASCADE",
+      "initially_deferred": false
+    },
+    {
+      "name": "hackathon_registrations_hackathon_id_fkey",
+      "table": "hackathon_registrations",
+      "target": "hackathons",
+      "deferrable": false,
+      "definition": "FOREIGN KEY (hackathon_id) REFERENCES hackathons(id) ON DELETE CASCADE",
+      "initially_deferred": false
+    },
+    {
+      "name": "saved_hackathons_hackathon_id_fkey",
+      "table": "saved_hackathons",
+      "target": "hackathons",
+      "deferrable": false,
+      "definition": "FOREIGN KEY (hackathon_id) REFERENCES hackathons(id) ON DELETE CASCADE",
+      "initially_deferred": false
+    },
+    {
+      "name": "teams_hackathon_id_fkey",
+      "table": "teams",
+      "target": "hackathons",
+      "deferrable": false,
+      "definition": "FOREIGN KEY (hackathon_id) REFERENCES hackathons(id) ON DELETE SET NULL",
+      "initially_deferred": false
+    },
+    {
+      "name": "hackathon_posts_hackathon_id_fkey",
+      "table": "hackathon_posts",
+      "target": "hackathons",
+      "deferrable": false,
+      "definition": "FOREIGN KEY (hackathon_id) REFERENCES hackathons(id) ON DELETE CASCADE",
+      "initially_deferred": false
+    },
+    {
+      "name": "hackathon_resources_hackathon_id_fkey",
+      "table": "hackathon_resources",
+      "target": "hackathons",
+      "deferrable": false,
+      "definition": "FOREIGN KEY (hackathon_id) REFERENCES hackathons(id) ON DELETE CASCADE",
+      "initially_deferred": false
+    },
+    {
+      "name": "team_hackathons_hackathon_id_fkey",
+      "table": "team_hackathons",
+      "target": "hackathons",
+      "deferrable": false,
+      "definition": "FOREIGN KEY (hackathon_id) REFERENCES hackathons(id) ON DELETE CASCADE",
+      "initially_deferred": false
+    },
+    {
+      "name": "partner_configs_hackathon_id_fkey",
+      "table": "partner_configs",
+      "target": "hackathons",
+      "deferrable": false,
+      "definition": "FOREIGN KEY (hackathon_id) REFERENCES hackathons(id) ON DELETE CASCADE",
+      "initially_deferred": false
+    },
+    {
+      "name": "team_link_upvotes_link_id_fkey",
+      "table": "team_link_upvotes",
+      "target": "team_links",
+      "deferrable": false,
+      "definition": "FOREIGN KEY (link_id) REFERENCES team_links(id) ON DELETE CASCADE",
+      "initially_deferred": false
+    },
+    {
+      "name": "team_link_comments_link_id_fkey",
+      "table": "team_link_comments",
+      "target": "team_links",
+      "deferrable": false,
+      "definition": "FOREIGN KEY (link_id) REFERENCES team_links(id) ON DELETE CASCADE",
+      "initially_deferred": false
+    },
+    {
+      "name": "user_badges_hackathon_id_fkey",
+      "table": "user_badges",
+      "target": "hackathons",
+      "deferrable": false,
+      "definition": "FOREIGN KEY (hackathon_id) REFERENCES hackathons(id) ON DELETE SET NULL",
+      "initially_deferred": false
+    },
+    {
+      "name": "hackathon_stages_hackathon_id_fkey",
+      "table": "hackathon_stages",
+      "target": "hackathons",
+      "deferrable": false,
+      "definition": "FOREIGN KEY (hackathon_id) REFERENCES hackathons(id) ON DELETE CASCADE",
+      "initially_deferred": false
+    },
+    {
+      "name": "hackathon_announcements_hackathon_id_fkey",
+      "table": "hackathon_announcements",
+      "target": "hackathons",
+      "deferrable": false,
+      "definition": "FOREIGN KEY (hackathon_id) REFERENCES hackathons(id) ON DELETE CASCADE",
+      "initially_deferred": false
+    },
+    {
+      "name": "hackathon_announcements_linked_stage_id_fkey",
+      "table": "hackathon_announcements",
+      "target": "hackathon_stages",
+      "deferrable": false,
+      "definition": "FOREIGN KEY (linked_stage_id) REFERENCES hackathon_stages(id) ON DELETE SET NULL",
+      "initially_deferred": false
+    },
+    {
+      "name": "hustle_phase2_batches_event_id_fkey",
+      "table": "hustle_phase2_batches",
+      "target": "hackathons",
+      "deferrable": false,
+      "definition": "FOREIGN KEY (event_id) REFERENCES hackathons(id)",
+      "initially_deferred": false
+    },
+    {
+      "name": "team_submissions_hackathon_id_fkey",
+      "table": "team_submissions",
+      "target": "hackathons",
+      "deferrable": false,
+      "definition": "FOREIGN KEY (hackathon_id) REFERENCES hackathons(id) ON DELETE CASCADE",
+      "initially_deferred": false
+    },
+    {
+      "name": "team_github_repos_hackathon_id_fkey",
+      "table": "team_github_repos",
+      "target": "hackathons",
+      "deferrable": false,
+      "definition": "FOREIGN KEY (hackathon_id) REFERENCES hackathons(id) ON DELETE CASCADE",
+      "initially_deferred": false
+    },
+    {
+      "name": "team_links_hackathon_id_fkey",
+      "table": "team_links",
+      "target": "hackathons",
+      "deferrable": false,
+      "definition": "FOREIGN KEY (hackathon_id) REFERENCES hackathons(id) ON DELETE CASCADE",
+      "initially_deferred": false
+    },
+    {
+      "name": "hustle_phase2_teams_event_id_fkey",
+      "table": "hustle_phase2_teams",
+      "target": "hackathons",
+      "deferrable": false,
+      "definition": "FOREIGN KEY (event_id) REFERENCES hackathons(id)",
+      "initially_deferred": false
+    }
+  ]
+}
