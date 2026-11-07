@@ -19,7 +19,7 @@ export type EmailPayload = {
   attachments?: { filename: string; content: string }[];
 };
 
-export async function dispatchEmail(payload: EmailPayload, options?: { idempotencyKey: string }): Promise<EmailDispatch> {
+export async function dispatchEmail(payload: EmailPayload, options?: { idempotencyKey: string; redirect?: "error" }): Promise<EmailDispatch> {
   const base = { attempted: false, intendedRecipientAccepted: false, sandbox: false, retrySafe: false as const };
   if (options && (typeof options.idempotencyKey !== "string" || !/^[a-zA-Z0-9/_:-]{1,256}$/.test(options.idempotencyKey))) {
     return { ...base, status: "not_dispatched", reason: "Invalid email intent key; no request sent." };
@@ -43,6 +43,7 @@ export async function dispatchEmail(payload: EmailPayload, options?: { idempoten
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}`,
         ...(options ? { "Idempotency-Key": options.idempotencyKey } : {}) },
       body: JSON.stringify(request), signal: AbortSignal.timeout(15_000),
+      ...(options?.redirect ? { redirect: options.redirect } : {}),
     });
     const result: unknown = await response.json().catch(() => null);
     const receipt = result && typeof result === "object" ? result as Record<string, unknown> : null;

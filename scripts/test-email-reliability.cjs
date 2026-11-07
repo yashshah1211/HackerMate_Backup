@@ -4,6 +4,7 @@ const { test } = require('node:test');
 const { NextRequest, NextResponse } = require('next/server');
 const { harness } = require('./ppt-vision-harness.cjs');
 const { organizerClaimFixture } = require('./organizer-pitch-claim-fixture.cjs');
+const { setupReminder } = require('./deadline-reminder-harness.cjs');
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status });
 const lead = { id: '00000000-0000-4000-8000-000000000651', title: 'Synthetic event', organizer_email: 'organizer@example.invalid', status: 'new', pitch_sent_at: null };
@@ -27,9 +28,7 @@ function setup(options = {}) {
       if (name === 'claim_organizer_pitch' || name === 'record_organizer_pitch') return pitchClaims(name, args);
       state.rpc.push(name);
       if (options.rpcFailure === name) return { error: { message: 'Fixture RPC failure' }, data: null };
-      return { error: null, data: name === 'can_access_partner_event' ? true : name === 'get_pending_deadline_reminders'
-        ? [{ saved_id: 'fixture-saved', user_email: profile.email, hackathon_name: 'Synthetic', hackathon_id: 'fixture-event' }]
-        : [{ allowed: true }] };
+      return { error: null, data: name === 'can_access_partner_event' ? true : [{ allowed: true }] };
     },
     from(table) {
       let op = 'read', payload, single = false, range;
@@ -359,12 +358,16 @@ test('complete broadcast distinguishes provider acceptance from delivery', async
   assert.equal(body.emailSuccess, true); assert.equal(body.bookkeeping, 'recorded'); assert.equal(body.accepted, 2); assert.match(body.message, /Delivery is not confirmed/);
 });
 for (const options of [{ env: { RESEND_API_KEY: '' } }, { provider: () => json({}) }, { provider: () => json({}, 422) }]) test('reminders never mark unaccepted messages complete', async () => {
-  const h = setup(options); const { body } = await h.call('cron/reminders'); assert.equal(body.success, false);
-  assert(!h.state.rpc.includes('mark_deadline_reminder_sent')); assert(!h.state.writes.some(w => w.table === 'daily_email_stats'));
+  const h = setupReminder(options);
+  const body = await (await h.call()).json(); assert.equal(body.success, false);
+  assert(!h.db.state.operations.some(w => w.table === 'saved_hackathons' || w.table === 'daily_email_stats'));
 });
-test('accepted reminder survives bookkeeping RPC failure', async () => {
-  const h = setup({ provider: () => json({ id: 'fixture' }), rpcFailure: 'mark_deadline_reminder_sent' });
-  const { body } = await h.call('cron/reminders'); assert.equal(body.accepted, 1); assert.equal(body.bookkeeping, 'failed');
+test('accepted reminder survives completion write failure', async () => {
+  const h = setupReminder({ provider: () => json({ id: 'fixture' }), dbError: 'saved_hackathons' });
+  const body = await (await h.call()).json();
+  assert.equal(body.accepted, 1); assert.equal(body.bookkeeping, 'failed');
+  assert.equal(body.completed, 0); assert.equal((await (await h.call()).json()).duplicates, 1);
+  assert.equal(h.state.requests.length, 1);
 });
 for (const options of [{}, { writeError: 'resend_webhook_events' }, { badSignature: true }]) test(`verified webhook persistence outcome ${JSON.stringify(options)}`, async () => {
   const h = setup(options); const { response, body } = await h.call('webhooks/resend', {}, { 'svix-id': 'fixture-event', 'svix-timestamp': 'fixture', 'svix-signature': 'fixture' });
