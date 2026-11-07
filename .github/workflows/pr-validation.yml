@@ -50,6 +50,9 @@ jobs:
             scripts/test-stabilization-notification-replay.cjs \
             scripts/test-notification-categories.cjs \
             scripts/test-admin-authorization.cjs \
+            scripts/test-admin-hackathon-actions.cjs \
+            scripts/test-admin-hackathon-approval.cjs \
+            scripts/test-admin-hackathon-ui.cjs \
             scripts/test-admin-catalog-preview.cjs \
             scripts/test-daily-report-claim.cjs \
             scripts/test-database-report-workflow.cjs \
@@ -80,6 +83,7 @@ jobs:
           node --test scripts/test-mission03-workspace-rls.cjs
           node --test scripts/test-chat-active-actor-local.cjs
           node --test scripts/test-email-open-local.cjs
+          node --test scripts/test-admin-hackathon-delete-local.cjs
           python3 scripts/test-team-document-local.py
 
       - name: Run existing core-page query smoke against synthetic loopback fixtures
@@ -89,7 +93,7 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Verify account guard in desktop and mobile Chromium with external network blocked
-        run: node --import ./qa/fixtures/rack-network-guard.mjs --test --test-concurrency=1 scripts/test-stabilization-browser.cjs scripts/test-mission02-browser.cjs scripts/test-notification-categories-browser.cjs
+        run: node --import ./qa/fixtures/rack-network-guard.mjs --test --test-concurrency=1 scripts/test-stabilization-browser.cjs scripts/test-mission02-browser.cjs scripts/test-notification-categories-browser.cjs scripts/test-admin-hackathon-browser.cjs
 
       - name: Render Founder Brief review artifacts without production data
         run: node scripts/render-founder-brief-preview.cjs

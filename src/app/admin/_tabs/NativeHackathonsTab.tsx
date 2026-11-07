@@ -80,7 +80,7 @@ export default function NativeHackathonsTab({
     if (action === "delete") {
       confirm({
         title: "PERMANENTLY DELETE HACKATHON",
-        message: `Are you sure you want to permanently delete "${name || "this hackathon"}" from HackerMate? This will remove all associated teams and registrations. This action cannot be undone.`,
+        message: `Are you sure you want to permanently delete "${name || "this hackathon"}" from HackerMate? This removes its registrations, team associations, and other event-specific records. Teams and user accounts are preserved. Protected related data may block deletion. This action cannot be undone.`,
         confirmText: "Delete Permanently",
         onConfirm: async () => {
           executeHackathonAction(hackathonId, action);
