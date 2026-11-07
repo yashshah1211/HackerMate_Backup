@@ -47,6 +47,7 @@ jobs:
             scripts/test-stabilization-email-access.cjs \
             scripts/test-email-open.cjs \
             scripts/test-email-reliability.cjs \
+            scripts/test-deadline-reminder-claims.cjs \
             scripts/test-organizer-pitch.cjs \
             scripts/test-organizer-pitch-ui.cjs \
             scripts/test-stabilization-notification-replay.cjs \
@@ -92,6 +93,7 @@ jobs:
           node --test scripts/test-email-open-local.cjs
           node --test scripts/test-organizer-pitch-local.cjs
           node --import ./qa/fixtures/rack-network-guard.mjs --test scripts/test-analytics-digest-claim-local.cjs
+          node --import ./qa/fixtures/rack-network-guard.mjs --test scripts/test-deadline-reminder-claims-local.cjs
           node --test scripts/test-admin-hackathon-delete-local.cjs
           node --test scripts/test-organizer-lead-restore-local.cjs
           python3 scripts/test-team-document-local.py

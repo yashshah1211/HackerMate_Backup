@@ -24,7 +24,8 @@ export type BudgetCheckResult = {
 };
 
 export async function getOrCreateTodayStats(
-  supabaseAdmin: SupabaseClient
+  supabaseAdmin: SupabaseClient,
+  logError: (message: string, error: unknown) => void = console.error,
 ): Promise<DailyEmailStats> {
   const todayStr = new Date().toISOString().split("T")[0];
 
@@ -35,7 +36,7 @@ export async function getOrCreateTodayStats(
     .maybeSingle();
 
   if (readError) {
-    console.error("[Email Budget Guard] Cannot verify budget:", readError);
+    logError("[Email Budget Guard] Cannot verify budget:", readError);
     throw new Error("Email budget unavailable; dispatch blocked.");
   }
 
@@ -58,14 +59,14 @@ export async function getOrCreateTodayStats(
     .from("daily_email_stats")
     .upsert(newRecord, { onConflict: "date", ignoreDuplicates: true });
   if (error) {
-    console.error("[Email Budget Guard] Error initializing daily_email_stats:", error);
+    logError("[Email Budget Guard] Error initializing daily_email_stats:", error);
     throw new Error("Email budget unavailable; dispatch blocked.");
   }
   // Read the winner: never overwrite an existing row with zero counters.
   const { data, error: verifyError } = await supabaseAdmin.from("daily_email_stats")
     .select("*").eq("date", todayStr).single();
   if (verifyError || !data) {
-    console.error("[Email Budget Guard] Cannot verify initialized budget:", verifyError);
+    logError("[Email Budget Guard] Cannot verify initialized budget:", verifyError);
     throw new Error("Email budget unavailable; dispatch blocked.");
   }
   return data as DailyEmailStats;
@@ -112,12 +113,13 @@ export type EmailCategory =
 export async function recordEmailSendSuccess(
   supabaseAdmin: SupabaseClient,
   category: EmailCategory,
-  actualSentCount: number = 1
+  actualSentCount: number = 1,
+  logError: (message: string, error: unknown) => void = console.error,
 ) {
   if (actualSentCount <= 0) return { status: "recorded" as const };
   try {
     const todayStr = new Date().toISOString().split("T")[0];
-    const stats = await getOrCreateTodayStats(supabaseAdmin);
+    const stats = await getOrCreateTodayStats(supabaseAdmin, logError);
 
     const updates: Record<string, number | string> = {
       updated_at: new Date().toISOString(),
@@ -156,12 +158,12 @@ export async function recordEmailSendSuccess(
       .eq("date", todayStr).eq("total_sent", stats.total_sent).select("date");
 
     if (error || recorded?.length !== 1) {
-      console.error("[Email Budget Guard] Error recording provider acceptance:", error);
+      logError("[Email Budget Guard] Error recording provider acceptance:", error);
       return { status: "failed" as const };
     }
     return { status: "recorded" as const };
   } catch (error) {
-    console.error("[Email Budget Guard] Acceptance accounting unavailable:", error);
+    logError("[Email Budget Guard] Acceptance accounting unavailable:", error);
     return { status: "failed" as const };
   }
 }
