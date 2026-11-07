@@ -8,9 +8,10 @@ const { harness } = require('./ppt-vision-harness.cjs');
 const { memoryClaims } = require('./analytics-digest-harness.cjs');
 
 // Never load .env, contact a database, invoke a cron URL, or send an email.
-// Both external clients are replaced; all fixtures use reserved invalid domains.
+// Both external clients are replaced. The fixed production recipient appears only in captured payloads.
 const now = Date.parse('2026-10-15T20:00:00Z');
 const day = 24 * 60 * 60 * 1000;
+const digestRecipient = 'yashshah7117@gmail.com';
 class FixedDate extends Date {
   constructor(...args) { super(...(args.length ? args : [now])); }
   static now() { return now; }
@@ -90,7 +91,7 @@ function setup(options = {}) {
     `http://localhost/api/cron/analytics-summary${format ? `?format=${format}` : ''}`,
     { method, headers: token === null ? {} : { Authorization: `Bearer ${token}` } },
   ));
-  return { ...h, lib, call, queries, sends, clients };
+  return { ...h, lib, call, queries, sends, clients, claims };
 }
 
 async function pdfText(buffer) {
@@ -215,6 +216,7 @@ for (const method of ['GET', 'POST']) {
     assert.match(res.headers.get('Content-Disposition'), /inline; filename="HackerMate_Daily_Platform_Digest/);
     assert.equal(res.headers.get('X-Analytics-Database-Status'), 'complete'); assert.equal(res.headers.get('Cache-Control'), 'private, no-store');
     assert.match(await pdfText(await res.arrayBuffer()), /Registered profiles 5 2 4/); assert.equal(h.sends.length, 0);
+    assert.equal(h.claims.rows.size, 0);
   });
 }
 
@@ -230,14 +232,39 @@ test('a 2xx provider acknowledgement reports acceptance, not delivery, for eithe
     assert.equal(res.status, 200); const body = await res.json();
     assert.equal(body.success, true); assert.equal(body.dispatch.status, 'accepted'); assert.equal(body.resendId, 'offline-message-id');
     assert.match(body.dispatch.reason, /delivery is not confirmed/); assert(!Object.hasOwn(body, 'deliveredTo'));
-    assert.equal(body.recipient, 'founder@example.invalid'); assert.equal(body.pdfGenerated, true); assert.equal(h.sends.length, 1);
-    const payload = h.sends[0]; assert.deepEqual(payload.to, ['founder@example.invalid']);
+    assert.equal(body.recipient, digestRecipient); assert.equal(body.pdfGenerated, true); assert.equal(h.sends.length, 1);
+    const payload = h.sends[0]; assert.deepEqual(payload.to, [digestRecipient]);
     // Frozen UTC time is Oct 16 in India: the title and attachment must agree.
     assert.match(payload.subject, /Oct 16, 2026/); assert(!/views|\+\d|GA4|Growth/.test(payload.subject));
     assert.equal(payload.attachments.length, 1); assert.match(payload.attachments[0].filename, /Oct_16__2026/);
     assert.match(await pdfText(Buffer.from(payload.attachments[0].content, 'base64')), /Pageviews: Unmeasured/);
     assertUnmeasured(body.analyticsSummary);
   }
+});
+
+for (const adminContact of ['', 'other-admin@example.invalid']) {
+  test(`the fixed recipient ignores unrelated admin and sandbox settings (admin set: ${Boolean(adminContact)})`, async () => {
+    const h = setup({
+      env: { ADMIN_CONTACT_EMAIL: adminContact, RESEND_SANDBOX_RECIPIENT: 'sandbox@example.invalid' },
+      provider: () => json({ id: 'offline-message-id' }, 201),
+    });
+    const res = await h.call();
+    assert.equal(res.status, 200);
+    assert.equal((await res.json()).recipient, digestRecipient);
+    assert.deepEqual(h.sends.map(payload => payload.to), [[digestRecipient]]);
+  });
+}
+
+test('manual and scheduled POSTs on the same reporting day share one durable claim', async () => {
+  const h = setup({ provider: () => json({ id: 'offline-message-id' }, 201) });
+  assert.equal((await h.call('POST')).status, 200);
+  const acceptedClaim = [...h.claims.rows];
+  assert.equal(acceptedClaim.length, 1);
+  const duplicate = await h.call('POST');
+  assert.equal(duplicate.status, 409);
+  assert.equal((await duplicate.json()).claim.status, 'duplicate');
+  assert.deepEqual([...h.claims.rows], acceptedClaim);
+  assert.equal(h.sends.length, 1);
 });
 
 test('accepted dispatch preserves partial data states in the API, email and PDF', async () => {
