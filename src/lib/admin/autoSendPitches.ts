@@ -29,7 +29,7 @@ async function readPitchRows(client: SupabaseClient, history: boolean): Promise<
   for (let offset = 0; ; offset += 100) {
     let query = client.from("organizer_leads")
       .select("id, title, organizer_email, last_sent_to, pitch_sent_at, status").order("id");
-    query = history ? query.or("pitch_sent_at.not.is.null,last_sent_to.not.is.null,status.eq.email_outcome_unknown")
+    query = history ? query.or("pitch_sent_at.not.is.null,last_sent_to.not.is.null,status.eq.email_outcome_unknown,status.eq.restored_review")
       : query.is("pitch_sent_at", null).not("organizer_email", "is", null);
     const { data, error } = await query.range(offset, offset + 99);
     if (error || !Array.isArray(data)) {
@@ -64,7 +64,7 @@ export async function autoSendPitchEmailsForLeads(supabaseAdmin: SupabaseClient,
   (pitchedRows || []).forEach((row) => {
     // Empty/whitespace legacy metadata is not contact evidence. A nonempty
     // last recipient is evidence even when old send timestamps are missing.
-    if (!row.pitch_sent_at && row.status !== "email_outcome_unknown" && !row.last_sent_to?.trim()) return;
+    if (!row.pitch_sent_at && row.status !== "email_outcome_unknown" && row.status !== "restored_review" && !row.last_sent_to?.trim()) return;
     if (row.organizer_email) row.organizer_email.split(",").forEach(email => pitchedEmailsSet.add(email.trim().toLowerCase()));
     if (row.last_sent_to) row.last_sent_to.split(",").forEach(email => pitchedEmailsSet.add(email.trim().toLowerCase()));
   });

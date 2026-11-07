@@ -95,7 +95,7 @@ test('authenticated tracking route and atomic SQL behavior in isolated PostgreSQ
           eq(key, value) { filters.push(`${column(key)}=${db.quote(value)}`); return q; },
           is(key, value) { assert.equal(value, null); filters.push(`${column(key)} IS NULL`); return q; },
           not(key, op, value) { assert.equal(op, 'is'); assert.equal(value, null); filters.push(`${column(key)} IS NOT NULL`); return q; },
-          or(value) { assert.equal(value, 'pitch_sent_at.not.is.null,last_sent_to.not.is.null,status.eq.email_outcome_unknown'); filters.push("(pitch_sent_at IS NOT NULL OR last_sent_to IS NOT NULL OR status='email_outcome_unknown')"); return q; },
+          or(value) { assert.equal(value, 'pitch_sent_at.not.is.null,last_sent_to.not.is.null,status.eq.email_outcome_unknown,status.eq.restored_review'); filters.push("(pitch_sent_at IS NOT NULL OR last_sent_to IS NOT NULL OR status IN ('email_outcome_unknown','restored_review'))"); return q; },
           range(a, b) { range = [a, b]; return q; },
           maybeSingle() { single = true; return q; },
           update(value) { payload = value; return q; },

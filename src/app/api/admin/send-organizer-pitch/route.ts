@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
       console.error("[Send Pitch] Eligibility unavailable:", leadError);
       return NextResponse.json({ success: false, error: "Lead eligibility unavailable; no email dispatched." }, { status: 503 });
     }
-    if (!lead || ["removed", "archived", "email_outcome_unknown"].includes(lead.status)) {
+    if (!lead || ["removed", "archived", "email_outcome_unknown", "restored_review"].includes(lead.status)) {
       return NextResponse.json({ success: false, error: "Lead unavailable for dispatch; review its current state." }, { status: 409 });
     }
     const budget = await checkEmailBudget(supabaseAdmin, "outreach", 1);

@@ -94,3 +94,52 @@ for(const mode of ['--recheck-active-from','--recheck-status-from'])test('mixed 
  }
  assert.equal(JSON.stringify(entries),original);
 });
+// Execute the actual lint CLI against synthetic ESLint results. Keep the scoped
+// zero-diagnostic gate and all legacy signature/occurrence matching under test.
+async function legacyLintRun(before,after,{oldSource='  legacy();\r\n  other();',currentSource='legacy();\nother();',scoped=[]}={}){
+ const first={messages:before,errorCount:before.filter(m=>m.severity===2).length,warningCount:before.filter(m=>m.severity===1).length};
+ const second={messages:after,errorCount:after.filter(m=>m.severity===2).length,warningCount:after.filter(m=>m.severity===1).length};
+ const state={exitCode:0,errors:[],reports:[]};
+ await vm.runInNewContext(fs.readFileSync('scripts/lint-aggregator.cjs','utf8'),{
+  process:state,console:{log:value=>state.reports.push(value),error:error=>state.errors.push(error)},
+  require(name){
+   if(name==='eslint')return {ESLint:class {
+    async lintFiles(){return [{filePath:'synthetic-scoped.cjs',messages:scoped,errorCount:scoped.filter(m=>m.severity===2).length,warningCount:scoped.filter(m=>m.severity===1).length}];}
+    async lintText(source){assert(source===oldSource||source===currentSource);return [source===oldSource?first:second];}
+   }};
+   if(name==='node:child_process')return {execFileSync:()=>oldSource};
+   if(name==='node:fs')return {readdirSync:()=>[],readFileSync:()=>currentSource};
+   return require(name);
+  },
+ });
+ return state;
+}
+const legacyDiagnostic={ruleId:'synthetic/legacy-rule',severity:2,message:'Synthetic existing diagnostic.',line:1};
+const otherLegacyDiagnostic={ruleId:'synthetic/other-rule',severity:1,message:'Synthetic existing warning.',line:2};
+for(const [name,current,pass]of [
+ ['exact equality',[legacyDiagnostic,legacyDiagnostic,otherLegacyDiagnostic],true],
+ ['removing one existing occurrence',[legacyDiagnostic,otherLegacyDiagnostic],true],
+ ['removing every diagnostic',[],true],
+ ['reordering existing occurrences',[otherLegacyDiagnostic,legacyDiagnostic,legacyDiagnostic],true],
+ ['adding a new diagnostic',[legacyDiagnostic,legacyDiagnostic,otherLegacyDiagnostic,{...legacyDiagnostic,ruleId:'synthetic/new-rule'}],false],
+ ['adding an extra duplicate',[legacyDiagnostic,legacyDiagnostic,legacyDiagnostic,otherLegacyDiagnostic],false],
+ ['replacing an existing diagnostic',[legacyDiagnostic,legacyDiagnostic,{...otherLegacyDiagnostic,ruleId:'synthetic/replacement-rule'}],false],
+ ['changing severity',[{...legacyDiagnostic,severity:1}],false],
+ ['changing message',[{...legacyDiagnostic,message:'Changed diagnostic.'}],false],
+ ['moving to a different source line',[{...legacyDiagnostic,line:2}],false],
+])test('legacy lint multiset: '+name,async()=>{
+ const result=await legacyLintRun([legacyDiagnostic,legacyDiagnostic,otherLegacyDiagnostic],current);
+ assert.equal(result.exitCode,pass?0:1);assert.equal(result.errors.length,pass?0:1);
+ if(!pass)assert.match(result.errors[0].message,/(?:baseline|legacy) diagnostics/i);
+});
+test('legacy lint signatures retain normalized source lines across whitespace and CRLF',async()=>{
+ const result=await legacyLintRun([legacyDiagnostic],[legacyDiagnostic]);assert.equal(result.exitCode,0);
+});
+test('legacy lint rejects a changed source line with otherwise identical diagnostics',async()=>{
+ const result=await legacyLintRun([legacyDiagnostic],[legacyDiagnostic],{currentSource:'changed();\nother();'});
+ assert.equal(result.exitCode,1);assert.match(result.errors[0].message,/(?:baseline|legacy) diagnostics/i);
+});
+for(const severity of [1,2])test('scoped aggregator lint still rejects severity '+severity,async()=>{
+ const result=await legacyLintRun([],[],{scoped:[{...legacyDiagnostic,severity}]});
+ assert.equal(result.exitCode,1);assert.match(result.errors[0].message,/No new scoped diagnostics permitted/);
+});

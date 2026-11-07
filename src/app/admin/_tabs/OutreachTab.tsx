@@ -4,6 +4,8 @@ import { useState } from "react";
 import { OrganizerLead } from "../_types";
 import { useNotification } from "@/context/NotificationContext";
 import { requestCatalogPreview, type CatalogPreviewSummary } from "@/lib/admin/catalogPreviewClient";
+import RemovedLeadsReview from "../_components/RemovedLeadsReview";
+import { RESTORED_REVIEW_STATUS } from "@/lib/admin/organizerLeadRestore";
 import { StatusBadge } from "../_components/StatusBadge";
 import {
   Mail,
@@ -42,6 +44,7 @@ export default function OutreachTab({
 }: OutreachTabProps) {
   const { showToast, confirm } = useNotification();
 
+  const [reviewRemoved, setReviewRemoved] = useState(false);
   const [fetchingUnstop, setFetchingUnstop] = useState(false);
   const [catalogSnapshot, setCatalogSnapshot] = useState<CatalogPreviewSummary | null>(null);
   const [sendingSummaryPdf, setSendingSummaryPdf] = useState(false);
@@ -104,6 +107,7 @@ export default function OutreachTab({
   }
 
   function openPitchModal(lead: OrganizerLead) {
+    if (lead.status === RESTORED_REVIEW_STATUS) return;
     setSelectedLead(lead);
     const primaryEmail =
       lead.last_sent_to || (lead.organizer_email ? lead.organizer_email.split(",")[0].trim() : "");
@@ -203,7 +207,7 @@ export default function OutreachTab({
     }
     setBulkSending(true);
     try {
-      const selectedLeads = leads.filter((l) => selectedLeadIds.has(l.id));
+      const selectedLeads = leads.filter((l) => selectedLeadIds.has(l.id) && l.status !== RESTORED_REVIEW_STATUS);
       let successCount = 0;
       let failCount = 0;
       let bookkeepingWarnings = 0;
@@ -363,35 +367,9 @@ export default function OutreachTab({
     }
   }
 
-  function handleRestoreLeads() {
-    confirm({
-      title: "RESTORE ALL REMOVED LEADS",
-      message:
-        "Are you sure you want to restore all previously removed hackathon leads back to your active list?",
-      confirmText: "Restore All",
-      onConfirm: async () => {
-        try {
-          const res = await fetch("/api/admin/organizer-leads/restore", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-          });
-          const resData = await res.json();
-          if (res.ok) {
-            showToast(resData.message || `Restored ${resData.count} lead(s)!`, "success");
-            await loadLeads();
-          } else {
-            showToast(resData.error || "Failed to restore leads.", "error");
-          }
-        } catch (err: any) {
-          console.error(err);
-          showToast(err.message || "Failed to restore leads.", "error");
-        }
-      },
-    });
-  }
-
   return (
     <>
+      {reviewRemoved && <RemovedLeadsReview onClose={() => setReviewRemoved(false)} onRestored={loadLeads} />}
       <div className="space-y-6">
         {/* Outreach Action Bar */}
         <div className="p-6 rounded-2xl border border-zinc-200 dark:border-zinc-800/80 bg-white dark:bg-zinc-900/30 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -458,11 +436,11 @@ export default function OutreachTab({
 
             <button
               type="button"
-              onClick={handleRestoreLeads}
+              onClick={() => setReviewRemoved(true)}
               className="px-3 py-2 rounded-xl text-xs font-medium border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition cursor-pointer"
-              title="Restore all previously removed leads back to active list"
+              title="Review and restore one removed lead to a safe hold"
             >
-              Restore Removed
+              Review Removed Leads
             </button>
 
             <button
@@ -856,6 +834,7 @@ export default function OutreachTab({
                               onChange={(e) => handleUpdateLeadStatus(lead.id, e.target.value)}
                               className="text-xs py-1 px-2.5 rounded-lg font-mono font-medium border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 text-zinc-800 dark:text-zinc-200 cursor-pointer focus:border-[#B4F461] outline-none"
                             >
+                              <option value="restored_review">Restored — review held</option>
                               <option value="new">New Lead</option>
                               <option value="no_email">Missing Email</option>
                               <option value="email_outcome_unknown" disabled>Email outcome unknown — review before resending</option>
@@ -935,9 +914,11 @@ export default function OutreachTab({
                               <button
                                 type="button"
                                 onClick={() => openPitchModal(lead)}
+                                disabled={lead.status === RESTORED_REVIEW_STATUS}
+                                title={lead.status === RESTORED_REVIEW_STATUS ? "Choose a CRM status after review before sending" : undefined}
                                 className="text-[12.5px] font-medium py-1 px-2.5 rounded-lg bg-[#B4F461] hover:bg-[#a3e64f] text-zinc-950 font-bold transition cursor-pointer shadow-sm shadow-[#B4F461]/10"
                               >
-                                {lead.status === "pitch_sent" || lead.status === "replied"
+                                {lead.status === RESTORED_REVIEW_STATUS ? "Review held" : lead.status === "pitch_sent" || lead.status === "replied"
                                   ? "Re-pitch"
                                   : "Pitch"}
                               </button>
