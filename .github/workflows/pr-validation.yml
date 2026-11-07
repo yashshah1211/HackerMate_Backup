@@ -60,6 +60,8 @@ jobs:
             scripts/test-admin-catalog-preview.cjs \
             scripts/test-daily-report-claim.cjs \
             scripts/test-database-report-workflow.cjs \
+            scripts/test-analytics-digest-workflow.cjs \
+            scripts/test-analytics-summary.cjs \
             scripts/test-founder-brief.cjs \
             scripts/test-organizer-candidate-discovery.cjs \
             scripts/test-scheduled-organizer-outreach.cjs \

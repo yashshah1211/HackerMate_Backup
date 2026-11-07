@@ -3,36 +3,73 @@ name: Daily Platform Database PDF Digest
 on:
   workflow_dispatch: # Allows manual trigger from GitHub Actions tab
 
+permissions:
+  contents: read
+
 jobs:
   send-analytics-digest:
     name: Send Platform Database PDF Report
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Trigger Analytics Summary Endpoint
+        shell: bash
+        env:
+          SITE_URL: ${{ secrets.SITE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          SITE_URL="${{ secrets.SITE_URL || 'https://hackermate.in' }}"
-          CRON_SECRET="${{ secrets.CRON_SECRET }}"
-          
-          echo "Triggering Platform Database Digest report on $SITE_URL..."
-          
-          RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}" -X POST \
-            -H "Authorization: Bearer $CRON_SECRET" \
-            -H "Content-Type: application/json" \
-            "$SITE_URL/api/cron/analytics-summary")
-            
-          HTTP_STATUS=$(echo "$RESPONSE" | grep "HTTP_STATUS" | cut -d':' -f2)
-          BODY=$(echo "$RESPONSE" | sed '/HTTP_STATUS/d')
-          
-          echo "Response Body: $BODY"
-          echo "HTTP Status: $HTTP_STATUS"
-          
-          if [ "$HTTP_STATUS" -ne 200 ]; then
-            echo "Report request returned HTTP $HTTP_STATUS; inspect the dispatch outcome before retrying."
+          set -euo pipefail
+          TARGET_URL="${SITE_URL:-https://www.hackermate.in}"
+          if [[ -z "${CRON_SECRET:-}" || "$CRON_SECRET" == *$'\r'* || "$CRON_SECRET" == *$'\n'* ]]; then
+            echo "::error::Missing or multiline CRON_SECRET; no request sent."
             exit 1
           fi
-          
-          if ! echo "$BODY" | jq -e '.success == true and .dispatch.status == "accepted"' > /dev/null; then
-            echo "Provider acceptance was not confirmed. Check the dispatch outcome before retrying."
+          # Only these exact origins are supported. Normalize before sending
+          # Authorization; never follow a redirect with the credential.
+          case "$TARGET_URL" in
+            https://hackermate.in|https://www.hackermate.in)
+              TARGET_URL="https://www.hackermate.in" ;;
+            *) echo "::error::Non-production destination refused; no request sent."; exit 1 ;;
+          esac
+          RESPONSE_FILE=$(mktemp)
+          trap 'rm -f "$RESPONSE_FILE"' EXIT
+
+          # --disable must be first: ignore curlrc options such as tracing or
+          # extra requests. One POST only; transport uncertainty is not retried.
+          if HTTP_STATUS=$(curl --disable -sS --proto '=https' --max-redirs 0 --retry 0 --connect-timeout 15 --max-time 240 -o "$RESPONSE_FILE" -w "%{http_code}" -X POST \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            -H "Content-Type: application/json" \
+            "${TARGET_URL}/api/cron/analytics-summary"); then
+            :
+          else
+            CURL_EXIT=$?
+            echo "::error::Analytics request transport failed (curl exit ${CURL_EXIT}); provider acceptance unknown. Check provider records before resending; no automatic resend."
+            exit 1
+          fi
+
+          if [[ ! "$HTTP_STATUS" =~ ^[0-9]{3}$ ]]; then
+            echo "::error::Invalid HTTP status; acceptance not confirmed. Check provider records before resending."
+            exit 1
+          fi
+          if [ "$HTTP_STATUS" != "200" ]; then
+            if [[ "$HTTP_STATUS" == 3* ]]; then
+              echo "::error::Unexpected production redirect (HTTP ${HTTP_STATUS}); refused to forward Authorization. Check canonical domain."
+            elif [ "$HTTP_STATUS" = "401" ] || [ "$HTTP_STATUS" = "403" ]; then
+              echo "::error::Analytics authorization failed (HTTP ${HTTP_STATUS}); check GitHub and application CRON_SECRET configuration. No automatic resend."
+            else
+              echo "::error::Analytics request returned HTTP ${HTTP_STATUS}; acceptance not confirmed. Check provider records before resending."
+            fi
+            exit 1
+          fi
+
+          # analytics-summary returns resendId/providerStatus, not the shared
+          # dispatcher's attempted/intendedRecipientAccepted/sandbox fields.
+          # Slurp rejects empty or multiple JSON documents; never dump the body.
+          if ! jq -e -s 'length == 1 and (.[0] |
+            .success == true and .dispatch.status == "accepted" and
+            (.resendId | type == "string" and test("[^[:space:]]")) and
+            (.dispatch.providerStatus | type == "number" and . >= 200 and . < 300 and . == floor))' "$RESPONSE_FILE" > /dev/null 2>&1; then
+            echo "::error::Invalid JSON or unconfirmed analytics acceptance receipt. Check provider records before resending; no automatic resend."
             exit 1
           fi
 
