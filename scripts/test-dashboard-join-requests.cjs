@@ -67,6 +67,7 @@ async function view(t, options = {}) {
             if (!q.single && nextList) { const response = nextList; nextList = null; return response; }
             return { data: q.single ? server.requests.find(r => r.id === q.filters.id && r.team_id === q.filters.team_id && r.status === q.filters.status) || null : server.requests.filter(r => q.filters.team_id.includes(r.team_id)), error: server.joinError };
           }
+          if (table === 'partner_configs') return { data: server.partners || [], error: server.partnerError || null };
           return { data: [], error: null, count: 0 };
         }).then(resolve, reject);
       },
@@ -108,6 +109,7 @@ async function view(t, options = {}) {
   const loader = harness({
     // The new presentation-only banner imports a CSS module; this lifecycle harness does not load styles.
     './HustlePartnershipBanner.module.css': {},
+    './FeaturedPartnerEvents.module.css': { __esModule: true, default: {} },
     '@/components/partners/HustlePartnershipBanner': () => null,
     'next/link': element('a'), 'next/navigation': { useRouter: () => router },
     'motion/react': { AnimatePresence: ({ children }) => children, motion: { li: element('li') } },
@@ -396,4 +398,31 @@ test('dashboard campus query widens a legacy Mathura spelling to reviewed spelli
   assert.equal(campusQuery(ui).filters.is_banned, false);
   assert.equal(campusQuery(ui).filters.onboarding_completed, true);
   assert.deepEqual(JSON.parse(JSON.stringify(campusQuery(ui).order)), { column: 'last_active_date', settings: { ascending: false } });
+});
+
+test('actual dashboard load selects partners deterministically through one existing public-field read', async t => {
+  const end = new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10);
+  const row = (slug, endDate = end) => ({ slug, partner_name: slug, logo_url: null, hackathons: { id: slug, name: slug, end_date: endDate } });
+  const ui = await view(t, { server: { partners: [row('z'), row('expired', '2020-01-01'), row('a'), row('undated', null)] } });
+  assert.deepEqual(Array.from(ui.data().partners, p => p.slug), ['a', 'z', 'undated']);
+  const queries = ui.queries.filter(q => q.table === 'partner_configs');
+  assert.equal(queries.length, 1);
+  assert.equal(queries[0].columns, 'slug, partner_name, logo_url, hackathons(id, name, end_date)');
+  assert.equal(ui.dom.window.document.querySelectorAll('#featured-partner-title').length, 1);
+  assert.equal(ui.mutations.length, 0);
+});
+test('partner read failure does not display partial promotions or break pending/team state', async t => {
+  const ui = await view(t, { server: { partners: [{ slug: 'partial', partner_name: 'Partial record', hackathons: null }], partnerError: { code: '42501', message: 'Synthetic denial' } } });
+  assert.equal(ui.data().partners.length, 0);
+  assert.equal(ui.dom.window.document.querySelector('#featured-partner-title'), null);
+  assert.equal(ui.rows().length, 2); assert.equal(ui.data().teams.length, 1);
+  assert(ui.errors.some(args => args[0].includes('partner_configs failed')));
+  assert.equal(ui.mutations.length, 0);
+});
+test('successful empty partner refresh clears previously rendered promotions', async t => {
+  const ui = await view(t, { server: { partners: [{ slug: 'undated', partner_name: 'Configured partner', logo_url: null, hackathons: null }] } });
+  assert.equal(ui.data().partners.length, 1);
+  ui.server.partners = []; await ui.reload();
+  assert.equal(ui.data().partners.length, 0);
+  assert.equal(ui.dom.window.document.querySelector('#featured-partner-title'), null);
 });

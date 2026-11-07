@@ -38,8 +38,9 @@ import {
 } from "@/components/system";
 import StreakWidget from "@/components/StreakWidget";
 import HustlePartnershipBanner from "@/components/partners/HustlePartnershipBanner";
+import FeaturedPartnerEvents from "./FeaturedPartnerEvents";
 import { fitBand, matchReason } from "@/lib/matchPresentation";
-import { dateStamp, eventTimeline, greeting, relativeTime } from "@/lib/time";
+import { dateStamp, greeting, relativeTime } from "@/lib/time";
 import { cn, getInitials } from "@/lib/utils";
 import { trackEvent } from "@/lib/posthog";
 import type { ConnectedUser } from "@/components/PostAcceptanceTeamPrompt";
@@ -108,6 +109,8 @@ export function DashboardView({
         }
       />
 
+      <FeaturedPartnerEvents events={data.partners} loading={data.loading} />
+
       <HustlePartnershipBanner />
 
       {data.year.visible && (
@@ -156,7 +159,6 @@ export function DashboardView({
               <StreakWidget initialStreak={data.profile?.current_streak ?? 0} initialLongest={data.profile?.longest_streak ?? 0} />
             </Section>
             <Pulse data={data} />
-            {data.partners.length > 0 && <PartnerEvents data={data} />}
             <RecentActivity data={data} onOpenInbox={handlers.onOpenInbox} />
           </div>
         </aside>
@@ -661,35 +663,6 @@ function Pulse({ data }: { data: DashboardData }) {
           </Link>
         ))}
       </div>
-    </Section>
-  );
-}
-
-function PartnerEvents({ data }: { data: DashboardData }) {
-  return (
-    <Section title="Partner events">
-      <ul className="divide-y divide-line">
-        {data.partners.map((p) => {
-          const tl = eventTimeline(null, p.endDate);
-          return (
-            <li key={p.slug}>
-              <Link href={`/partners/${p.slug}`} className="flex items-center gap-3 py-2.5 hover:text-ink">
-                {p.logoUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={p.logoUrl} alt="" className="size-8 rounded-[6px] bg-white object-contain p-0.5" />
-                ) : (
-                  <TeamMark name={p.name} size="sm" />
-                )}
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[13px] font-medium text-ink">{p.eventName || p.name}</p>
-                  <p className="truncate text-[12px] text-ink-3">{p.name}</p>
-                </div>
-                {p.endDate && <Tape tone={tl.urgent ? "warn" : "neutral"}>{tl.label}</Tape>}
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
     </Section>
   );
 }
