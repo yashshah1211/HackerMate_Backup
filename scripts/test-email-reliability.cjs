@@ -3,18 +3,28 @@ const assert = require('node:assert/strict');
 const { test } = require('node:test');
 const { NextRequest, NextResponse } = require('next/server');
 const { harness } = require('./ppt-vision-harness.cjs');
+const { organizerClaimFixture } = require('./organizer-pitch-claim-fixture.cjs');
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), { status });
-const lead = { id: 'fixture-lead', title: 'Synthetic event', organizer_email: 'organizer@example.invalid', status: 'new', pitch_sent_at: null };
+const lead = { id: '00000000-0000-4000-8000-000000000651', title: 'Synthetic event', organizer_email: 'organizer@example.invalid', status: 'new', pitch_sent_at: null };
 const stats = () => ({ date: new Date().toISOString().slice(0, 10), total_sent: 4, outreach_sent: 2, nudges_sent: 1 });
 const profile = { id: 'fixture-user', full_name: 'Fixture', email: 'builder@example.invalid', is_banned: false, role: 'admin', last_onboarding_nudge_sent_at: null };
 
 function setup(options = {}) {
   const state = { sends: [], writes: [], reads: [], rpc: [], stats: stats(), logs: [] };
+  const pitchLeads = (options.leads || [options.lead || lead]).map(row => ({ ...row }));
+  const pitchClaims = organizerClaimFixture({ readLead: id => pitchLeads.find(row => row.id === id),
+    writeLead: async (row, payload) => {
+      state.writes.push({ table: 'organizer_leads', op: 'update', payload, filters: [['id', row.id]] });
+      if (options.writeError === 'organizer_leads' || options.throwWrite === 'organizer_leads') return false;
+      if (options.zeroRows === 'organizer_leads') return 'zero';
+      Object.assign(row, payload); return true;
+    } });
   let providerIndex = 0;
   const db = {
     auth: { getUser: async () => ({ data: { user: { id: 'fixture-admin' } } }) },
-    async rpc(name) {
+    async rpc(name, args) {
+      if (name === 'claim_organizer_pitch' || name === 'record_organizer_pitch') return pitchClaims(name, args);
       state.rpc.push(name);
       if (options.rpcFailure === name) return { error: { message: 'Fixture RPC failure' }, data: null };
       return { error: null, data: name === 'can_access_partner_event' ? true : name === 'get_pending_deadline_reminders'
@@ -51,7 +61,7 @@ function setup(options = {}) {
             rows = state.stats ? [state.stats] : [];
           } else if (table === 'organizer_leads') {
             const history = filters.some(([key, value]) => key === 'or' && value.includes('email_outcome_unknown'));
-            rows = history ? options.history || [] : options.leads || [options.lead || lead];
+            rows = history ? options.history || [] : pitchLeads;
           } else if (table === 'profiles') rows = [profile];
           else if (table === 'notifications') rows = [{ id: '00000000-0000-4000-8000-000000000003', user_id: '00000000-0000-4000-8000-000000000002', message: 'A team invitation', link: '/teams/fixture' }];
           else if (table === 'hackathons') rows = [{ id: 'fixture-event', name: 'Synthetic', type: 'native', organizer_id: 'fixture-admin' }];
@@ -135,7 +145,7 @@ test('sandbox receipt never establishes intended-recipient contact', async () =>
   assert.equal(result.status, 'accepted'); assert.equal(result.intendedRecipientAccepted, false); assert.equal(result.sandbox, true);
   assert.equal(h.state.sends[0].to, 'sandbox@example.invalid');
 });
-const pitchBody = { leadId: lead.id, recipientEmail: lead.organizer_email, subject: 'Synthetic', contentHtml: '<p>Fixture</p>' };
+const pitchBody = { intentId: '00000000-0000-4000-8000-000000000652', leadId: lead.id, recipientEmail: lead.organizer_email, subject: 'Synthetic', contentHtml: '<p>Fixture</p>' };
 for (const mode of ['manual', 'automatic']) {
   for (const configured of [true, false]) test(`${mode} pitch: signed tracking configuration preserves dispatch, recipients, quota and bookkeeping (${configured})`, async () => {
     const id = '00000000-0000-4000-8000-000000000091';

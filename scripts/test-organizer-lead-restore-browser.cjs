@@ -50,7 +50,7 @@ test('review, pagination, cancellation, conflict and existing CRM management in 
           }
           if(url.pathname==='/api/admin/send-organizer-pitch'){
             writes.push({path:url.pathname,body:req.postDataJSON()});
-            return route.fulfill({json:{dispatch:{intendedRecipientAccepted:true},accounting:{status:'recorded'}}});
+            return route.fulfill({json:{intentId:req.postDataJSON().intentId,dispatch:{status:'accepted',intendedRecipientAccepted:true},accounting:{status:'recorded'}}});
           }
           if(url.pathname.startsWith('/api/'))throw Error('Unexpected API '+url.pathname);
           return route.continue();

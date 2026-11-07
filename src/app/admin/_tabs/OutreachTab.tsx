@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { OrganizerLead } from "../_types";
 import { useNotification } from "@/context/NotificationContext";
 import { requestCatalogPreview, type CatalogPreviewSummary } from "@/lib/admin/catalogPreviewClient";
 import RemovedLeadsReview from "../_components/RemovedLeadsReview";
-import { RESTORED_REVIEW_STATUS } from "@/lib/admin/organizerLeadRestore";
+import { isLeadId, RESTORED_REVIEW_STATUS } from "@/lib/admin/organizerLeadRestore";
 import { StatusBadge } from "../_components/StatusBadge";
 import {
   Mail,
@@ -56,6 +56,11 @@ export default function OutreachTab({
   const [pitchSubject, setPitchSubject] = useState("");
   const [pitchBody, setPitchBody] = useState("");
   const [sendingPitch, setSendingPitch] = useState(false);
+  const pitchBusy = useRef(false);
+  const pitchIntent = useRef("");
+  const [pitchLocked, setPitchLocked] = useState(false);
+  const [pitchOutcome, setPitchOutcome] = useState("");
+  const [repeatProposal, setRepeatProposal] = useState<{ token: string; payload: { intentId: string; leadId: string; recipientEmail: string; subject: string; contentHtml: string } } | null>(null);
 
   // Status Filter & Bulk Pitch Modal states
   const [statusFilter, setStatusFilter] = useState("all");
@@ -64,6 +69,8 @@ export default function OutreachTab({
   const [bulkPitchSubject, setBulkPitchSubject] = useState("");
   const [bulkPitchBody, setBulkPitchBody] = useState("");
   const [bulkSending, setBulkSending] = useState(false);
+  const bulkBusy = useRef(false);
+  const bulkIntents = useRef(new Map<string, string>());
 
   // CRM Notes & Edit Modal states
   const [editingLeadNotes, setEditingLeadNotes] = useState<OrganizerLead | null>(null);
@@ -107,7 +114,9 @@ export default function OutreachTab({
   }
 
   function openPitchModal(lead: OrganizerLead) {
-    if (lead.status === RESTORED_REVIEW_STATUS) return;
+    if (lead.status === RESTORED_REVIEW_STATUS || pitchBusy.current || bulkBusy.current) return;
+    pitchIntent.current = crypto.randomUUID();
+    setPitchLocked(false); setPitchOutcome(""); setRepeatProposal(null);
     setSelectedLead(lead);
     const primaryEmail =
       lead.last_sent_to || (lead.organizer_email ? lead.organizer_email.split(",")[0].trim() : "");
@@ -129,54 +138,64 @@ export default function OutreachTab({
     setPitchModalOpen(true);
   }
 
-  async function handleSendPitch() {
-    if (!selectedLead || !pitchRecipientEmail.trim() || !pitchSubject.trim() || !pitchBody.trim()) {
-      showToast("Please provide recipient email, subject, and message body.", "error");
-      return;
-    }
-    setSendingPitch(true);
+  async function submitPitch(payload: { intentId: string; leadId: string; recipientEmail: string; subject: string; contentHtml: string; repeatOf?: string }) {
+    if (pitchBusy.current) return;
+    pitchBusy.current = true; setSendingPitch(true); setPitchLocked(true); setPitchOutcome("");
     try {
-      const formattedHtml = `
+      const res = await fetch("/api/admin/send-organizer-pitch", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+      });
+      const result = await res.json();
+      if (res.ok && result.intentId === payload.intentId && result.dispatch?.status === "accepted" && result.dispatch.intendedRecipientAccepted) {
+        const warning = result.dbUpdateFailed || result.accounting?.status === "failed" || result.intentJournal === "failed";
+        showToast(warning ? "Provider accepted the email, but bookkeeping needs review. DO NOT RESEND."
+          : "Provider accepted the proposal. Delivery is not confirmed.", warning ? "warning" : "success");
+        setPitchModalOpen(false);
+        try { await loadLeads(); }
+        catch { showToast("Provider accepted the proposal; CRM refresh is unavailable. DO NOT RESEND.", "warning"); }
+      } else if (res.status === 409 && result.sendState === "approval_required" &&
+          (isLeadId(result.repeatOf) || (typeof result.repeatOf === "string" && /^legacy:[a-f0-9]{64}$/.test(result.repeatOf)))) {
+        setRepeatProposal({ token: result.repeatOf, payload });
+        setPitchOutcome("Prior contact is recorded. Review it before explicitly authorizing a separate re-pitch below. No email was sent by this request.");
+      } else {
+        const message = result.sendState === "duplicate" ? "Duplicate send prevented or another attempt is in progress. Review durable state and provider history; do not resend."
+          : result.sendState === "unavailable" ? "Send claim unavailable or unconfirmed. Review durable state before another attempt."
+          : "Email acceptance is not confirmed. Review durable state and provider history. DO NOT RESEND.";
+        setPitchOutcome(message); showToast(message, "warning");
+      }
+    } catch {
+      setPitchOutcome("Outcome unavailable. Review durable state and provider history. DO NOT RESEND.");
+      showToast("Outcome unavailable. Review durable state and provider history. DO NOT RESEND.", "warning");
+    } finally { pitchBusy.current = false; setSendingPitch(false); }
+  }
+
+  async function handleSendPitch() {
+    if (pitchBusy.current || pitchLocked || !selectedLead || !pitchRecipientEmail.trim() || !pitchSubject.trim() || !pitchBody.trim()) return;
+    const formattedHtml = `
         <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #111; max-width: 600px; padding: 20px;">
           ${pitchBody.replace(/\n/g, "<br />")}
         </div>
       `;
+    await submitPitch({ intentId: pitchIntent.current, leadId: selectedLead.id, recipientEmail: pitchRecipientEmail.trim(),
+      subject: pitchSubject.trim(), contentHtml: formattedHtml });
+  }
 
-      const res = await fetch("/api/admin/send-organizer-pitch", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          leadId: selectedLead.id,
-          recipientEmail: pitchRecipientEmail.trim(),
-          subject: pitchSubject.trim(),
-          contentHtml: formattedHtml,
-        }),
-      });
-
-      const resData = await res.json();
-      if (res.ok && resData.dispatch?.intendedRecipientAccepted) {
-        if (resData.dbUpdateFailed || resData.accounting?.status === "failed") {
-          showToast(
-            "Provider accepted the email, but bookkeeping failed. Check manually; do not resend.",
-            "warning"
-          );
-        } else {
-          showToast("Provider accepted the proposal. Delivery is not confirmed.", "success");
-        }
-        setPitchModalOpen(false);
-        await loadLeads();
-      } else {
-        showToast(resData.error || "Failed to dispatch email pitch.", "error");
-      }
-    } catch (err: any) {
-      console.error(err);
-      showToast(err.message || "Failed to dispatch email pitch.", "error");
-    } finally {
-      setSendingPitch(false);
-    }
+  function authorizeRepeat() {
+    const proposal = repeatProposal;
+    if (!proposal || pitchBusy.current) return;
+    confirm({ title: "AUTHORIZE A SEPARATE RE-PITCH", confirmText: "Authorize another email",
+      message: "Prior contact is recorded for this lead. Confirm you reviewed the previous accepted attempt and contact history, and intentionally authorize another email. This does not clear uncertain or incomplete attempts.",
+      onConfirm: async () => {
+        if (pitchBusy.current) return;
+        setRepeatProposal(null); pitchIntent.current = crypto.randomUUID();
+        await submitPitch({ ...proposal.payload, intentId: pitchIntent.current, repeatOf: proposal.token });
+      },
+    });
   }
 
   function openBulkPitchModal() {
+    if (bulkBusy.current || pitchBusy.current) return;
+    bulkIntents.current = new Map([...selectedLeadIds].map(id => [id, crypto.randomUUID()]));
     if (selectedLeadIds.size === 0) {
       showToast("Please select at least one hackathon lead to bulk pitch.", "error");
       return;
@@ -201,10 +220,11 @@ export default function OutreachTab({
   }
 
   async function handleBulkSend() {
-    if (selectedLeadIds.size === 0 || !bulkPitchSubject.trim() || !bulkPitchBody.trim()) {
+    if (bulkBusy.current || selectedLeadIds.size === 0 || !bulkPitchSubject.trim() || !bulkPitchBody.trim()) {
       showToast("Subject and content body cannot be empty.", "error");
       return;
     }
+    bulkBusy.current = true;
     setBulkSending(true);
     try {
       const selectedLeads = leads.filter((l) => selectedLeadIds.has(l.id) && l.status !== RESTORED_REVIEW_STATUS);
@@ -237,6 +257,7 @@ export default function OutreachTab({
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
+              intentId: bulkIntents.current.get(lead.id),
               leadId: lead.id,
               recipientEmail: targetEmail,
               subject: bulkPitchSubject.replace(/your upcoming Hackathon/g, lead.title),
@@ -244,9 +265,9 @@ export default function OutreachTab({
             }),
           });
           const outcome = await res.json();
-          if (res.ok && outcome.dispatch?.intendedRecipientAccepted) {
+          if (res.ok && outcome.intentId === bulkIntents.current.get(lead.id) && outcome.dispatch?.status === "accepted" && outcome.dispatch.intendedRecipientAccepted) {
             successCount++;
-            if (outcome.bookkeeping === "failed" || outcome.accounting?.status === "failed") bookkeepingWarnings++;
+            if (outcome.bookkeeping === "failed" || outcome.accounting?.status === "failed" || outcome.intentJournal === "failed") bookkeepingWarnings++;
           } else {
             failCount++;
           }
@@ -258,7 +279,7 @@ export default function OutreachTab({
 
       showToast(
         `Batch dispatch complete: ${successCount} accepted by provider${
-          failCount > 0 ? `, ${failCount} not confirmed; check outcomes before resending` : ""
+          failCount > 0 ? `, ${failCount} blocked or not confirmed; DO NOT RESEND without reviewing durable state. Re-pitch approval is individual` : ""
         }${bookkeepingWarnings ? `; ${bookkeepingWarnings} bookkeeping issue(s), do not resend accepted messages` : ""}. Delivery is not confirmed.`,
         failCount || bookkeepingWarnings ? "warning" : successCount > 0 ? "success" : "error"
       );
@@ -269,6 +290,7 @@ export default function OutreachTab({
       console.error(err);
       showToast(err.message || "Failed to complete bulk pitch.", "error");
     } finally {
+      bulkBusy.current = false;
       setBulkSending(false);
     }
   }
@@ -959,6 +981,7 @@ export default function OutreachTab({
               </div>
               <button
                 type="button"
+                disabled={sendingPitch}
                 onClick={() => setPitchModalOpen(false)}
                 className="text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition p-1 cursor-pointer"
               >
@@ -973,6 +996,7 @@ export default function OutreachTab({
                 </label>
                 <input
                   type="email"
+                  disabled={sendingPitch || pitchLocked}
                   value={pitchRecipientEmail}
                   onChange={(e) => setPitchRecipientEmail(e.target.value)}
                   placeholder="e.g. organizer@college.edu"
@@ -986,6 +1010,7 @@ export default function OutreachTab({
                 </label>
                 <input
                   type="text"
+                  disabled={sendingPitch || pitchLocked}
                   value={pitchSubject}
                   onChange={(e) => setPitchSubject(e.target.value)}
                   className="w-full rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 px-3.5 py-2 text-xs text-zinc-900 dark:text-zinc-100 focus:border-[#B4F461] focus:ring-1 focus:ring-[#B4F461] outline-none transition"
@@ -997,6 +1022,7 @@ export default function OutreachTab({
                   Email Content (Markdown / Plain Text)
                 </label>
                 <textarea
+                  disabled={sendingPitch || pitchLocked}
                   value={pitchBody}
                   onChange={(e) => setPitchBody(e.target.value)}
                   rows={8}
@@ -1005,6 +1031,8 @@ export default function OutreachTab({
               </div>
             </div>
 
+            {pitchOutcome && <p role="status" className="text-xs text-amber-700 dark:text-amber-400">{pitchOutcome}</p>}
+            {repeatProposal && <button type="button" disabled={sendingPitch} onClick={authorizeRepeat} className="rounded-lg border border-amber-500 px-3 py-2 text-xs">Review and authorize separate re-pitch</button>}
             <div className="flex items-center justify-between pt-3 border-t border-zinc-100 dark:border-zinc-900">
               <div className="text-[12.5px] text-zinc-400 font-mono">
                 Resend budget: 100 emails/day
@@ -1022,7 +1050,7 @@ export default function OutreachTab({
                 <button
                   type="button"
                   onClick={handleSendPitch}
-                  disabled={sendingPitch || !pitchRecipientEmail.trim() || !pitchSubject.trim()}
+                  disabled={sendingPitch || pitchLocked || !pitchRecipientEmail.trim() || !pitchSubject.trim()}
                   className="px-5 py-2 rounded-xl bg-[#B4F461] hover:bg-[#a3e64f] text-zinc-950 font-bold text-xs transition cursor-pointer shadow-sm shadow-[#B4F461]/10 flex items-center gap-1.5 disabled:opacity-50"
                 >
                   {sendingPitch ? "Sending..." : "Send Proposal"}
@@ -1049,6 +1077,7 @@ export default function OutreachTab({
               </div>
               <button
                 type="button"
+                disabled={bulkSending}
                 onClick={() => setBulkPitchModalOpen(false)}
                 className="text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition p-1 cursor-pointer"
               >
@@ -1108,7 +1137,7 @@ export default function OutreachTab({
 
             <div className="flex items-center justify-between pt-3 border-t border-zinc-100 dark:border-zinc-900">
               <div className="text-[12.5px] text-zinc-400 font-mono">
-                400ms interval rate-limiting
+                Prior contact requires individual re-pitch approval
               </div>
 
               <div className="flex items-center gap-2.5">

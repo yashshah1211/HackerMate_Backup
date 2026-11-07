@@ -1,4 +1,6 @@
-import { recordEmailBookkeeping, dispatchEmail } from "@/lib/emailDispatch";
+import type { EmailDispatch } from "@/lib/emailDispatch";
+import { randomUUID } from "node:crypto";
+import { sendClaimedOrganizerPitch, recordOrganizerPitchAccounting } from "@/lib/admin/organizerPitchClaims";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { organizerTrackingPixel } from "@/lib/emailOpenTracking";
 import {
@@ -128,8 +130,9 @@ export async function autoSendPitchEmailsForLeads(supabaseAdmin: SupabaseClient,
   let unknown = 0;
   let sandboxAccepted = 0;
   let bookkeepingFailed = 0;
-  const details: ({ id: string; dispatch?: Awaited<ReturnType<typeof dispatchEmail>>; bookkeeping?: string; error?: string })[] = [];
+  const details: ({ id: string; dispatch?: EmailDispatch; bookkeeping?: string; error?: string })[] = [];
 
+  const acceptedIntents: string[] = [];
   const BATCH_SIZE = 5;
   for (let i = 0; i < activeLeads.length; i += BATCH_SIZE) {
     const batch = activeLeads.slice(i, i + BATCH_SIZE);
@@ -182,8 +185,18 @@ Founder, HackerMate`;
         const trackingPixel = organizerTrackingPixel(siteUrl, lead.id);
         const finalHtml = fromEmail.toLowerCase().includes("onboarding@resend.dev") ? formattedHtml : `${formattedHtml}\n${trackingPixel}`;
 
-        const dispatch = await dispatchEmail({ from: fromEmail, to: rawEmail, subject, html: finalHtml,
-          reply_to: process.env.OUTREACH_REPLY_TO_EMAIL?.split(",").map(e => e.trim()).filter(Boolean) || "contacthackermate@gmail.com" });
+        const claimed = await sendClaimedOrganizerPitch(supabaseAdmin, {
+          intentId: randomUUID(), leadId: lead.id, recipient: lowerEmail!, mode: "automatic",
+          payload: { from: fromEmail, to: lowerEmail!, subject, html: finalHtml,
+            reply_to: process.env.OUTREACH_REPLY_TO_EMAIL?.split(",").map(e => e.trim()).filter(Boolean) || "contacthackermate@gmail.com" },
+        });
+        if (claimed.kind === "blocked") {
+          failedCount++;
+          details.push({ id: lead.id, error: `Send claim ${claimed.outcome}; no provider request from this call.` });
+          return;
+        }
+        const { dispatch, bookkeeping } = claimed;
+        if (dispatch.status === "accepted") acceptedIntents.push(claimed.intentId);
         attempted += Number(dispatch.attempted);
         if (dispatch.status === "accepted") {
           sentCount++;
@@ -191,24 +204,11 @@ Founder, HackerMate`;
         } else if (dispatch.status === "unknown") unknown++;
         else failedCount++;
 
-        let bookkeeping = "not_required";
-        // Unknown outcomes are held for review using the existing free-text CRM status.
-        // This is not a durable send ledger: a failed hold write still requires operator intervention.
-        if (dispatch.intendedRecipientAccepted || dispatch.status === "unknown") {
-          const nowIso = new Date().toISOString();
-          let write = supabaseAdmin.from("organizer_leads")
-            .update(dispatch.intendedRecipientAccepted ? {
-              status: "pitch_sent", last_sent_to: rawEmail, pitch_sent_at: nowIso, updated_at: nowIso,
-            } : { status: "email_outcome_unknown", updated_at: nowIso })
-            .eq("id", lead.id).is("pitch_sent_at", null);
-          write = lead.status == null ? write.is("status", null) : write.eq("status", lead.status);
-          bookkeeping = await recordEmailBookkeeping(() => write.select("id"));
-          if (bookkeeping === "failed") {
-            bookkeepingFailed++;
-            console.error("[Auto Pitch] Dispatch outcome could not be recorded; do not resend.");
-          }
-          if (lowerEmail) pitchedEmailsSet.add(lowerEmail);
+        if (bookkeeping === "failed") {
+          bookkeepingFailed++;
+          console.error("[Auto Pitch] Durable outcome/CRM bookkeeping incomplete; do not resend.");
         }
+        if (lowerEmail) pitchedEmailsSet.add(lowerEmail);
         details.push({ id: lead.id, dispatch, bookkeeping });
       })
     );
@@ -219,10 +219,18 @@ Founder, HackerMate`;
   }
 
   // Acceptance consumes quota even if subsequent CRM persistence fails or targets a sandbox.
-  const accounting = sentCount > 0 ? await recordEmailSendSuccess(supabaseAdmin, "outreach", sentCount) : { status: "not_required" };
+  let accounting: { status: string } = { status: "not_required" };
+  if (sentCount > 0) {
+    try { accounting = await recordEmailSendSuccess(supabaseAdmin, "outreach", sentCount); }
+    catch { accounting = { status: "failed" }; }
+  }
+  let claimAccountingFailed = 0;
+  for (const intentId of acceptedIntents) {
+    if (!await recordOrganizerPitchAccounting(supabaseAdmin, intentId, accounting.status === "recorded")) claimAccountingFailed++;
+  }
   return { attempted, sent: sentCount, accepted: sentCount, intendedAccepted: sentCount - sandboxAccepted,
     sandboxAccepted, unknown, bookkeepingFailed, deferred: deferredCount, failed: failedCount, details,
-    accounting, budgetStats: budgetCheck, retrySafe: false };
+    accounting, claimAccountingFailed, budgetStats: budgetCheck, retrySafe: false };
 
 }
 

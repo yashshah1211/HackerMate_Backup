@@ -10,7 +10,7 @@ export type EmailDispatch = {
   retrySafe: false;
 };
 
-type EmailPayload = {
+export type EmailPayload = {
   from: string;
   to: string | string[];
   subject: string;
@@ -19,8 +19,11 @@ type EmailPayload = {
   attachments?: { filename: string; content: string }[];
 };
 
-export async function dispatchEmail(payload: EmailPayload): Promise<EmailDispatch> {
+export async function dispatchEmail(payload: EmailPayload, options?: { idempotencyKey: string }): Promise<EmailDispatch> {
   const base = { attempted: false, intendedRecipientAccepted: false, sandbox: false, retrySafe: false as const };
+  if (options && (typeof options.idempotencyKey !== "string" || !/^[a-zA-Z0-9/_:-]{1,256}$/.test(options.idempotencyKey))) {
+    return { ...base, status: "not_dispatched", reason: "Invalid email intent key; no request sent." };
+  }
   const key = process.env.RESEND_API_KEY?.trim();
   if (!key || !process.env.RESEND_FROM_EMAIL?.trim()) {
     console.log("[Email dispatch] Not dispatched: provider key or sender is unavailable. No delivery occurred.");
@@ -37,7 +40,8 @@ export async function dispatchEmail(payload: EmailPayload): Promise<EmailDispatc
   try {
     const response = await fetch("https://api.resend.com/emails", {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}`,
+        ...(options ? { "Idempotency-Key": options.idempotencyKey } : {}) },
       body: JSON.stringify(request), signal: AbortSignal.timeout(15_000),
     });
     const result: unknown = await response.json().catch(() => null);
@@ -48,6 +52,11 @@ export async function dispatchEmail(payload: EmailPayload): Promise<EmailDispatc
         intendedRecipientAccepted: !sandbox, reason: sandbox
           ? "Provider accepted a sandbox email; intended recipient contact is not confirmed."
           : "Provider accepted the email; delivery is not confirmed." };
+    }
+    if (response.status === 409 && ["invalid_idempotent_request", "concurrent_idempotent_requests"].includes(String(receipt?.name))) {
+      return { ...attempted, status: "unknown", providerStatus: 409, reason: receipt?.name === "concurrent_idempotent_requests"
+        ? "Provider attempt already in progress. Review durable state; do not resend."
+        : "Provider intent conflicts with a previous payload. Review provider history; do not resend." };
     }
     // 5xx/408/409 and malformed responses are ambiguous; never infer safe retry.
     const rejected = response.status >= 400 && response.status < 500 && ![408, 409].includes(response.status);

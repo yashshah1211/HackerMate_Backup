@@ -1,6 +1,6 @@
-import { createHash } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { dispatchEmail, type EmailDispatch } from "@/lib/emailDispatch";
+import { sendClaimedOrganizerPitch, recordOrganizerPitchAccounting } from "@/lib/admin/organizerPitchClaims";
 import { checkEmailBudget, recordEmailSendSuccess } from "@/lib/admin/emailBudgetGuard";
 
 // A deliberately narrow replacement for the retired scraper -> bulk-mail coupling.
@@ -60,10 +60,6 @@ function contactApproved(notes: string | null): boolean {
   return typeof notes === "string" && notes.split(/\r?\n/).some(s => s.trim() === ORGANIZER_CONTACT_APPROVAL_MARKER);
 }
 
-function hashedEmail(email: string): string {
-  return createHash("sha256").update(email).digest("hex");
-}
-
 export function outreachDateIST(date: Date): string {
   return new Date(date.getTime() + 330 * 60000).toISOString().slice(0, 10);
 }
@@ -90,15 +86,6 @@ async function reserve(db: SupabaseClient, key: string, detail: Record<string, s
     if (error.code === "23505") return "duplicate";
     return "unavailable";
   } catch { return "unavailable"; }
-}
-
-async function markClaim(db: SupabaseClient, key: string, status: string, at: Date, leadId: string, providerId?: string): Promise<boolean> {
-  try {
-    const { data, error } = await db.from("app_settings")
-      .update({ value: JSON.stringify({ status, lead_id: leadId, provider_id: providerId || null, updated_at: at.toISOString() }) })
-      .eq("key", key).select("key");
-    return !error && Array.isArray(data) && data.length === 1;
-  } catch { return false; }
 }
 
 function escaped(value: string): string {
@@ -195,62 +182,34 @@ export async function runScheduledOrganizerOutreach(db: SupabaseClient, now = ne
       continue;
     }
 
-    const key = CLAIM_PREFIX + "recipient:" + hashedEmail(email);
-    const claim = await reserve(db, key, {
-      status: "claimed_before_provider_attempt", lead_id: lead.id, at: now.toISOString(),
-    });
-    if (claim === "duplicate") {
-      result.held++; result.status = "partial";
-      result.error = "Recipient previously claimed; manual outcome reconciliation required.";
-      break;
-    }
-    if (claim !== "reserved") {
-      result.status = "partial"; result.error = "Recipient claim unavailable.";
-      break;
-    }
-
-    let dispatch: EmailDispatch;
-    try {
-      dispatch = await dispatchEmail({
-        from: process.env.RESEND_FROM_EMAIL || "",
-        to: email,
+    const claimed = await sendClaimedOrganizerPitch(db, {
+      intentId: randomUUID(), leadId: lead.id, recipient: email, mode: "scheduled",
+      payload: { from: process.env.RESEND_FROM_EMAIL || "", to: email,
         subject: "HackerMate partnership for " + String(live.title || "your hackathon").slice(0, 150),
         html: partnershipHtml(String(live.title || "your hackathon")),
-        reply_to: process.env.OUTREACH_REPLY_TO_EMAIL?.split(",").map(s => s.trim()).filter(Boolean)
-          || "contacthackermate@gmail.com",
-      });
-    } catch {
-      // Ambiguous transport: never release the claim or retry this recipient.
-      dispatch = { status: "unknown", attempted: true, intendedRecipientAccepted: false,
-        sandbox: false, reason: "Provider outcome unavailable.", retrySafe: false };
+        reply_to: process.env.OUTREACH_REPLY_TO_EMAIL?.split(",").map(s => s.trim()).filter(Boolean) || "contacthackermate@gmail.com" },
+    });
+    if (claimed.kind === "blocked") {
+      result.held++; result.status = "partial";
+      result.error = `Recipient claim ${claimed.outcome}; review required. No provider request from this call.`;
+      break;
     }
-
+    const { dispatch } = claimed;
     result.attempted += Number(dispatch.attempted);
     result.accepted += Number(dispatch.intendedRecipientAccepted);
     result.unknown += Number(dispatch.status === "unknown");
     result.rejected += Number(dispatch.status === "failed");
-    const outcomeRecorded = await markClaim(db, key, dispatch.status, new Date(), lead.id, dispatch.providerId);
-    if (!outcomeRecorded) { result.status = "partial"; result.error = "Recipient claim outcome unavailable."; break; }
-
-    if (dispatch.intendedRecipientAccepted || dispatch.status === "unknown") {
-      const payload = dispatch.intendedRecipientAccepted
-        ? { status: "pitch_sent", last_sent_to: email, pitch_sent_at: new Date().toISOString(), updated_at: new Date().toISOString() }
-        : { status: "email_outcome_unknown", updated_at: new Date().toISOString() };
-      const { data, error } = await db.from("organizer_leads").update(payload)
-        .eq("id", lead.id).eq("status", "new").is("pitch_sent_at", null)
-        .eq("organizer_email", live.organizer_email).select("id");
-      if (error || !Array.isArray(data) || data.length !== 1) {
-        result.status = "partial"; result.error = "CRM dispatch bookkeeping unavailable; manual investigation required.";
-        break;
-      }
+    let accountingFailed = false;
+    if (dispatch.status === "accepted") {
+      let accounting: { status: string };
+      try { accounting = await recordEmailSendSuccess(db, "outreach", 1); }
+      catch { accounting = { status: "failed" }; }
+      accountingFailed = accounting.status !== "recorded";
+      if (!await recordOrganizerPitchAccounting(db, claimed.intentId, !accountingFailed)) accountingFailed = true;
     }
-
-    if (dispatch.intendedRecipientAccepted) {
-      const accounting = await recordEmailSendSuccess(db, "outreach", 1);
-      if (accounting.status !== "recorded") {
-        result.status = "partial"; result.error = "Provider acceptance counter unavailable.";
-        break;
-      }
+    if (claimed.journal === "failed" || claimed.bookkeeping === "failed" || accountingFailed) {
+      result.status = "partial"; result.error = "Dispatch bookkeeping incomplete; manual review required. Do not resend.";
+      break;
     }
     if (dispatch.status === "unknown" || dispatch.status === "not_dispatched" || dispatch.status === "failed") {
       result.status = "partial"; result.error = "Provider did not confirm intended acceptance; manual investigation required.";

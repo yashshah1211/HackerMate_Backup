@@ -49,6 +49,6 @@ test('listing is bounded, explicit-column, authorized, private and history-aware
 test('manual dispatch rejects review-held lead before budget or provider access',async()=>{
   const {NextRequest}=require('next/server');
   const h=setup({database:{from(){return{select(){return this;},eq(){return this;},async maybeSingle(){return{data:{id:ID,status:'restored_review',pitch_sent_at:null},error:null};}};}}});
-  const r=await h.load('src/app/api/admin/send-organizer-pitch/route.ts').POST(new NextRequest('http://localhost/api/admin/send-organizer-pitch',{method:'POST',body:JSON.stringify({leadId:ID,recipientEmail:'test@example.invalid',subject:'Synthetic',contentHtml:'Synthetic'})}));
+  const r=await h.load('src/app/api/admin/send-organizer-pitch/route.ts').POST(new NextRequest('http://localhost/api/admin/send-organizer-pitch',{method:'POST',body:JSON.stringify({intentId:OTHER,leadId:ID,recipientEmail:'test@example.invalid',subject:'Synthetic',contentHtml:'Synthetic'})}));
   assert.equal(r.status,409); assert.equal(h.state.sends,0);
 });
