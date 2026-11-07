@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-require-imports -- Reject new diagnostics; preserve exact legacy rule/severity/message/source-line findings. */
+/* eslint-disable @typescript-eslint/no-require-imports -- Reject new diagnostics; allow removal of exact legacy rule/severity/message/source-line occurrences. */
 const {ESLint}=require('eslint'),{execFileSync}=require('node:child_process'),fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 (async()=>{
  const lint=new ESLint(),legacy=['src/app/hackathons/[id]/page.tsx','src/app/admin/_tabs/OutreachTab.tsx'],base='3a0b4d0488128fe730607ae1ef024a3bf52992e1';
@@ -18,7 +18,14 @@ const {ESLint}=require('eslint'),{execFileSync}=require('node:child_process'),fs
  for(const file of legacy){const old=execFileSync('git',['show',base+':'+file],{encoding:'utf8'}),current=fs.readFileSync(file,'utf8');
   const [before]=await lint.lintText(old,{filePath:file}),[after]=await lint.lintText(current,{filePath:file});
   const entries=(r,s)=>r.messages.map(m=>JSON.stringify({rule:m.ruleId,severity:m.severity,message:m.message.split('\n\n'+path.resolve(file)+':')[0],line:s.split(/\r?\n/)[m.line-1]?.trim()})).sort();
-  assert.deepEqual(entries(after,current),entries(before,old),'Preserve exact baseline diagnostics: '+file);baselines.push({file,errors:after.errorCount,warnings:after.warningCount});
+  const remaining=new Map();
+  for(const entry of entries(before,old))remaining.set(entry,(remaining.get(entry)||0)+1);
+  for(const entry of entries(after,current)){
+   const count=remaining.get(entry)||0;
+   assert(count>0,'No new or additional legacy diagnostics: '+file+'\n'+entry);
+   remaining.set(entry,count-1);
+  }
+  baselines.push({file,errors:after.errorCount,warnings:after.warningCount});
  }
  console.log(JSON.stringify({scopedFiles:files.length,newErrors:0,newWarnings:0,baselines,base}));
 })().catch(e=>{console.error(e);process.exitCode=1;});
