@@ -45,6 +45,8 @@ jobs:
             scripts/test-stabilization-boundaries.cjs \
             scripts/test-stabilization-ppt-access.cjs \
             scripts/test-stabilization-email-access.cjs \
+            scripts/test-email-open.cjs \
+            scripts/test-email-reliability.cjs \
             scripts/test-stabilization-notification-replay.cjs \
             scripts/test-notification-categories.cjs \
             scripts/test-admin-authorization.cjs \
@@ -77,6 +79,7 @@ jobs:
           export PARTNER_TEST_PG_BIN="$mission03_pg_bin"
           node --test scripts/test-mission03-workspace-rls.cjs
           node --test scripts/test-chat-active-actor-local.cjs
+          node --test scripts/test-email-open-local.cjs
           python3 scripts/test-team-document-local.py
 
       - name: Run existing core-page query smoke against synthetic loopback fixtures
